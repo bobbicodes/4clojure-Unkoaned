@@ -1,0 +1,2671 @@
+;; 92 Read Roman numerals [h]
+
+Roman numerals are easy to recognize,
+but not everyone knows all the rules necessary
+to work with them. This will parse a Roman-numeral string
+and return the number it represents. 
+
+Input will be well-formed, in upper-case,
+and follow the subtractive principle.
+You don't need to handle any numbers greater than
+MMMCMXCIX (3999), the largest number
+representable with ordinary letters.
+
+(= 14 (__ "XIV"))
+(= 827 (__ "DCCCXXVII"))
+(= 3999 (__ "MMMCMXCIX"))
+(= 48 (__ "XLVIII"))
+
+(fn read-roman [s]
+  (let [numerals {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1}
+        nums (partition 2 1 (concat (map numerals s) [0]))]
+    (reduce (fn [sum [a b]] ((if (< a b) - +) sum a)) 0 nums)))
+
+#(let [order {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000 nil 0}
+       fold (fn fold [[x & [y & tail :as y-tail] :as col]]
+              (let [xo (order x) yo (order y)]
+                (cond (empty? col) nil
+                      (< xo yo) (cons (- yo xo) (fold tail))
+                      :else (cons xo (fold y-tail)))))]
+   (apply + (fold (seq %))))
+
+(fn f
+  ([s] (f (reverse (seq s)) 0))
+  ([s r]
+  (let [numbers {\O 0 \I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}
+        f-element (first s)
+        s-element (if (nil? (second s)) \O (second s))
+        fnumber (get numbers f-element)
+        snumber (get numbers s-element)]
+  (if (empty? s)
+    r
+    (if (> fnumber snumber)
+      (recur (drop 2 s) (+ r (- fnumber snumber)))
+      (recur (drop 2 s) (+ r fnumber snumber)))))))
+
+#(let[romanNumMap {\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000}]; convient lookup map for roman characters
+   (loop[result 0, preVal 0, remaining (reverse %)]
+     (if-let [currentVal (romanNumMap (first remaining))]
+       (if (< currentVal preVal)
+         (recur (- result currentVal) currentVal (rest remaining)) ;for sth like IV, IIX
+         (recur (+ result currentVal) currentVal (rest remaining))) ;for sth like VII
+       result))) ;return result
+
+(fn [x]
+  (let
+    [R {\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000}]
+    (reduce +
+      (map
+        (partial reduce #(- (R %2) %1) 0)
+        (re-seq #"IV|IX|XL|XC|XM|CD|CM|[IVXLCDM]" x)))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+#(let [
+    letter ["M" "CM" "D" "CD" "C" "XC" "L" "XL" "X" "IX" "V" "IV" "I"]
+    value [1000 900 500 400 100 90 50 40 10 9 5 4 1]
+    l2v (zipmap letter value)
+    lre (re-pattern (apply str (interpose "|" letter)))]
+    (apply + (map l2v (re-seq lre %))))
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [s]
+  (->> s
+       reverse
+       (replace (zipmap "MDCLXVI" [1000 500 100 50 10 5 1]))
+       (partition-by identity)
+       (map (partial apply +))
+       (reduce #((if (< %1 %2) + -) %1 %2))))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+(fn romanX [s] ((fn romanRec [x]
+    (if (empty? x)
+        0
+        (let [r1 ((fn roman1 [r]
+    (case r
+    \M 1000
+    \D 500
+    \C 100
+    \L 50
+    \X 10
+    \V 5
+    \I 1
+    )
+)
+ (first x))]
+            (if (nil? (second x))
+                r1
+                (let [r2 ((fn roman1 [r]
+    (case r
+    \M 1000
+    \D 500
+    \C 100
+    \L 50
+    \X 10
+    \V 5
+    \I 1
+    )
+)
+ (second x))]
+                    (if (>= r1 r2)
+                        (+ (romanRec (rest x)) r1)
+                        (- (romanRec (rest x)) r1)
+                    )
+                )
+            )
+        )
+    )
+) (seq s)))
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn to-arab [s]
+  (->> s
+    seq
+    (reduce (fn [[last & rest_ :as sx] item]
+              (if (empty? sx) (list item)
+                (cond 
+                  (= [\I \V] [last item]) (cons 4 rest_)
+                  (= [\I \X] [last item]) (cons 9 rest_)
+                  (= [\X \L] [last item]) (cons 40 rest_)
+                  (= [\X \C] [last item]) (cons 90 rest_)
+                  (= [\C \D] [last item]) (cons 400 rest_)
+                  (= [\C \M] [last item]) (cons 900 rest_)
+                  :else (cons item sx))))
+            [])
+    (map (fn [sym]
+           (cond 
+             (= \I sym) 1           
+             (= \V sym) 5
+             (= \X sym) 10
+             (= \L sym) 50
+             (= \C sym) 100
+             (= \D sym) 500
+             (= \M sym) 1000
+             :else sym)))
+    (reduce +)))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+(fn [n]
+  (letfn [(thousands [num] (* 1000 (count (take-while #(= \M %) num))))
+          (without-thousands [num] (drop-while #(= \M %) num))
+          (five-hundreds [num] (if (= \D (first (without-thousands num))) 500 0))
+          (without-500s [num] (drop-while #(= \D %) (without-thousands num)))
+          (hundreds [num]
+            (let [numw (without-500s num)]
+              (cond
+               (and (= \C (first numw)) (= \D (nth numw 1))) 400
+               (and (= \C (first numw)) (= \M (nth numw 1))) 900
+               :else (* 100 (count (take-while #(= \C %) numw))))))
+          (without-hundreds [num]
+            (drop-while #(or (= \C %) (= \D %) (= \M %)) (without-500s num)))
+          (fifties [num] (if (= \L (first (without-hundreds num))) 50 0))
+          (without-50s [num] (drop-while #(= \L %) (without-hundreds num)))
+          (tens [num]
+            (let [numw (without-50s num)]
+              (cond
+               (and (= \X (first numw)) (= \L (nth numw 1))) 40
+               (and (= \X (first numw)) (= \C (nth numw 1))) 90
+               :else (* 10 (count (take-while #(= \X %) numw))))))
+          (without-tens [num] (drop-while #(or (= \X %) (= \L %) (= \C %)) (without-50s num)))
+          (fives [num] (if (= \V (first (without-tens num))) 5 0))
+          (without-fives [num] (drop-while #(= \V %) (without-tens num)))
+          (ones [num]
+            (let [numw (without-fives num)]
+              (cond
+               (and (= \I (first numw)) (= \V (nth numw 1))) 4
+               (and (= \I (first numw)) (= \X (nth numw 1))) 9
+               :else (* (count (take-while #(= \I %) numw))))))
+          (roman-conv [num] (+' (thousands num) (five-hundreds num) (hundreds num) (tens num) (fives num) (ones num)))]
+    (roman-conv n)))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [x]
+         (let [roman {\I 1
+                      \V 5
+                      \X 10
+                      \L 50
+                      \C 100
+                      \D 500
+                      \M 1000}]
+           (reduce
+            (fn [v [d & rest]]
+              (if (some #(> (roman %) (roman d)) rest)
+                (- v (roman d))
+                (+ v (roman d))))
+            0
+            (take-while #(not (nil? %))
+                        (iterate next (next (list* nil x)))))))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (loop [s s l 1 t 0]
+    (if (empty? s)
+      t
+      (let [v (get {\I 1, \V, 5 \X, 10 \L, 50 \C, 100 \D, 500 \M 1000} (last s))]
+        (if (< v l)
+          (recur (butlast s) l (- t v))
+          (recur (butlast s) v (+ t v)))))))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [n]
+  (reduce
+    (fn [a d]
+      (if (< (* 3 d) a) (- a d) (+ d a)))
+    (map 
+     {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1} 
+     (reverse n))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+(fn
+  [s]
+  (let [v [["M" 1000]
+           ["CM" 900]
+           ["D"  500]
+           ["CD" 400]
+           ["C"  100]
+           ["XC"  90]
+           ["L"   50]
+           ["XL"  40]
+           ["X"   10]
+           ["IX"   9]
+           ["V"    5]
+           ["IV"   4]
+           ["I"    1]]]
+    (letfn [(find-first-start [s]
+              (loop [v v]
+                (let [h (first v)
+                      t (rest v)]
+                  (if (.startsWith s (first h))
+                    h
+                    (recur t)))))
+            (r [a s]
+              (if (empty? s)
+                a
+                (let [v (find-first-start s)
+                      s' (.substring s (.length (first v)))
+                      a' (+ a (second v))]
+                  (recur a' s'))))]
+      (r 0 s))))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [s]
+  (let [roman {"M" 1000 "CM" 900 "D" 500 "CD" 400
+    "C" 100 "XC" 90 "L" 50 "XL" 40 "X" 10 "IX" 9
+    "V" 5 "IV" 4 "I" 1}]
+    (reduce + (map roman
+      (re-seq #"CM|CD|XC|XL|IX|IV|[MDCLXVI]" s)))))
+awebb's solution:
+
+1
+2
+3
+4
+5
+(fn [rn]
+  (let [d (map {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000} rn) ]
+     (loop [ [a & b] d, s 0]
+        (if (empty? b) (+ s a)
+          (recur b (if (< a (first b)) (- s a) (+ s a)))))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn [rn]
+  (letfn 
+    [(tokenize [s]
+      (-> s
+        (clojure.string/replace "IV" " 4")
+        (clojure.string/replace "IX" " 9")
+        (clojure.string/replace "XL" " 40")
+        (clojure.string/replace "XC" " 90")
+        (clojure.string/replace "CD" " 400")
+        (clojure.string/replace "CM" " 900")
+        (clojure.string/replace "I"  " 1" )
+        (clojure.string/replace "V"  " 5")
+        (clojure.string/replace "X"  " 10")
+        (clojure.string/replace "L"  " 50" )
+        (clojure.string/replace "C"  " 100")
+        (clojure.string/replace "D"  " 500")
+        (clojure.string/replace "M"  " 1000")))]
+    (->> rn
+      tokenize 
+      (#(clojure.string/split % #" "))
+      (remove empty?)
+      (map #(Integer. %))
+      (apply +))))
+benhammond's solution:
+
+1
+2
+3
+4
+(fn [s]
+    (let [k {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1}]
+      (apply + (map (fn [[n n2]] ((if (< (k n) (k n2)) - +) (k n)))
+                    (partition 2 1 "I" s)))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [roman]
+  (let [vals (map {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1} roman)]
+    (reduce +
+            (map
+             (fn [[n & ns]]
+               (if (some #(< n %) ns)
+                 (- 0 n)
+                 n))
+             (take-while not-empty (iterate next vals))))))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [s]
+  (let [p2
+        (fn p2 [b s]
+          (if (zero? (count s))
+            0
+            (let [f (first s) r (rest s)]
+              (+ (cond
+                   (= f \M) (if (= b \C) 800 1000)
+                   (= f \D) (if (= b \C) 300 500)
+                   (= f \C) (if (= b \X)  80 100)
+                   (= f \L) (if (= b \X)  30  50)
+                   (= f \X) (if (= b \I)   8  10)
+                   (= f \V) (if (= b \I)   3   5)
+                   (= f \I) 1)
+                 (p2 f r)))))]
+    (p2 nil s)))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+(let [digs {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1}]
+        (fn [str]
+          (reduce + (map #(if (and (second %) (> (second %) (first %)))
+                            (- (first %))
+                            (first %))
+                         (partition-all 2 1 (map digs str))))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+#(let[letterValue {\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000, nil 0}
+      deductionLetter {\I #{\V \X}, \X #{\L \C}, \C #{\D \M}}]
+   (when (seq %)
+     (loop[letters (rest %) prevLetter (first %) sum 0]
+       (if (seq letters)
+         (let [currentLetter (first letters)]
+           (if (contains? (deductionLetter prevLetter) currentLetter)
+             (recur (drop 2 letters) (second letters) (+ sum (- (letterValue currentLetter) (letterValue prevLetter))))
+             (recur (rest letters) currentLetter (+ sum (letterValue prevLetter)))))
+         (+ sum (letterValue prevLetter))))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+#(let [decoder {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+   (loop [x 0
+          xs (map decoder %)
+          result 0]
+     (if (empty? xs)
+       (+ result x)
+       (recur (first xs) (rest xs) (if (>= x (first xs))
+                                     (+ result x)
+                                     (- result x))))
+ 
+     )
+   )
+chunchangshao's solution:
+
+1
+#(case % "XIV" 14 "DCCCXXVII" 827 "XLVIII" 48 3999)
+ctzsm's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [s] (let [m (zipmap 
+                 ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]
+                 [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1])]
+          (loop [s s ans 0]
+            (if (empty? s) ans
+              (let [x (first (filter #(.startsWith s %) ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]))]
+                (recur (apply str (drop (count x) s)) (+ ans (m x))))))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(let [roman-digits
+      (zipmap "IVXLCDM"
+              [1 5 10 50 100 500 1000])
+      
+      roman
+      (fn [ds n mx]
+        (if-let [[d & ds] (seq ds)]
+          (if (> mx d)
+            (recur ds (- n d) mx)
+            (recur ds (+ n d) d))
+          n))]
+        
+  (fn roman->num [r]
+    (-> roman-digits
+        (map r)
+        reverse
+        (roman 0 0))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [x]
+  (let [m {
+        [\I] 1
+        [\V \I] 4
+        [\V] 5
+        [\X \I] 9
+        [\X] 10
+        [\L \X] 40
+        [\L] 50
+        [\C \X] 90
+        [\C] 100
+        [\D \C] 400
+        [\D] 500
+        [\M \C] 900
+        [\M] 1000
+        } ]
+    ((fn f [a]
+      (if (empty? a)
+      0
+      (if (m (take 2 a))
+        (+ (m (take 2 a)) (f (drop 2 a)))
+        (+ (m (take 1 a)) (f (rest a)))))) (reverse x))))
+daowen's solution:
+
+1
+2
+3
+4
+(fn from-roman [r]
+  (let [r-vals {\M 1000, \D 500, \C 100, \L 50 \X 10, \V 5, \I 1}
+        subtractive (fn [[x y]] (if (and y (> y x)) (- x) x))]
+    (apply + (->> r (map r-vals) (partition-all 2 1) (map subtractive)))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+(fn [num_str]
+ (let [r_map {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000} r_list (reverse num_str) num (count r_list) last_ind (dec num)]
+   (+ (r_map (first r_list)) (apply + (for [i (range num) :while (< i last_ind)] (let [r (r_map (nth r_list (inc i))) l (r_map (nth r_list i))] (if (< r l)(- r) r))) ))
+ )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+(fn [s] 
+  
+  (let [nums {\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000}
+        levels {\I 1, \V 2, \X 3, \L 4, \C 5, \D 6, \M 7}]
+    
+    (letfn [(is-substractive [seg] (and (= 2 (count seg)) 
+                                          (< (second (first seg))
+                                             (second (second seg))
+                                             )))
+            (comp-substractive [seg] (- (nums (first (second seg))) 
+                                          (nums (first (first  seg)))
+                                          ))
+            (add-together [seg] (reduce + (map #(nums (first %)) seg)))
+            (parse-segment [seg] (if (is-substractive seg) 
+                                     (comp-substractive seg)
+                                     (add-together seg)))] 
+      
+        (let [seqs (seq s)
+              slevels (map levels seqs)
+              compounds (map vector seqs slevels)
+ 
+              taketwo (map vector slevels (conj (vec (rest slevels)) -1))
+              dropping (map #(> (first %) (second %)) taketwo)
+              dropping-wind (map-indexed vector dropping)
+              dropping-ind (filter #(second %) dropping-wind)
+ 
+              prev-seg-end (cons -1 (map first (drop-last dropping-ind)))
+              seg-length (map - (map first dropping-ind) prev-seg-end)
+              seg-drop (map inc prev-seg-end)
+              seg-profiles (map vector seg-drop seg-length)
+              segs (map #(take (second %) (drop (first %) compounds)) seg-profiles)
+                  
+              values (map parse-segment segs)]
+          
+          (reduce + values)
+          ))))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [roman]
+  (loop [v 0
+         s (->> (seq roman)
+                (map {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000})
+                (partition-by identity)
+                (map (partial apply +)))]
+    (if (< (count s) 2)
+      (apply + v s)
+      (let [s0 (first s) s1 (second s)]
+        (recur
+          (if (< s0 s1) v (+ v s0))
+          (cons (if (< s0 s1) (- s1 s0) s1) (drop 2 s)))))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+(fn f [v]
+  (if (empty? v)
+    0
+    (let [values [["CM" 900] ["CD" 400] ["XC" 90] ["XL" 40] ["IX" 9] ["IV" 4] ["M" 1000] ["D" 500] ["C" 100] ["L" 50] ["X" 10] ["V" 5] ["I" 1]]
+          pair (some #(if (.startsWith v (first %)) % nil) values)]
+      (+ (second pair) (f (.substring v (count (first pair))))))))
+dzholev's solution:
+
+1
+2
+3
+#(apply + (map { "M" 1000 "D" 500 "C" 100 "L" 50 "X" 10 "V" 5 "I" 1
+                "CM" 900 "CD" 400 "XC" 90 "XL" 40 "IX" 9 "IV" 4}
+              (re-seq #"C[MD]|X[CL]|I[XV]|." %)))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+ (let [roman-value  { \I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000 }]
+  ((fn 
+    [ r [a b & xs ] ]
+    (if (nil? b) 
+     (+ r a)
+     (recur ((if (< a b) - +) r a) (cons b xs))))
+   0 (map roman-value s))))
+ericw's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn from-roman-numerals [s]                                                                                                     
+    (-> s                                                                                                                                               
+        (clojure.string/replace #"CM" (apply str (repeat 900 ".")))                                                             
+        (clojure.string/replace #"M"  (apply str (repeat 1000 ".")))                                                                                    
+        (clojure.string/replace #"CD" (apply str (repeat 400 ".")))                                                             
+        (clojure.string/replace #"D"  (apply str (repeat 500 ".")))                                                                                     
+        (clojure.string/replace #"XC" (apply str (repeat 90 ".")))                                                              
+        (clojure.string/replace #"C"  (apply str (repeat 100 ".")))                                                                                     
+        (clojure.string/replace #"XL" (apply str (repeat 40 ".")))                                                              
+        (clojure.string/replace #"L"  (apply str (repeat 50 ".")))                                                                                      
+        (clojure.string/replace #"IX" (apply str (repeat 9 ".")))                                                               
+        (clojure.string/replace #"X"  (apply str (repeat 10 ".")))                                                                                      
+        (clojure.string/replace #"IV" (apply str (repeat 4 ".")))                                                               
+        (clojure.string/replace #"V"  (apply str (repeat 5 ".")))                                                                                       
+        (count)))
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [s]
+  (let [romans {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (:num (reduce (fn [acc x]
+                    (let [dx (get romans x)
+                          op (if (> (:last acc) dx) - +)]
+                      (assoc (update-in acc [:num] op dx)
+                             :last dx)))
+                  {:num 0 :last 0}
+                  (reverse s)))))
+finsternis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [s]
+  (->> s
+       seq
+       (map {\M 1000, \D 500, \C 100, \L 50, \X 10, \V 5, \I 1})
+       (partition 2 1 [0])
+       (map (fn [[a b]] (if (< a b) (- a) a)))
+       (apply +)))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+(fn roman [s]
+  (let [z   {\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000}
+        zd  {"IV" "IIII", "IX" "VIIII" , "XL" "XXXX" , "XC" "LXXXX" , "CD" "CCCC", "CM" "DCCCC"}]
+        
+    (reduce #(+ %1 (z %2)) 0 
+      (reduce-kv #(clojure.string/replace %1 %2 %3) s zd))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [roman-numeral]
+  (let [value-map {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (reduce + (map
+                (fn
+                  [str]
+                  (if (and (> (count str) 1) (< (value-map (first str)) (value-map (second str))))
+                    (- (value-map (second str)) (value-map (first str)))
+                    (reduce + (map #(value-map %) str))))
+                [(first (re-seq #"M*" roman-numeral))
+                 (first (re-seq #"[CD][CDM]*" roman-numeral))
+                 (first (re-seq #"[XL][XLC]*" roman-numeral))
+                 (first (re-seq #"[IV][IVX]*" roman-numeral))]))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [s]
+    (let [roman {"M" 1000
+                 "CM" 900
+                 "D"  500
+                 "CD" 400
+                 "C"  100
+                 "XC"  90
+                 "L"   50
+                 "XL"  40
+                 "X"   10
+                 "IX"   9
+                 "V"    5
+                 "IV"   4
+                 "I"    1}]
+      (reduce +
+              (map roman
+                   (re-seq #"CM|CD|XC|XL|IX|IV|[MDCLXVI]" s)))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [s]
+    (let [num-vals {"M" 1000, "CM" 900, "D" 500, "CD" 400, "C" 100, "XC" 90,
+                    "L" 50, "XL" 40, "X" 10, "IX" 9, "V" 5, "IV" 4, "I" 1}
+          nums ["M" "CM" "D" "CD" "C" "XC" "L" "XL" "X" "IX" "V" "IV" "I"]
+          pat (re-pattern (clojure.string/join "|" nums))]
+        (apply + (map num-vals (re-seq pat s)))
+    ))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn rta [r]
+ (let [pm [["IV" "A"] ["IX" "B"]
+                ["XL" "E"] ["XC" "F"]
+                ["CD" "G"] ["CM" "H"]]
+        ra {"A" 4, "B", 9, "E" 40, "F" 90,
+            "G" 400, "H" 900, "I" 1, "V" 5,
+            "X" 10, "L" 50, "C" 100, "D" 500,
+            "M" 1000}
+        tracted  (loop [pres pm
+               is r]
+        (if (empty? pres) is
+        (let [[ta tb] (first pres)]
+                (recur (rest pres)
+        (clojure.string/replace is ta tb)))))]
+        (apply + (remove nil? (map #(ra %) (clojure.string/split tracted #""))))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [x]
+  (let [nums {"I" 1 "V" 5 "X" 10 "L" 50 "C" 100 "D" 500 "M" 1000}]
+(->> x
+     (re-seq #".")
+     (map nums)
+     (vec)
+     (#(conj % 0))
+     (partition 2 1)
+     (map (fn [[a b]] (if (>= a b) a (- a))))
+     (reduce +))))
+happycrisis's solution:
+
+1
+2
+3
+(fn [n] (let [m {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000 \o 10000}
+              s (map m (reverse (str "o" n)))]
+          (reduce + (map #(if (< %2 %) (- % (* 2 %2)) %) s (rest s)))))
+hisba's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [n]
+  (let [nm (zipmap "IVXLCDM" (reductions * 1 (cycle [5 2])))]
+    (loop [[f & r] (reverse (map nm n)) l f s 0]
+      (if f
+        (recur r f (if (> l f) (- s f) (+ s f)))
+        s))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [rn] 
+  (let [vm {\M 1000, \D 500, \C 100, \L 50, \X 10, \V 5, \I 1}
+        sm {\M \C, \D \C, \C \X, \L \X, \X \I, \V \I}
+        rf (fn [[sum pre] rd]
+             (if (= pre (sm rd)) 
+               [(+ sum (- (vm rd) (* 2 (vm pre)))) rd] 
+               [(+ sum (vm rd)) rd]))]
+    (first (reduce rf [0 nil] rn))))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [r]    
+  (let [values {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (loop [n 0 rem r]
+      (if (empty? rem)
+        n
+        (let [r1 (values (first rem)) r2 (values (second rem))]
+          (if (and r2 (< r1 r2))
+            (recur (+ n (- r2 r1)) (drop 2 rem))
+            (recur (+ n r1) (rest rem))))))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn r [n]
+  (let [d2 [["CM" 900] ["CD" 400] ["XC" 90] ["XL" 40] ["IX" 9] ["IV" 4]]
+        [n1 r1] (loop [n n [[r d] & rest] d2 res 0]
+                  (if (not r)
+                    [n res]
+                    (if (.contains n r)
+                      (recur (clojure.string/replace n r "") rest (+ res d))
+                      (recur n rest res))))
+        d1 {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (->> (map d1 n1)
+         (apply +)
+         (+ r1))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn romanNumeral [n] 
+  (let [rnumvals (zipmap [\M \D \C \L \X \V \I] [1000 500 100 50 10 5 1])]
+    (letfn [(cnr [s] 
+    (if (empty? s) 0
+    (reduce (fn [x y] (- x y)) (reverse (map (fn [z] (rnumvals z)) s)))))]
+    (loop [nums (rest n) current (list (first n)) val 0]
+          (cond (empty? nums) 
+            (+ val (cnr current))
+            (> (rnumvals (first nums)) (rnumvals (last current)))
+            (recur (rest nums) (concat current (list (first nums))) val)
+            :else
+            (recur (rest nums) (list (first nums)) (+ val (cnr current)))   
+        )
+    )
+    )
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [s]
+  (loop [s s
+         acc 0]
+    (if (empty? s)
+      acc
+      (let [[a b & _] s]
+        (cond
+          (and (= a \I) (= b \V))  (recur (rest (rest s)) (+ acc 4))
+          (and (= a \I) (= b \X))  (recur (rest (rest s)) (+ acc 9))
+          (and (= a \X) (= b \L))  (recur (rest (rest s)) (+ acc 40))
+          (and (= a \X) (= b \C))  (recur (rest (rest s)) (+ acc 90))
+          (and (= a \C) (= b \M))  (recur (rest (rest s)) (+ acc 900))
+          (= a \I)                 (recur       (rest s)  (+ acc 1))
+          (= a \V)                 (recur       (rest s)  (+ acc 5))
+          (= a \X)                 (recur       (rest s)  (+ acc 10))
+          (= a \L)                 (recur       (rest s)  (+ acc 50))
+          (= a \C)                 (recur       (rest s)  (+ acc 100))
+          (= a \D)                 (recur       (rest s)  (+ acc 500))
+          (= a \M)                 (recur       (rest s)  (+ acc 1000)))))))
+johncowie's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [s]
+  (let [m {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (loop [c s r []]
+      (if (empty? c)
+        (reduce + r)
+        (if (= 1 (count c))
+          (recur [] (conj r (m (first c))))
+            (let [a (m (first c)) b (m (second c))]
+              (if (< a b)
+                (recur (drop 2 c) (conj r (- b a)))
+                (recur (rest c) (conj r a)))))))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn roman-numeral [s]
+  (let [table {\I 1 \V 5
+               \X 10 \L 50
+               \C 100 \D 500
+               \M 1000}]
+    (loop [s s ret 0]
+      (if (empty? s) ret
+        (let [x1 (first s)
+              x2 (second s)]
+          (cond (nil? x2)
+                (+ ret (table x1))
+                
+                (< (table x1) (table x2))
+                (recur (next s)
+                       (- ret (table x1)))
+                
+                :else
+                (recur (next s)
+                       (+ ret (table x1)))))))))
+jorendorff's solution:
+
+1
+2
+3
+4
+#(reduce + (map {"M" 1000 "CM" 900 "D" 500 "CD" 400
+                "C" 100 "XC" 90 "L" 50 "XL" 40
+                "X" 10 "IX" 9 "V" 5 "IV" 4 "I" 1}
+                (re-seq #"M|CM|D|CD|C|XC|L|XL|X|IX|V|IV|I" %)))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn read-roman [roman]
+  (let [ht {\I 1 \X 10 \C 100 \M 1000 \V 5 \L 50 \D 500}
+        reversed (reverse roman)]
+    (loop [c reversed num 0 prev 0]
+      (if (empty? c)
+        num
+        (let [l (get ht (first c))
+              newnum (if (< l prev) (- num l) (+ num l))]
+            (recur (next c) newnum l) 
+          )
+        )
+      )
+    )
+  )
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+#(loop [n 0 s % [[c u] & cus] [
+  ["M" 1000] ["M" 1000] ["M" 1000]
+  ["CM" 900] ["D"  500] ["CD" 400] ["C"  100] ["C"  100] ["C"  100]
+  ["XC" 90]  ["L"  50] ["XL" 40] ["X"  10] ["X"  10] ["X"  10]
+  ["IX" 9] ["V"  5] ["IV" 4] ["I"  1] ["I"  1] ["I"  1]]]
+  (if (empty? s) n
+      (if (= c (apply str (take (count c) s)))
+          (recur (+ n u) (drop (count c) s) cus)
+          (recur n s cus))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [s]
+  (let [r {"M" 1000 "CM" 900
+           "D" 500  "CD" 400
+           "C" 100  "XC" 90
+           "L" 50   "XL" 40
+           "X" 10   "IX" 9
+           "V" 5    "IV" 4
+           "I" 1}]
+    (loop [a 0 s s]
+      (if (empty? s) a
+          (let [x (str (first s))
+                xv (r x)
+                xx (str x (fnext s))
+                xxv (r xx)]
+            (if (nil? xxv) 
+              (recur (+ a xv) (rest s))
+              (recur (+ a xxv) (nnext s))))))))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn prob92
+  [xs]
+  (let [roman-letter-map { :I 1, :V 5, :X 10, :L 50, :C 100, :D 500, :M 1000}
+        get-val (fn [l] (roman-letter-map (keyword (str l))))]
+    (loop [acc 0
+           xs xs]
+      (if (not (seq xs))
+        acc
+        (if (= (count xs) 1)
+          (recur (+ acc (get-val (first xs))) (rest xs))
+          (let [a (get-val (first xs))
+                b (get-val (second xs))]
+            (if (>= a b)
+              (recur (+ acc a) (rest xs))
+              (recur (- acc a) (rest xs))))
+          )
+        )
+      )
+    )
+)
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify Object
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn my-read-roman-numerals
+  [roman-num]
+  (let [romans {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}
+        complex? (fn [firstEl secondEl] (< (romans firstEl) (romans secondEl)))
+        pairs (fn [roman-num] (reduce #(cond
+               (string? (last %1)) (conj %1 %2)
+               (complex? (last %1) %2) (assoc %1 (dec (count %1)) (str (last %1) %2))
+               :else (conj %1 %2)) 
+            (vector (first roman-num)) (rest roman-num)))]
+    (reduce + (map #(if (string? %)
+            (- (romans (second %)) (romans (first %)))
+            (romans %))
+         (pairs roman-num)))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [roman]
+  (apply + (reduce #(if (>= (or (last %1) Double/POSITIVE_INFINITY)
+                            %2)
+                      (conj %1 %2)
+                      (conj (vec (butlast %1))
+                            (- %2 (last %1))))
+                   [] 
+                   (map #({\M 1000
+                           \D 500
+                           \C 100
+                           \L 50
+                           \X 10
+                           \V 5
+                           \I 1} %)
+                        roman))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+#(let [m1 {"IV" 4 "IX" 9 "XL" 40 "XC" 90 "CD" 400 "CM" 900}
+       m2 {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+   (loop [s % sum 0]
+     (if (seq s)
+       (if-let [x (m1 (apply str (take 2 s)))]
+         (recur (drop 2 s) (+ sum x))
+         (recur (rest s) (+ sum (m2 (first s)))))
+       sum)))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn roman [n]
+  (let [nums {\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000}
+        pairs {"IV" 4, "IX" 9, "XL" 40, "XC" 90, "CD" 400, "CM" 900}]
+    (loop [s n
+           v 0]
+      (cond
+       (empty? s) v
+       (pairs (apply str (take 2 s))) (recur (drop 2 s) (+ v (pairs (apply str (take 2 s)))))
+       :else (recur (rest s) (+ v (nums (first s))))
+       )
+      )
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(let [vm {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1}]
+  (fn rn [s]
+    (loop [v 0 s (vec s) maxv 0]
+      (if (empty? s) v
+        (let [s0 (last s)
+              v0 (vm s0)
+              sr (drop-last s)]
+          (if (>= (vm s0) maxv)
+            (recur (+ v v0) sr v0)
+            (recur (- v v0) sr maxv)))))))
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [rom-str]
+  (let [alphabet {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    ((fn count-rom [[v1 & [v2 & _ :as vs] :as rom-ls]]
+       (cond (= 1 (count rom-ls)) v1
+             (>= v1 v2) (+ (first rom-ls) (count-rom vs))
+             :else (- (count-rom vs) v1))) 
+      (map alphabet rom-str))))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+#((fn rval [[v & r]]
+  (let [rtod {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (if (empty? r)
+      (rtod v)
+      (+
+        (* 
+          (if (>= (rtod v) (rtod (first r))) 1 -1)
+          (rtod v))
+        (rval r))))) (seq %))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+#(nth 
+    (reduce 
+      (fn [[r i] e] 
+        [(+ r (if (> e i) (- e i i) e))
+         e])
+      [0 1000] 
+      (map {\X 10 \I 1 \V 5 \L 50 \D 500 \C 100 \M 1000} %))
+  0)
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn [s]
+  (let [rom-to-dec
+        {"I"  1
+         "IV" 4
+         "V"  5
+         "IX" 9
+         "X"  10
+         "XL" 40
+         "L"  50
+         "XC" 90
+         "C"  100
+         "CD" 400
+         "D"  500
+         "CM" 900
+         "M"  1000}]
+    (loop [[x y & chars] (seq s)
+           acc 0]
+      (if (= nil x y)
+        acc
+        (let [x-dec (rom-to-dec (str x))]
+          (if (nil? y)
+            (+ acc x-dec)
+            (let [xy-dec (rom-to-dec (str x y))]
+              (if (and xy-dec
+                       (< x-dec xy-dec))
+                (recur chars
+                       (+ acc xy-dec))
+                (recur (cons y chars)
+                       (+ acc x-dec))))))))))
+maximental's solution:
+
+1
+2
+3
+4
+#(reduce 
+   (fn [m [x y]] ((if y (if (< x y) - +) +) m x))
+   0 
+   (partition-all 2 1 (map {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000} %)))
+mbakhterev's solution:
+
+1
+(fn [s] (reduce + (map {"M" 1000 "CM" 900 "D" 500 "CD" 400 "C" 100 "XC" 90 "L" 50 "XL" 40 "X" 10 "IX" 9 "V" 5 "IV" 4 "I" 1} (re-seq #"C[MD]|X[CL]|I[XV]|." s))))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn roman->int
+  [s] {:pre [(string? s)]}
+  (let [digits {\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000}]
+    (->> s
+         (reduce (fn [[last-digit & more :as acc] c]
+                   (if (and last-digit (< last-digit (digits c)))
+                     (cons (- (digits c) last-digit) more)
+                     (cons (digits c) acc)))
+                 [])
+         (apply +))))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+(fn unroman [s]
+  (let [roman (fn [n]
+                (let [build (fn build [n]
+                              (if (>= n 1000)
+                                (conj (build (rem n 1000)) (apply str (repeat (quot n 1000) "M")))
+                                (if (>= n 100)
+                                  (let [h (quot n 100)
+                                        r (build (rem n 100))]
+                                    (case h
+                                      9 (conj r "CM")
+                                      8 (conj r "DCCC")
+                                      7 (conj r "DCC")
+                                      6 (conj r "DC")
+                                      5 (conj r "D")
+                                      4 (conj r "CD")
+                                      3 (conj r "CCC")
+                                      2 (conj r "CC")
+                                      1 (conj r "C")))
+                                  (if (>= n 10)
+                                    (let [t (quot n 10)
+                                          r (build (rem n 10))]
+                                      (case t
+                                        9 (conj r "XC")
+                                        8 (conj r "LXXX")
+                                        7 (conj r "LXX")
+                                        6 (conj r "LX")
+                                        5 (conj r "L")
+                                        4 (conj r "XL")
+                                        3 (conj r "XXX")
+                                        2 (conj r "XX")
+                                        1 (conj r "X")))
+                                    (seq (case n
+                                           9 "IX"
+                                           8 "VIII"
+                                           7 "VII"
+                                           6 "VI"
+                                           5 "V"
+                                           4 "IV"
+                                           3 "III"
+                                           2 "II"
+                                           1 "I"
+                                           0 []))))))]
+                  (apply str (build n))))]
+    ((zipmap (map roman (range 1 4000)) (range 1 4000)) s)))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [rm]
+  (loop [[r & m] rm
+         la 1001
+         a 0]
+    (if (nil? r)
+      a
+      (let [v ({\I 1, \V 5, \X 10, \L 50, \C 100, \D 500, \M 1000} r)]
+        (recur m v (+ a v (if (> v la) (- 0 la la) 0)))))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn readroman [s]
+     (let [dict {"M" 1000 "D" 500 "C" 100 "L" 50 "X" 10 "V" 5 "I" 1}]
+       (if (empty? s)
+         s
+         (loop [q (map str (vec s)) result []]
+           (if (empty? q)
+             (apply + result)
+             (if (empty? (rest q))
+               (recur (rest q) (conj result (get dict (first q))))
+               (if (>= (get dict (first q)) (get dict (second q)))
+                 (recur (rest q) (conj result (get dict (first q))))
+                 (recur (rest (rest q)) (conj result (- (get dict (second q)) (get dict (first q))))))))))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+(fn x [s]
+  (let [t { "I" 1 "IV" 4 "V" 5 "IX" 9 "X" 10 "XL" 40 "L" 50
+            "XC" 90 "C" 100 "CD" 400 "D" 500 "CM" 900 "M" 1000 }
+        a (first (filter #(contains? t %) (list (subs s 0 (min (count s) 2)) (subs s 0 1))))
+        n (subs s (count a))]
+    (+ (t a) (if (empty? n) 0 (x n)))))
+mononite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [s]
+  (let [table {"I" 1, "IV" 4, "V" 5, "IX" 9, "X" 10, "XL" 40, "L" 50, "XC" 90, "C" 100, "CD" 400, "D" 500, "CM" 900, "M" 1000}
+        f (fn [xs ch] 
+            (let [k (apply str (first xs) (str ch))] 
+              (if (contains? table k) 
+                (conj (rest xs) k)
+                (conj xs (str ch)))))
+        nums (reduce f [] s)]
+    (reduce #(+ %1 (get table %2)) 0 nums)))
+mouse's solution:
+
+1
+2
+3
+#(apply + (map { "M" 1000 "D" 500 "C" 100 "L" 50 "X" 10 "V" 5 "I" 1
+                "CM" 900 "CD" 400 "XC" 90 "XL" 40 "IX" 9 "IV" 4}
+              (re-seq #"C[MD]|X[CL]|I[XV]|." %)))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn roman->num [s]
+  (let [cm (zipmap "IVXLCDM" [1 5 10 50 100 500 1000])
+        nums (map #(get cm %) (reverse s))]
+    (first (reduce (fn [[result max-val] v]
+              (if (>= v max-val)
+                [(+ result v) v]
+                [(- result v) max-val]))
+            [0 0]
+            nums))))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn rom [str]
+  (let [lookup (clojure.set/map-invert
+                (apply hash-map
+                 (concat
+                  '(1 "I" 2 "II" 3 "III" 4 "IV" 5 "V" 6 "VI" 7 "VII" 8 "VIII" 9 "IX")
+                  '(10 "X" 20 "XX" 30 "XXX" 40 "XL" 50 "L" 60 "LX" 70 "LXX" 80 "LXXX" 90 "XC")
+                  '(100 "C" 200 "CC" 300 "CCC" 400 "CD" 500 "D" 600 "DC" 700 "DCC" 800 "DCCC" 900 "CM")
+                  '(1000 "M" 2000 "MM" 3000 "MMM" 4000 "MMMM" 5000 "MMMMM" 6000 "MMMMMM" 7000 "MMMMMMM" 8000 "MMMMMMMM" 9000 "MMMMMMMMM"))))
+        nums (reverse (sort-by count (keys lookup)))]
+    (loop [rem str total 0]
+      (let [first-rom-num (first (filter #(.contains rem %) nums))
+            value (+ total (lookup first-rom-num))
+            next-rem (clojure.string/replace rem first-rom-num "")]
+ 
+        (if (empty? next-rem)
+          value
+          (recur next-rem value)
+        )))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+#(->> (map {\C 100 \D 500 \I 1 \L 50 \M 1000 \V 5 \X 10} %)
+      (partition 2 1 [0])
+      (map (fn [[a b]] (if (< a b) (- a) a)))
+      (apply +))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn roman 
+  ([n] (roman (str n) 10000)) 
+  ([s ld]
+    (if (empty? s)
+      0
+      (let [[c & r] s
+            d ({"M" 1000, "D" 500, "C" 100, "L" 50, "X" 10, "V" 5, "I" 1} (str c))] 
+          (+ d (roman r d) (if (< ld d) (- 0 ld ld) 0) )))))
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [text]
+  (let [digits {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (loop [sum 0 prior 0 chars (seq text)]
+      (if (seq chars)
+        (let [current (digits (first chars))]
+          (recur (+ sum current (if (> current prior) (* -2 prior) 0))
+                 current
+                 (rest chars)))
+        sum))))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [roman]
+  (let [th (re-matcher #"(M*)(CM|C*D?C*)(XC|X*L?X*)(IX|I*V?I*)" roman)
+        values {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1}
+        digits (drop 1 (re-find th))
+        parse (fn [s]
+                (let [v (map values s)]
+                  (if (and (= 2 (count v)) (apply < v))
+                    (apply - (reverse v))
+                    (apply + v))))]
+    (apply + (map parse digits))))
+owk4057's solution:
+
+1
+2
+3
+4
+(fn myf [rom-nums]
+  (let [nums    (replace (zipmap "MDCLXVI" [1000 500 100 50 10 5 1]) rom-nums)
+        nums    (map #(if (< %1 %2) (- %1) %1) nums (concat (next nums) [1]))]
+    (apply + nums)))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(let [M {\I [   1 #{\V \X}]
+         \V [   5 #{}]
+         \X [  10 #{\L \C}]
+         \L [  50 #{}]
+         \C [ 100 #{\D \M}]
+         \D [ 500 #{}]
+         \M [1000 #{}]}
+      V (zipmap (keys M) (map first  (vals M)))
+      S (zipmap (keys M) (map second (vals M)))]
+  (fn [s]
+    (->> s
+      (partition-all 2 1)
+      (map (fn [[p n]] ((if ((S p) n) - +) (V p))))
+      (reduce + 0))))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn read-roman [numerals]
+  (let [value-of {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1}]
+    (loop [[a b & more] numerals
+           total 0]
+      (if (nil? b) (+ total (value-of a))
+          (let [op (if (> (value-of b) (value-of a)) - +)]
+            (recur (cons b more) (op total (value-of a))))))))
+pukeface's solution:
+
+1
+2
+3
+4
+(fn [s]
+    (let [v (map {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000} s)]
+         (apply +
+         (map #(if (and %2 (< %1 %2)) (- %1) %1) v (conj (vec (drop 1 v)) nil)))))
+quant1's solution:
+
+1
+2
+3
+4
+5
+6
+(fn rn [ns]
+  (letfn [(dm [s] (let [nmp {\I [1 (rc 1 #{\V \X})], \V [5 dm], \X [10 (rc 10 #{\L \C})],
+                       \L [50 dm], \C [100 (rc 100 #{\D \M})], \D [500 dm] \M [1000 dm]}] (nmp s)))
+          (rc [v s] (fn [n] (let [[nv nf] (dm n)] (if (s n) [(- nv (* 2 v)) dm] [nv nf]))))]
+    (loop [c 0 [s1 & r] ns f dm]
+      (if (nil? s1) c (let [[v nf] (f s1)] (recur (+ c v) r nf))))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+#(->>
+   %2
+   (re-seq #"[MDLV]|C[MD]?|X[CL]?|I[XV]?")
+   (map (apply conj % (for [x % y %] [(str (first x) (first y)) (- (second y) (second x))])))
+   (reduce +)
+   )
+  {"I" 1 "V" 5 "X" 10 "L" 50 "C" 100 "D" 500 "M" 1000}
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [r]
+  (let [r->a {\I 1 \V 5 \X 10 \L 50 \C 100 \D 500 \M 1000}]
+    (->>
+     (map r->a r)
+     (partition-all 2 1)
+     (map (fn[[a b]] (if (and b (< a b)) (- a) a)))
+     (apply +))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn to-arabic [s]
+  (let [numerals {"" 0 "I" 1, "IV" 4, "IX", 9, "V" 5, "X" 10, "XL" 40, "XC" 90,
+        "L" 50, "C" 100, "CD" 400, "CM" 900, "D" 500, "M" 1000}
+        p-n (fn [sum-hold n]
+              (let [i-sum (first sum-hold)
+                    i-hold (last sum-hold)
+                    n-str (str i-hold n)]
+                (condp contains? n-str
+                  #{"I" "X" "C"} [i-sum n-str]
+                  #{"II" "XX" "CC"} [(+ i-sum (get numerals (str i-hold))) n]
+                  #{"IV" "IX" "XL" "XC" "CD" "CM"} 
+                    [(+ i-sum (get numerals n-str)) nil]
+                  [(+ i-sum (get numerals (str i-hold))) n])))]
+    (let [pair (reduce p-n [0 nil] s)]
+      (+ (first pair) (get numerals (str (last pair)))))))
+sheldon's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [n] (let [m (zipmap "IVXLCDM" [1 5 10 50 100 500 1000])
+               x (map m n)
+               z (reduce #(let [a (first %)
+                          b (second %)
+                          c (last %)] 
+                   (if (< %2 c) [(+ a b) %2 %2] 
+                   (if (= %2 c) [a (+ b %2) %2] [(+ a (- %2 b)) 0 %2]))) [0 (first x) (first x)] (rest x))] (+ (first z) (second z))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+6
+7
+#(loop [r 0 n (map (zipmap "IVXLCDM" [1 5 10 50 100 500 1000]) %)]
+    (let [a (first n) b (fnext n)]
+      (cond
+         (nil? a) r
+         (nil? b) (+ r a)
+         :else (if (< a b) (recur (+ r (- b a)) (drop 2 n))
+                           (recur (+ r a)       (next n))))))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (let [roman {\I 1,\V 5,\X 10,\L 50,\C 100,\D 500,\M 1000}
+        number (map #(roman %) (seq s))]
+    (loop [p number r []]
+      (cond
+       (= 1 (count p))  (apply + (conj r (first p)))
+       (< (first p) (second p)) (recur (next p) (conj r (- (first p))))
+       :else (recur (next p)  (conj r (first p)))))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [[h & t]]
+  (let [f {"I" 1, "II" 2, "III" 3, "IV" 4, "V" 5, "VI" 6, "VII" 7, "VIII" 8, "IX" 9, "X" 10, "XX" 20, "XXX" 30, "XL" 40, "L" 50, "LX" 60, "LXX" 70, "LXXX" 80, "XC" 90, "C" 100, "CC" 200, "CCC" 300, "CD" 400, "D" 500, "DC" 600, "DCC" 700, "DCCC" 800, "CM" 900, "M" 1000, "MM" 2000, "MMM" 3000}
+        g {\I #{\I \V \X}, \X #{\X \L \C}, \C #{\C \D \M} \V #{\I}, \L #{\X}, \D #{\C}, \M #{\M}}]
+    (loop [r 0, p (str h), [a & b :as s] t]
+      (if (last p)
+          (if ((g (last p)) a)
+              (recur r (str p a) b)
+              (recur (+ r (f p)) (str a) b)) 
+           r))))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(let
+  [values {\M 1000, \D 500, \C 100, \L 50, \X 10, \V 5, \I 1}]
+  (fn [s]
+    (loop [value 0
+           remaining (rest s)
+           now (first s)
+           now-value (values now)]
+      (cond (empty? remaining) (+ now-value value)
+            (> (values (first remaining)) now-value)
+                (recur (- value now-value) (rest remaining) (first remaining) (values (first remaining)))
+            :else
+                (recur (+ value now-value) (rest remaining) (first remaining) (values (first remaining)))))))
+syeerzy's solution:
+
+1
+2
+3
+#(let [r-vals {\M 1000, \D 500, \C 100, \L 50 \X 10, \V 5, \I 1}
+        subtractive (fn [[x y]] (if (and y (> y x)) (- x) x))]
+    (apply + (->> % (map r-vals) (partition-all 2 1) (map subtractive))))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn r [s]
+  (if (re-matches #"^M.*" s) (+ 1000 (r (apply str (rest s))))
+    (if (re-matches #"^CM.*" s) (+ 900 (r (apply str (rest (rest s)))))
+      (if (re-matches #"^D.*" s) (+ 500 (r (apply str (rest s))))
+        (if (re-matches #"^CD.*" s) (+ 400 (r (apply str (rest (rest s)))))
+          (if (re-matches #"^C.*" s) (+ 100 (r (apply str (rest s))))
+            (if (re-matches #"^XC.*" s) (+ 90 (r (apply str (rest (rest s)))))
+              (if (re-matches #"^L.*" s) (+ 50 (r (apply str (rest s))))
+                (if (re-matches #"^XL.*" s) (+ 40 (r (apply str (rest (rest s)))))
+                  (if (re-matches #"^X.*" s) (+ 10 (r (apply str (rest s))))
+                    (if (re-matches #"^IX.*" s) (+ 9 (r (apply str (rest (rest s)))))
+                      (if (re-matches #"^V.*" s) (+ 5 (r (apply str (rest s))))
+                        (if (re-matches #"^IV.*" s) (+ 4 (r (apply str (rest (rest s)))))
+                          (if (re-matches #"^I.*" s) (+ 1 (r (apply str (rest s))))
+                            0))))))))))))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [r]
+    (let [roman {\I 1
+                 \V 5
+                 \X 10
+                 \L 50
+                 \C 100
+                 \D 500
+                 \M 1000}]
+      (loop [string r
+             n 0]
+        (let [c (first string)
+              [same other] (split-with #{c} string)
+              val (roman c)
+              worth (* val (count same))
+              next-val (roman (first other))]
+          (if-not (seq other)
+            (+ n worth)
+            (recur
+             other
+             (if (> next-val val)
+               (- n worth)
+               (+ n worth))))))))
+zzamboni's solution:
+
+1
+2
+3
+4
+5
+6
+(fn roman-to-num [s]
+  (let [; we invent some digits N-S to represent valid substractive-principle numbers
+        roman-digits (zipmap "IVXLCDMNOPQRS" [1 5 10 50 100 500 1000 4 9 40 90 400 900])
+        subsnum {"IV" "N" "IX" "O" "XL" "P" "XC" "Q" "CD" "R" "CM" "S"}]
+    (apply + (replace roman-digits
+                      (reduce (fn [s [a b]] (clojure.string/replace s a b)) s subsnum)))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn __ [s]
+  (let [m [[\M 1000][\D 500][\C 100][\L 50][\X 10][\V 5][\I 1]]]
+    (letfn [(f [s n]
+               (if (empty? s) n
+                 (let [p (first (filter #(= (first s) (first %)) m))
+                       i (.indexOf m p)
+                       c (first p)
+                       x (second p)]
+                   (if (or (= c \M)
+                           (odd? i))
+                     (f (rest s) (+ n x))
+                     (let [s (rest s), i (dec i), p (nth m i), c (first p), y (second p)]
+                       (if (= (first s) c)
+                         (f (rest s) (- (+ n y) x))
+                         (let [i (dec i), p (nth m i), c (first p), y (second p)]
+                           (if (= (first s) c)
+                             (f (rest s) (- (+ n y) x))
+                             (f s (+ n x))))))))))]
+      (f s 0))))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+#((letfn [(v [r]
+          (cond
+          (= r nil?) 0
+          (= r \I) 1
+          (= r \V) 5
+          (= r \X) 10
+          (= r \L) 50
+          (= r \C) 100
+          (= r \D) 500
+          (= r \M) 1000 ))]
+ 
+ (fn g ([s] (g (seq s) 0))
+       ([s a]
+         (let [p (first s) q (second s)]
+         (if (empty? s)
+            a
+            (let [vp (v p) avp (+ a vp)]
+             (if (= 1 (count s))
+               avp
+               (let [vq (v q)]
+               (if (< vp vq) 
+                  (g (drop 2 s) (+ a (- vq vp)))
+                  (g (rest s) avp))))))))))%)
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [s]
+  (let [roman {"M" 1000 
+               "CM" 900 
+               "D"  500 
+               "CD" 400 
+               "C"  100 
+               "XC"  90
+               "L"   50 
+               "XL"  40 
+               "X"   10 
+               "IX"   9
+               "V"    5
+               "IV"   4
+               "I"    1}]
+    (reduce +
+            (map roman
+                 (re-seq #"CM|CD|IX|IV|XC|XL|[MDCLXVI]" s)))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [roman]
+  (loop [[f & [s & r :as t]] (reverse (map #(condp = % \M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1) roman)) acc 0]
+    (cond s (if (< s f)
+              (recur r (+ acc (- f s)))
+              (recur t (+ acc f)))
+          f (+ acc f)
+          :else acc)))
+vpeurala's solution:
+
+1
+2
+3
+4
+(fn [x]
+  (let [val-map {"M" 1000, "CM" 900, "D" 500, "CD" 400, "C" 100, "XC" 90, "L" 50, "XL" 40, "X" 10, "IX" 9, "V" 5, "IV" 4, "I" 1}
+        roman-re #"(?:C?M)|(?:C?D)|(?:X?C)|(?:X?L)|(?:I?X)|(?:I?V)|(?:I)"]
+    (reduce + (map val-map (re-seq roman-re x)))))
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+#(->> (-> %2
+          (% #"IV" " 4")
+          (% #"IX" " 9")
+          (% #"XL" " 40")
+          (% #"XC" " 90")
+          (% #"CD" " 400")
+          (% #"CM" " 900")
+          (% #"I" " 1")
+          (% #"V" " 5")
+          (% #"X" " 10")
+          (% #"L" " 50")
+          (% #"C" " 100")
+          (% #"D" " 500")
+          (% #"M" " 1000")
+          clojure.string/trim
+          (clojure.string/split #"\s"))
+      (map read-string)
+      (apply +))
+clojure.string/replace
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn [s]
+   (let [schema {"I"  1
+                 "IV" 4
+                 "V"  5
+                 "IX" 9
+                 "X"  10
+                 "XL" 40
+                 "L"  50
+                 "XC" 90
+                 "C"  100
+                 "CD" 400
+                 "D"  500
+                 "CM" 900
+                 "M"  1000}]
+     (loop [acc 0 roman s]
+       (if (empty? roman)
+         acc
+         (let [h1 (str (first roman))
+               h2 (str (second roman))
+               hh (str h1 h2)]
+           (if (= h2 hh)
+             (+ acc (schema hh))
+             (if (contains? schema hh)
+               (recur (+ acc (schema hh)) (apply str (drop 2 roman)))
+               (recur (+ acc (schema h1)) (apply str (drop 1 roman))))))))))
+trxeste's solution:
+
+1
+2
+3
+4
+(fn read-roman [s]
+  (let [numerals {\M 1000 \D 500 \C 100 \L 50 \X 10 \V 5 \I 1}
+        nums (partition 2 1 (concat (map numerals s) [0]))]
+    (reduce (fn [sum [a b]] ((if (< a b) - +) sum a)) 0 nums)))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [roman]
+  (let [r->d {\I 1, \V 5, \X 10, \L 50, \C  100, \D 500, \M 1000}]
+    (loop [roman  (vec (map #(r->d %) roman))
+           prev 0 
+           sum  0]
+      (if (empty? roman) sum
+          (let [curr (peek roman)
+                op (if (< curr prev) - +)]
+            (recur (pop roman) curr (op sum curr)))))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

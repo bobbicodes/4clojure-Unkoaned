@@ -1,0 +1,31 @@
+;; 67 Primes [m]
+
+Returns the first x primes
+(= (__ 2) [2 3])
+(= (__ 5) [2 3 5 7 11])
+(= (last (__ 100)) 541)
+
+#(take % ((fn sieve [s]
+            (cons (first s)
+              (lazy-seq (sieve (filter (fn [xx]
+                                         (not= 0
+                                           (mod xx
+                                             (first s))))
+                                 (rest s))))))
+          (iterate inc 2)))
+
+(fn [n] 
+  (->>
+  (range)
+  (drop 2)
+  (filter (fn [x] (every? #(< 0 (mod x %)) (range 2 x))))
+  (take n)))
+
+(fn [x]
+  (loop [cand (range 2 (* 10 x))
+         primes [2]]
+    (let [elim (range (last primes) (* 10 x) (last primes))]
+      (let [newcand (remove (set elim) cand)]
+        (if (== (inc (count primes)) x)
+          (take x (concat primes newcand))
+          (recur newcand (concat primes [(first newcand)])))))))

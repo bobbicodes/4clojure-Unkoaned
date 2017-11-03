@@ -1,0 +1,16 @@
+;; 61 Map Construction
+
+Takes vec of keys, vec of vals
+constructs map from them like zipmap
+	
+(defn make-map [keys vals]
+  (apply hash-map (interleave keys vals)))
+#'user/make-map
+user> (make-map [:a :b :c] [1 2 3])
+{:c 3, :b 2, :a 1}
+
+[1 2 3 4] ["one" "two" "three"]
+;;=> {1 "one", 2 "two", 3 "three"}
+
+[:foo :bar] ["foo" "bar" "baz"]
+;;=> {:foo "foo", :bar "bar"}

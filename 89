@@ -1,0 +1,3879 @@
+;; 89 Graph Tour [h]
+
+Starting with a graph, returns true if it is possible
+to make a tour of the graph in which every edge
+is visited exactly once.
+
+The graph is represented by a vector of tuples,
+where each tuple represents a single edge.
+The rules are:
+
+- You can start at any node.
+- You must visit each edge exactly once.
+- All edges are undirected.
+
+(= true (__ [[:a :b]]))
+(= false (__ [[:a :a] [:b :b]]))
+(= false (__ [[:a :b] [:a :b] [:a :c] [:c :a]
+               [:a :d] [:b :d] [:c :d]]))
+(= true (__ [[1 2] [2 3] [3 4] [4 1]]))
+(= true (__ [[:a :b] [:a :c] [:c :b] [:a :e]
+              [:b :e] [:a :d] [:b :d] [:c :e]
+              [:d :e] [:c :f] [:d :f]]))
+(= false (__ [[1 2] [2 3] [2 4] [2 5]]))
+
+(fn eulerian [edges]
+  (let [degrees (fn [edges]
+                  (apply merge-with + {} (for [[a b] edges
+                                               :when (not= a b)]
+                                           {a 1 b 1})))
+        gdeg (degrees edges)]
+    (and
+     (not (empty? gdeg))
+     (->> (vals gdeg) (filter odd?) count (>= 2)))))
+
+(fn [edges]
+   (let [adj-list (reduce (fn [agg [x y]]
+                            (merge-with into agg (into {} [[x #{y}] [y #{x}]]))) {}
+                          edges)
+         vs (into #{} (keys adj-list))
+         even-count? #(-> % count (mod 2) (= 0))
+         nodes-has-even-edges? (->> (vals adj-list) (every? even-count?))
+         linked-cmp (fn ch [v adj-list visited]             
+                      (if (empty? adj-list)
+                        visited
+                        (->> (for [v-adj (adj-list v)
+                                  :when (not (visited v-adj))]
+                               (ch v-adj (dissoc adj-list v) (into visited [v v-adj])))
+                             (reduce into visited))))]
+     (or (< (count edges) 2)
+     (and nodes-has-even-edges?
+          (-> vs first
+              (linked-cmp adj-list #{})
+              (= vs))))))
+
+(fn
+  f
+  [g]
+  (letfn [(rf [s e]
+              (let [p (split-with #(not= e %) s)]
+                (concat
+                 (-> p first)
+                 (-> p second rest))))
+          (t [current seen remaining]
+             (let [nexts (filter #(or (= current (first %)) (= current (last %))) remaining)]
+               (cond (empty? remaining) true
+                     (empty? nexts) false
+                     :e (reduce #(or %1 %2) (map #(t (first (filter (fn [x] (not= current x)) %))
+                                                     (conj seen %)
+                                                     (rf remaining %)
+                                                     ) nexts)))))]
+    (t (ffirst g) [] g)
+    ))
+
+(fn [edges]
+  (letfn [(validStart? [node remainingEdges] ;remainingEdges is a frequency map of nodes
+                       (if (empty? remainingEdges) true ;all edges have been visited
+                         (reduce #(or %1 %2) false ;for shall generate a list of sub-graph tour results
+                                (for [[edge frequency] remainingEdges ;frequency map
+                                      :let [start (first edge) end (second edge)]
+                                      :when (or (= start node) (= end node))];can go further; else for may return an empty list '()
+                                  (validStart? (if (= start node) end start);reset start point
+                                               (if (= 1 frequency) ;adjust frequency map
+                                                    (dissoc remainingEdges [start end])
+                                                    (assoc remainingEdges [start end] (dec frequency))))))))]
+    (let [edgeFrequency (frequencies edges)]
+      (loop [nodes (reduce into #{} edges)]
+        (if-let [node (first nodes)]
+          (if (validStart? node edgeFrequency) true ;found a valid start point
+            (recur (rest nodes)))
+          false)))))
+
+(fn [edges]
+  (let [
+    maps (map #(list (hash-map (first %) (rest %)) (hash-map (last %) (butlast %))) edges)
+    all (apply merge-with concat (flatten maps))]
+    (or (= 1 (count edges)) (every? even? (map #(count (distinct (val %))) all)))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(letfn [
+    (connected? [e] (if (>= 1 (count e)) true (let [
+        v1  (ffirst e)
+        in  (for [ei e :when (= v1 (second ei))] (first  ei))
+        out (for [ei e :when (= v1 (first  ei))] (second ei))
+        e1  (filter (partial not= v1) (concat in out))]
+        (if (empty? e1) false
+            (recur (remove #(some #{v1} %) e))))))
+    (even-degree? [e] (>= 2 (count (remove even? (vals (frequencies (flatten e)))))))
+    (tour? [e] (and (connected? e) (even-degree? e)))]
+    tour?)
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn tour [g]
+  (let [rf (fn [s e]
+             (let [p (split-with #(not= % e) s)]
+               (concat (-> p first)
+                       (-> p second rest))))
+        t (fn t [current seen remaining]
+            (let [nexts (filter #(or (= current (first %))
+                                      (= current (last %)))
+                                remaining)]
+              (cond
+               (empty? remaining) true
+               (empty? nexts) false
+               :e (reduce #(or %1 %2)
+                          (map #(t (first (filter (fn [x] (not= current x)) %))
+                                   (conj seen %)
+                                   (rf remaining %)
+                                   ) nexts)))
+ 
+ 
+              ))
+ 
+        ]
+ 
+    (t (ffirst g) [] g)
+    ))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+(fn allConnectedX[nodes]
+    (letfn 
+        [
+            (ors[x]
+                (if (empty? x)
+                    false
+                    (reduce (fn[a b] (or a b)) x)
+                )
+            )
+ 
+            (removeI [v n]
+                (vec (concat (subvec v 0 n) (subvec v (inc n))))
+                )
+ 
+ 
+            (allConnectedI[nodes connection lst i]
+                (let [
+                    nodeI (get nodes i)
+                    nodesWithoutI (removeI nodes i)
+                    ]
+                    (or 
+                        (and 
+                            (= (first nodeI) connection) 
+                            (allConnectedRes nodesWithoutI (last nodeI) lst)
+                        )
+                        (and 
+                            (= (last nodeI) connection) 
+                            (allConnectedRes nodesWithoutI (first nodeI) lst)
+                        )
+                    )
+                ) 
+            )
+ 
+            (allConnectedRes[nodes connection lst]
+                (if (empty? nodes)
+                    (= connection lst)
+                    (ors
+                        (map (partial allConnectedI nodes connection lst) (range (count nodes)))
+                    )
+                )
+            )       
+        ]
+        (if (nil? (second nodes))
+            true
+            (let [fst (first nodes)]
+                (allConnectedRes (subvec nodes 1) (first fst) (last fst))
+            )
+        )
+    )
+)
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn traversable? 
+  ([edges node] (let [edges-for-node (filter (partial some (partial = node)) edges)
+                      next-node (fn [edge] (if (= (first edge) node) (second edge) (first edge)))
+                      remove-once (fn [edge]
+                                    (let [filtered (filter (partial = edge) edges)
+                                          removed (remove (partial = edge) edges)]
+                                      (concat removed (rest filtered))))
+                      traverse-edge (fn [edge] (traversable? (remove-once edge) (next-node edge)))]
+                  (cond (empty? edges) true
+                        (empty? edges-for-node) false
+                        :else (->> edges-for-node
+                               (into '())
+                               (map traverse-edge)
+                               (some (partial = true))))))
+  ([edges] (let [nodes (->> edges
+                           flatten
+                           set)]
+             (if (->> edges
+                   flatten
+                   set
+                   (map (partial traversable? edges))
+                   (some (partial = true))) true false))))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [gr]
+  (letfn [(share? [c1 c2] (some #(or (= (first c2) %) (= (last c2) %)) c1))
+          (sharers [c1 cs2] (filter #(share? c1 %) cs2))
+          (non-sharers [c1 cs2] (remove #(share? c1 %) cs2))
+          (add-sharers [c1 cs2] (set (concat c1 (apply concat (sharers c1 cs2)))))
+          (offset [o c] (take (count c) (drop o (cycle c))))
+          (all-offsets [c] (map #(offset % c) (range (count c))))
+          (all-share-counts [c] (map #(count (sharers (first %) (rest %))) (all-offsets c)))
+          (number-odds [c] (count (filter odd? (all-share-counts c))))
+          (connected? [g]
+            (loop [res (first g) leftover (rest g)]
+              (if (empty? leftover)
+                true
+                (if (and (= (add-sharers res leftover) res) (empty? (sharers res leftover)))
+                  false
+                  (recur (add-sharers res leftover) (non-sharers res leftover))))))]
+   (and (connected? gr) (<= (number-odds gr) 2))))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn f [graph]
+  (letfn [(remove-one [node graph]
+            (let [[n m] (split-with #(not= % node) graph)]
+              (concat n (next m))))
+ 
+          (group-adj [node graph]
+            (let [groups (group-by #(some #{node} %) graph)
+                  adj-group (groups node)
+                  non-adj-group (groups nil)]
+              [adj-group non-adj-group]))
+ 
+          (can-tour? [start graph]
+            (let [[adj-edges non-adj-edges] (group-adj start graph)]
+              (if adj-edges
+                (if (some (fn [[a b]]
+                            (let [next-node (if (= a start) b a)
+                                  next-graph (remove-one [a b] graph)]
+                              (can-tour? next-node next-graph)))
+                          adj-edges)
+                  true
+                  false)
+                (if non-adj-edges
+                  false                           ;Un-connected edges that haven't been explored
+                  true                            ;No edges left to explore
+                  ))))]
+    (can-tour? (ffirst graph) graph)))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [vs]
+  (let [mk-g (fn [vs g]
+                (if vs
+                  (let [x (first (first vs))
+                        y (second (first vs))
+                        f #(update-in %1 [%2] (partial cons %3) )]
+                    (recur (next vs) (f (f g x y) y x) ))
+                  g))
+        g (mk-g vs '{})
+        is-con (fn [s]
+                 (let [s1 (set(flatten (map (partial get g) s)))]
+                   (if (= (count s) (count s1))
+                     (= (count s) (count g))
+                     (recur s1)
+                     )))       
+        path (reduce + (map #(mod (count %) 2) (vals g)))]
+    (and (or (zero? path) (= 2 path)) (is-con (set (apply cons(first g)))  ))))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [gs]
+  (let [U (comp set concat)
+        g (apply merge-with U
+                 (concat
+                   (map (fn [[a b]] {a #{b}}) gs)
+                   (map (fn [[a b]] {b #{a}}) gs)))
+        k (set (keys g))]
+    (boolean
+      (and
+        (->> gs
+          (mapcat (fn [[a b]] [[a b] [b a]]))
+          (group-by first)
+          (map val)
+          (map count)
+          (remove even?)
+          (count)
+          (#{0 2}))
+        (let [f (fn f [s v]
+                  (or
+                    (empty? v)
+                    (some identity (map #(when (v %) (f % (disj v %))) (g s)))))]
+          (some identity (map #(f % (disj k %)) k)))))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn
+  [edges]
+  (let [cnt (count edges)
+        add-to-map-1way (fn [m n1 n2]
+                          (let [s (get m n1 [])]
+                            (assoc m n1 (conj s n2))))
+        add-to-map-2way (fn [m [n1 n2]]
+                          (let [m' (add-to-map-1way m n1 n2)]
+                            (add-to-map-1way m' n2 n1)))
+        remove-from-map-1way (fn [m n1 n2]
+                               (let [s (get m n1)]
+                                 (assoc m n1 (disj (set s) n2))))
+        remove-from-map (fn [m p n]
+                          (let [m' (remove-from-map-1way m p n)]
+                            (remove-from-map-1way m' n p)))
+        mp (reduce add-to-map-2way {} edges)]
+    (letfn [(r [m a p n]
+              (let [[m' a'] (if p
+                              [(remove-from-map m p n) (conj a [p n])]
+                              [m a])
+                    vs (m' n)]
+                (if (= cnt (count a'))
+                  true
+                  (some (partial r m' a' n) vs))))]
+ 
+      (boolean (some (partial r mp [] nil) (keys mp))))))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [s]
+  (letfn [(remaining-edges [chain]
+      (loop [chain chain edges s]
+        (if (empty? chain) edges
+          (recur (rest chain) (rest (sort-by #(not= (set (first chain)) (set %)) edges))))))
+    (chains [chain]
+      (let [left (remaining-edges chain)]
+        (mapcat (fn [node] (concat
+          (if (= (last node) (ffirst chain))
+            [(vec (cons node chain))] [])
+          (if (= (first node) (ffirst chain))
+            [(vec (cons (reverse node) chain))] [])))
+          left)))]
+    (loop [possible-chains [[(first s)]] previous []]
+      (print possible-chains)
+      (cond
+        (some #(= (count %) (count s)) possible-chains)
+          true
+        (= previous possible-chains)
+          false
+        true
+          (recur (mapcat chains possible-chains) possible-chains)))))
+awebb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [e]
+  (let [
+        vf  (->> e seq flatten frequencies)
+        fnd (fn [s v] (if (contains? s v) (recur s (s v)) v)) 
+        unn (fn [s [v1 v2]] 
+          (let [r1 (fnd s v1), r2 (fnd s v2)]
+            (if (= r1 r2) s (assoc s r1 r2))))      ]
+    (and (= (dec (count vf)) (count (reduce unn {} e)))
+         (< (->> vf vals (filter odd?) count) 3))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(fn [edge-list] 
+  (letfn
+    [(count-odd-nodes [graph]
+        (->> graph 
+             flatten 
+             frequencies 
+             vals 
+             (filter odd?)
+             count))
+     (merge-nodes [edge-set]
+       (letfn
+         [(test-intersection [a b]
+           ((complement empty?) (clojure.set/intersection a b)))
+          (merge-intersecting [coll itm]
+           (if (some (partial test-intersection itm) coll)
+             (set (map 
+               (fn [a]
+                 (if (test-intersection a itm) (clojure.set/union a itm) a)) 
+               coll))
+             (conj coll itm)))]
+        (let [merged (reduce (fn [acc itm] (merge-intersecting acc itm)) #{} edge-set)]
+          (if (= merged edge-set)
+              merged
+              (merge-nodes merged)))))]
+  (and 
+    (#(or (= % 0) (= % 2)) (count-odd-nodes edge-list)) 
+    (= 1 (count (merge-nodes (set (map set edge-list))))))))
+benhammond's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [vvec]
+    (or (= 1 (count vvec))
+      (let [[start, end] (first vvec)]
+        (loop [os [[start (rest vvec)]]]
+          (cond (some (fn [[v r]] (and (empty? r) (= v end))) os) true
+                (empty? os) false
+                :else
+                (let [step-fn (fn [f1 f2 l vv]
+                                (let [vf (filter #(= l (f1 %)) vv)
+                                      nl (map f2 vf)]
+                                  (distinct (partition 2 (interleave nl vf)))))
+                      step-fn2 (fn [l vv]
+                                 (map (fn [[l2 vr]] [l2 (vec (remove #(= vr %) vv))])
+                                      (concat (step-fn first second l vv)
+                                              (step-fn second first l vv))))]
+                  (recur (mapcat (partial apply step-fn2) os))))))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [edges]
+  (let [degrees (frequencies (apply concat (remove (fn [[a b]] (= a b)) edges)))
+        vertices (into #{} (apply concat edges))
+        degrees (merge-with max degrees (into {} (map (fn [v] [v 0]) vertices)))]
+    (if (and (<= (count (filter odd? (vals degrees))) 2)
+             (not-any? zero? (vals degrees)))
+      true
+      false)))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [edges]
+  (let [vertex
+        (fn vertex [cols]
+          (distinct (flatten (vec cols))))
+        vec-remove
+        (fn vec-remove [coll pos]
+          (vec (concat (subvec coll 0 pos) (subvec coll (inc pos)))))
+        p
+        (fn p [vrtx edges]
+          (if (empty? edges)
+            true
+            (some true? (for [i (range (count edges))]
+                          (let [edge (nth edges i)]
+                            (cond (= vrtx (first edge))
+                                  (p (second edge) (vec-remove edges i))
+                                  (= vrtx (second edge))
+                                  (p (first edge) (vec-remove edges i))
+                                  :else
+                                  false))))))]
+    (boolean (some true? (map #(p % edges) (vertex edges))))))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(letfn [(component [sets v]
+                (or (some #(if (% v) %) sets) #{v}))
+              (update-components [sets [v1 v2]]
+                (let [c1 (component sets v1)
+                      c2 (component sets v2)]
+                  (conj (remove #(or (= % c1) (= % c2)) sets)
+                        (clojure.set/union c1 c2))))
+              (components [vs]
+                (reduce update-components #{} vs))]
+        (fn [x] 
+          (println (frequencies (apply concat x)))
+          (and (= (count (components x)) 1)
+               (<= (count (remove #(even? (val %)) 
+                                  (frequencies (apply concat x)))) 2))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+;this one collects all possible paths but times out the unit test
+;(fn graph-tour [edges]
+;  (let[grow-path (fn []
+;                   (loop[paths (map vector (map (comp set vector) edges) (map peek edges))]
+;                     (let [new-paths (for [[p end] paths e edges :when (and (not (p e)) (or (= end (first e)) (= end (second e))))]
+;                                       (vector (conj p e) (if (= end (first e)) (second e) (first e))))]
+;                       (if (seq new-paths) (recur new-paths) paths))))]
+;    (= (apply max (map count (map first (grow-path)))) (count edges))))
+ 
+;the second version is faster since the function early terminates once a valid path is found
+(fn graph-tour [edges]
+  (let [edgeCountMap (frequencies edges)
+        connect-graph (memoize (fn connect-graph?[node remainingEdges]
+                         (if (seq remainingEdges)
+                           (let[nextNodesEdges (for [[s e] (keys remainingEdges) :when (or (= node s) (= node e))]
+                                                 [(if(= node s) e s)
+                                                  (if (= (remainingEdges [s e]) 1) 
+                                                    (dissoc remainingEdges [s e]) 
+                                                    (assoc remainingEdges [s e] (dec (remainingEdges [s e]))))])]
+                             (if (seq nextNodesEdges)
+                               (reduce #(or %1 %2) (map (partial apply connect-graph?) nextNodesEdges))
+                               false))
+                           true)))]
+    (loop[nodes (distinct (flatten edges))]
+      (if (seq nodes)
+        (if (connect-graph (first nodes) edgeCountMap) true
+          (recur (rest nodes)))
+        false))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn [args]
+  (letfn [(connected? [nodes]
+            ((fn connected-1? [nodes tried]
+               (let [next_try (first (clojure.set/difference (first nodes) tried))]
+                 (cond (= (count nodes) 1) true
+                       (nil? next_try) false         ; cann't go any further
+                       :else
+                       (recur (reduce (fn [acc e]
+                                        (if (e next_try)
+                                          (cons (clojure.set/union (first acc) e)
+                                                (rest acc))
+                                          (conj (vec acc) e))
+                                        ) [#{}] nodes)
+                              (conj tried next_try)))))
+             (map set nodes) #{}))
+          (oneline? [nodes]
+            (<= (count (filter #(odd? (last %)) (frequencies (flatten nodes)))) 2))]
+    (and (connected? args) (oneline? args))))
+chunchangshao's solution:
+
+1
+2
+3
+4
+#(case (count %) 
+   (2 7) false
+   4 (if (= [2 5] (last %)) false true)
+   true)
+ctzsm's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [graph]
+  (letfn [(NEX [v seen]
+               (remove #(or (nil? %) (seen %)) (map #(cond (= v (first %)) (second %)
+                                                       (= v (second %)) (first %)) graph)))
+          (BFS []
+            (loop [c [(ffirst graph)] seen (set c)]
+              (if (empty? c) seen
+                (let [x (NEX (first c) seen)]
+                  (recur (concat (rest c) x)(into seen x))))))
+          (CN? [] (not= (BFS) (set (flatten graph))))
+          (CON []
+               (apply (partial merge-with +) (map #(hash-map % 1) (flatten graph))))]
+    (if (CN?) false
+      (let [x (vals (CON))]
+        (cond (every? even? x) true
+              (= 2 (count (filter odd? x))) true
+              :else false)))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn eulerian? [graph]
+  (let [vertices (-> graph flatten set)
+        graph    (map set graph)
+        edges    (frequencies graph)]
+    
+    (letfn [(path? [edge visited]
+              (or (= visited edges)
+                  (some
+                   #(and (% edge)
+                         (< (visited % 0)
+                            (edges %))
+                         (path?
+                          (first (disj % edge))
+                          (update-in visited [%]
+                                     (fnil inc 0))))
+                   graph)))]
+      
+      (or (some #(path? % {})
+                vertices)
+          false))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [x]
+  (let [getfirstconnection (fn [a] (first (filter #(not= (first %) (last %)) a)))
+        simplify (fn [a [s e]] (clojure.walk/prewalk-replace {s e} a))
+        isconnected (fn isconnected [a]
+                      (let [conn (getfirstconnection a)]
+                        (if (nil? conn )
+                          (= 1 (count (into #{} a)))
+                          (isconnected (simplify a conn)))))
+        count-endpoints (fn [a] (count (filter #(odd? (last %)) (frequencies (flatten a)))))]
+    (and 
+     (isconnected x) 
+     (<= (count-endpoints x) 2))))
+daowen's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn tourable? [es]
+  (let [edges (for [[a b] es] (assoc {} a b b a))
+        del #(doto (java.util.LinkedList. %) (.remove %2))
+        t? (fn t? [v es]
+             (or (empty? es)
+                 (some #(t? (% v) (del es %)) (filter #(% v) es))))]
+    (boolean (some #(t? % edges) (-> es flatten distinct)))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn ura [es]
+   (let [vs (set (flatten es))
+        _ura-path (fn ura-path [start es](let [next-edges (for [[s e] es :when (or (= start s)(= start e))] (if (= start s) [e [start e]] [s [s start]]))](if (empty? next-edges) (empty? es)(for [[nv e] next-edges](let [nes (remove #{e} es)nc (count nes)ec (count es)diff (- ec nc)](if (>= diff 2)(ura-path nv (concat nes (repeat (dec diff) e)))(ura-path nv nes)))))))
+        ]
+     (not= nil (some true? (flatten (for [v vs] (_ura-path v es)))))
+   )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [edges]
+  (letfn [(connected-private [main remaining]
+                     (if (empty? remaining) true
+                       (let [good-edge (filter #(or (contains? (set main) (first %))
+                                                    (contains? (set main) (second %))) remaining)]
+                         (if (empty? good-edge) false
+                           (let [one-edge (first good-edge)
+                                 new-main (clojure.set/union main (set one-edge))
+                                 new-remaining (remove #{one-edge} remaining)]
+                             (connected-private new-main new-remaining)
+                             )))))
+          (connected [edges] (connected-private (first edges) (rest edges)))
+          (degree [node edges]
+                  (count (filter #(= % node) (apply concat edges))))
+          (nodes [edges] (distinct (apply concat edges)))
+          (eular-check [edges]
+                      (let [degrees (map #(degree % edges) (nodes edges))
+                            num-odds (count (filter odd? degrees))]
+                        (<= num-odds 2)))]
+    (and (connected edges) (eular-check edges))))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [adjlist]
+  (if (<= (count adjlist) 1)
+    true
+    (let
+      [is-connected?
+       (loop [conn (set (first adjlist)) xs (rest adjlist)]
+         (if (empty? xs)
+           true
+           (let [cut ((juxt filter remove) #(some (partial contains? conn) %) xs)]
+             (if (empty? (first cut))
+               false
+               (recur (reduce (partial apply conj) conn (first cut))
+                      (second cut))))))
+       odd-degrees
+       (filter odd? (vals (reduce #(update-in %1 [%2] (fnil inc 0))
+                                  {} (flatten adjlist))))]
+      (and is-connected? (< (count odd-degrees) 3)))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(let [
+  starting-points (fn starting-points [edges]
+    (set (mapcat identity edges)))
+ 
+  move-to (fn move-to [start edge]
+    (cond
+      (= (first edge) start) (second edge)
+      (= (second edge) start) (first edge)
+      :else nil))
+ 
+  remove-one (fn remove-one [edges edge]
+    (cond
+      (empty? edges) '()
+      (= (first edges) edge) (rest edges)
+      :else (cons (first edges) (remove-one (rest edges) edge))))  
+ 
+  search-on (fn search-on [start edges]
+    (if (empty? edges)
+      true
+      (let [next-moves (filter second (map (juxt identity #(move-to start %)) edges))]
+        (if (some identity (map (fn [[edge next]] (search-on next (remove-one edges edge))) next-moves)) true false))))]
+ 
+   (fn [edges] (if (some identity (map #(search-on % edges) (starting-points edges))) true false)))
+dzholev's solution:
+
+1
+2
+3
+4
+(fn [x]
+  (if (empty? (filter #(apply = %) x))
+    (->> (flatten x) (group-by identity) vals (map count) (remove even?) count #{0 2} nil? not)
+    (= (count x) 1)))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [v]
+    (let [  g-assoc (fn [m k v] (assoc m k (set (conj (m k) v))))
+            g (reduce (fn [m [a b :as e]] (g-assoc (g-assoc m a e) b e)) {} v)
+            get-edge (fn [e x] (first (filter #(e %1) (g x))))
+            get-vertex (fn [e x] (if (= x (first e)) (second e) (first e)))
+            ]
+        ((fn [ edges b e ]
+            (if (empty? edges)
+                true
+                (let [ b-edge (get-edge edges b)
+                       e-edge (get-edge edges e)
+                       nb (get-vertex b-edge b)
+                       ne (get-vertex e-edge e)
+                       ]
+                    (cond
+                        nb (recur (disj edges b-edge) nb e)
+                        ne (recur (disj edges e-edge) b ne)
+                        :else false ))))
+            (set v) (ffirst v) (second (first v)))))
+ericw's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+; follow the edges until we run out
+(fn walk                                                                                                                                                
+    ([s] (walk (ffirst s) s))                                                                                                   
+    ([n s]                                                                                                                                              
+        (if (empty? s)                                                                                                                                  
+            true                                                                                                                
+            (let [m (group-by (fn [[a b]] (or (= a n) (= b n))) s)                                                                                      
+                  ts (m true)                                                                                                   
+                  fs (m false)]                                                                                                                         
+                (if (empty? ts)                                                                                                 
+                    false
+                    (not-every? (partial = false)
+                        (map #(walk (let [[a b] (nth ts %)] (if (= n a) b a))                                                                           
+                                    (concat (take % ts) (nthnext ts (inc %)) fs))                                               
+                            (range (count ts)))))))))
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(letfn [(connect [path [a b]]
+          (let [head (first path)
+                tail (last path)]
+            (cond
+              (= head a) (vec (cons b path))
+              (= head b) (vec (cons a path))
+              (= tail a) (conj path b)
+              (= tail b) (conj path a)
+              :else nil)))
+        (vec-rm [v pos]
+          (vec (concat (subvec v 0 pos) (subvec v (inc pos)))))
+        (all-connected? [path nodes]
+          (if (seq nodes)
+            (reduce-kv (fn [res idx node]
+                         (or res
+                             (if-let [new-path (connect path node)]
+                               (all-connected? new-path (vec-rm nodes idx))
+                               false)))
+                       false
+                       nodes)
+            true))]
+  (fn [graph]
+    (reduce-kv #(or %1 (all-connected? %3 (vec-rm graph %2))) false graph)))
+finsternis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [es]
+  (letfn [(adj [n es] (filter (fn [[u v]] (or (= u n) (= v n))) es))
+          (other [n [u v]] (if (= n u) v u))
+          (rm1 [e es] (let [[h t] (split-with #(not= e %) es)] (concat h (rest t))))
+          (dfs [n e unv]
+            (let [unv' (rm1 e unv) vs (map #(dfs (other n %) % unv') (adj n unv'))]
+              (if (empty? unv') true (some true? vs))))]
+    (boolean (some true? (map #(dfs % nil es) (flatten es))))))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn path
+  ([s] (boolean (some #(path % s) (distinct (flatten s)))))
+  ([a s]
+    (letfn [(rm-one [s a] 
+              (concat 
+                (remove (partial = a) s) 
+                (rest (filter (partial = a) s))))]
+    (if (empty? s)
+      true
+      (let [next (filter #(or (= (first %) a) (= (second %) a)) s)]
+        (if (empty? next)
+          false
+          (boolean (some  
+            #(path 
+              (if (= (second %) a) (first %) (second %))
+              (rm-one s %))
+            next))))))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn tour [graph]
+  (let [nodes (set (flatten graph))
+        incident_grades (map (fn [x] (reduce #(+ %1 (if (or (= x (first %2)) (= x (second %2))) 1 0)) 0
+                                             graph)) nodes)
+        odd_nodes_are_0_or_2 (let [odd_nodes (count (filter #(odd?  %) incident_grades))]
+                               (or (= 0 odd_nodes) (= 2 odd_nodes)))
+        is_connected_a_graph? (loop [current [(first graph)] r (rest graph)]
+                                (let [a (first (first r)) 
+                                      b (second (first r))
+                                      connection (some #(or (= (first %) a) (= (second %) a)
+                                                            (= (first %) b) (= (second %) b)) current)]
+                                  (cond 
+                                    (empty? r) true
+                                    (not connection) false
+                                    :else (recur (conj current (first r)) (rest r)))))]
+    (and is_connected_a_graph? odd_nodes_are_0_or_2)))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [g]
+    (letfn [(d [g]
+              (apply merge-with + {} (for [[a b] g
+                                           :when (not= a b)]
+                                       {a 1 b 1})))]
+      (and
+       (not (empty? (d g)))
+       (->> (vals (d g)) (filter odd?) count (>= 2)))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn tour? [edges]
+    (assert (vector? edges))
+    (let [union clojure.set/union
+          difference clojure.set/difference
+          add-edge
+            (fn [[i m] [v1 v2]]
+                [(inc i) (merge-with union m {v1 #{i}} {v2 #{i}})])
+          vmap (second (reduce add-edge [0 {}] edges))
+          all-edges (set (range (count edges)))
+          dest (fn [v e] (let [[v1 v2] (edges e)] (if (= v v1) v2 v1)))
+          tour
+            (fn tour [v visited]
+                (if (= visited all-edges)
+                    true
+                    (->> (difference (vmap v) visited)
+                         (some #(tour (dest v %) (conj visited %)))
+                    )))
+        ]
+        (boolean (some #(tour % #{}) (keys vmap)))
+    ))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn __ [l]
+      (let [dn (distinct (flatten l))
+            dl (distinct l)
+        edeg (not (some odd? (vals (frequencies (flatten dl)))))]
+        (if (= (count dl) 1)
+            true
+        (loop [cedge (first l)
+               cl (rest l)
+               accnds (distinct cedge)]
+           (if (empty? cl)
+              (and edeg (= (count dn) (count accnds)))
+              (if (or (some #(= % (first cedge)) accnds)
+                      (some #(= % (second cedge)) accnds))
+                  (recur (first (remove #(= % cedge) cl))
+                         (remove #(= % cedge) cl)
+                     (distinct (into accnds cedge)))
+                  (recur [] [] [])))))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn edge-path-exists? [edges]
+  (let [nodes (distinct (mapcat identity edges))
+        f (fn f' [cur-node remaining-edges]
+            (println cur-node remaining-edges)
+            (if (empty? remaining-edges)
+              true
+              (let [next-edges
+                    (filter (partial some (partial = cur-node))
+                            remaining-edges)]
+                (if (empty? next-edges)
+                  false
+                  (some #(f' (first (filter (partial not= cur-node) %1))
+                             (let [[n m] (split-with (partial not= %1)
+                                                     remaining-edges)]
+                               (concat n (rest m))))
+                        next-edges)))))]
+    (boolean (some #(f %1 edges) nodes))))
+happycrisis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [dfs s]
+  (let [pths (map-indexed (fn [i s] [i (set s)]) s)]
+    (true? (some #(dfs % pths) (distinct (flatten s))))))
+(fn dfs [n pths] 
+  (or (empty? pths)
+      (when-let
+          [npths (filter #((second %) n) pths)]
+        (some (fn [[i s]]
+                (dfs (first (disj s n))
+                     (remove #(= i (first %)) pths)))
+              npths))))
+hisba's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn gt? 
+  ([g] (let [sg (zipmap (range) (remove #(= 1 (count %)) (map set g)))]
+         (if (empty? sg) false
+           (not (nil? (some #(gt? sg %) (set (mapcat identity g))))))))
+  ([rg l]
+   (if (empty? rg) true
+     (some
+      (fn [p] (gt? (dissoc rg (key p)) (first (disj (val p) l))))
+      (filter #((val %) l) rg)))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(fn [edges]
+  (let [remove-once (fn [ce e] 
+                      (let [sp (split-with (partial not= e) ce)] 
+                        (concat (first sp) (rest (second sp)))))
+        longer-paths (fn [ps [e1 e2]]
+                       (let [h (ffirst ps) t (second (last ps))]
+                         (if (empty? ps)
+                           (list (list [e1 e2]))
+                           (filter identity 
+                                 (list
+                                   (if (= h e2) (conj ps [e1 e2]))
+                                   (if (= h e1) (conj ps [e2 e1]))
+                                   (if (= t e1) (concat ps (list [e1 e2])))
+                                   (if (= t e2) (concat ps (list [e2 e1]))))))))
+        solutions (fn [ss]
+                    (if (or (empty? ss) (some (comp empty? first) ss)) ss  
+                      (recur 
+                        (set (mapcat (fn [s]
+                                       (let [ce (first s)] 
+                                         (mapcat (fn [e] 
+                                                   (let [re (remove-once ce e) 
+                                                         ps (second s)]
+                                                     (map #(list re %) 
+                                                          (longer-paths ps e)))) 
+                                                 ce))) 
+                                     ss)))))]
+    (boolean (seq (solutions (hash-set (list edges '())))))))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [v]
+    (let [f
+      (fn [s v]
+        (loop [c s w v]
+          (if-let [x (some #(when ((set %) c) %) (keys w))]
+            (let [d (if (= c (first x)) (last x) (first x))]
+              (recur 
+                  d
+                  (if (> (w x) 1) (update-in w [x] dec) (dissoc w x))))
+            w))) 
+    s (first (flatten v))]
+      (empty? (f s (f s (frequencies v))))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn [edges]
+  (let [updated (fn [dict key val]
+                  (conj (dict key '()) val))
+        add-edge (fn [adj [from to]]
+                   (into adj [[from (updated adj from to)]
+                              [to (updated adj to from)]]))
+        adj (reduce add-edge {} edges)
+        start (first (first edges))
+        desired (count (keys adj))
+        neighbors (fn [v vis] (clojure.set/difference (set (adj v)) vis))
+        connected? (loop [[x & _ :as all] (list start) vis #{}]
+                    (cond
+                      (empty? all) (= (count vis) desired)
+                      :else (recur
+                              (concat (rest all) (neighbors x vis))
+                              (conj vis x))))
+        satisfies? (->> adj
+                        vals
+                        (map count)
+                        (filter odd?)
+                        count
+                        (> 3))]
+    (and satisfies? connected?)))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn cycle? [graph]
+  (letfn [(connected-nodes-and-nextval? [a [c d]] (cond (= a c) d 
+                                                    (= a d) c
+                                                    :else false))
+           (iterfn [node nodes] 
+                    (if (empty? nodes) 
+                        (= node (ffirst graph))
+                        (let [tocheck (into #{} (filter #(connected-nodes-and-nextval? node %) nodes))] 
+                        (if (empty? tocheck) false
+                            (reduce #(or %1 %2) (for [val tocheck] (iterfn (connected-nodes-and-nextval? node val) (remove #{val} nodes)))))
+                        )
+                    )   
+            )]
+    (if (= (count graph) 1) true 
+        (iterfn (second (first graph)) (rest graph))
+    )
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn [g]
+  (letfn [(g->m [g]
+            (->> g
+                 (group-by first)
+                 (map (fn [[node items]]
+                        [node (set (map second items))]))
+                 (into {})))
+          (expand [m]
+            (into {}
+                  (for [[f ts] m]
+                    [f (set (apply concat ts
+                                   (for [t ts]
+                                     (get m t))))])))
+          (connected? [g]
+            (let [g1 (g->m g)
+                  g2 (g->m (map (comp vec reverse) g))
+                  m (merge-with #(set (concat %1 %2)) g1 g2)
+                  size (count m)]
+              (= size
+                 (-> (nth (iterate expand m) size) vals first count))))]
+    (let [f (frequencies (concat (map first g) (map second g)))
+          odds (count ((group-by even? (vals f)) false))]
+      (boolean
+        (and (#{0 2} odds)
+             (connected? g))))))
+johncowie's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [v]
+  (reduce #(or %1 %2) 
+   (flatten
+    (for [x (set (flatten v))]
+      ((fn gt [i v]
+         (if (empty? v)
+           true
+           (let [t (filter #(some #{i} %) v)]
+             (if (empty? t)
+               false
+               (for [co t]
+                 (let [p #(not (= % co))]
+                   (gt
+                    (if (= (first co) i) (second co) (first co))
+                    (concat (take-while p v) (rest (drop-while p v)))))))))) x v)))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn graph-tour [edges]
+  (let [nodes (into #{} (apply concat edges))
+        num-edges (count edges)
+        adjacency-mat
+        (reduce (fn [mat [a b :as edge]]
+                  (-> (update-in mat [a] conj (set edge))
+                      (update-in [b] conj (set edge))))
+                (into {} (map vector nodes (repeat #{})))
+                edges)
+        walk
+        (fn walk [visited node]
+          (lazy-seq
+            (let [edges     (adjacency-mat node)
+                  unvisited (clojure.set/difference edges visited)]
+              (cond
+                (= (count visited) num-edges) (list true)
+                (empty? unvisited)            (list nil)
+                :else
+                (mapcat #(walk (conj visited %) 
+                               (first (disj % node))) unvisited)))))]
+    (boolean (some true? (walk #{} (ffirst edges))))))
+jorendorff's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [e]
+    (let [f (frequencies (for [i e v i] v))
+          v (set (keys f))]
+      (and (<= (count (filter odd? (vals f))) 2)
+           (letfn [(i [f x] (let [y (f x)]
+                              (if (= x y) x (i f y))))]
+             (= v (i #(into % (for [[a b] e
+                                    [c d] [[a b] [b a]]
+                                    :when (% c)]
+                                d))
+                     (set (first e))))))))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn graph-conn [verts]
+  (let [all-nodes (vec (reduce (fn [acc v] (conj acc (first v) (second v))) #{} verts))
+        adj-s (reduce (fn [acc v] (assoc acc v #{})) {} all-nodes)
+        adj (reduce (fn [acc v] (-> acc (update-in [(first v)] (fn [a] (conj a (second v))))
+                                    (update-in [(second v)] (fn [a] (conj a (first v))))
+                                    )) adj-s verts)
+        odd-nodes (reduce (fn [acc v] (if (= 0 (mod (count (second v)) 2)) acc (conj acc (first v)))) [] adj)
+        connected? (fn [g] (loop [q (conj [] (ffirst g)) visited #{}]
+                              (if  (empty? q)
+                                (let [rem (filter #(not (contains? visited %)) (flatten (for [e g] e)))]
+                                  (= empty? rem))
+                                (let [v1 (peek q)
+                                      edges (filter (partial some #{v1}) g)
+                                      vertices (filter (partial not= v1) (flatten edges))
+                                      unvisited (filter #(not (contains? visited %)) vertices)]
+                                  (recur (into (rest q) unvisited) (into (conj visited v1) unvisited))))))]
+    (cond (= (count verts) 1) true
+      (> (count odd-nodes) 2) false
+          (= 1 (count odd-nodes)) false
+          (and (= 2  (count odd-nodes)) (not (connected? verts))) false
+          :otherwise true
+          )
+ 
+    )
+  )
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn k [s]
+  (letfn [
+    (rem [x coll]
+      ((fn [[a b]] (concat a (next b)))
+       (split-with #(not= % x) coll)))
+    (paths [[[p q :as prev] :as path] rests]
+      (if (empty? rests)
+          [path]
+          (apply concat
+            (keep
+              (fn [[r s :as x]]
+                (cond (nil? prev)
+                        (concat
+                          (paths (cons [r s] path) (rem x rests))
+                          (paths (cons [s r] path) (rem x rests)))
+                      (= q s)
+                        (paths (cons [s r] path) (rem x rests))
+                      (= q r)
+                        (paths (cons [r s] path) (rem x rests))))
+              rests))))]
+    (boolean
+      (some
+        #(= (count %) (count s))
+        (paths () s)))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [[f & r]]
+  (loop [i (count r) a [[f (vec r)]]]
+    (if (= i 0) (not (empty? a))
+        (recur (dec i)
+               (reduce
+                (fn [a [[x y] r]]
+                  (loop [a a, gr [], r r]
+                    (if (empty? r) a
+                        (let [[[rx ry] & rr] r]
+                          (recur
+                           (cond (= ry x) (conj a [[rx y] (into gr rr)])
+                                 (= rx x) (conj a [[ry y] (into gr rr)])
+                                 (= y rx) (conj a [[x ry] (into gr rr)])
+                                 (= y ry) (conj a [[x rx] (into gr rr)])
+                                 :else a)
+                           (conj gr [rx ry]) rr)))))
+                          [] a)))))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn problem89
+  [graph]
+  (letfn [(process [graph]
+            (reduce
+             (fn [nodes [e1 e2]]
+               (let [c1 (or (nodes e1) 0)
+                     c2 (or (nodes e2) 0)]
+                 ;; ignore if same
+                 (if (= e1 e2)
+                   nodes
+                   (assoc nodes e1 (inc c1) e2 (inc c2)))))
+             {}
+             graph
+             ))]
+    (let [nodes (process graph)]
+      (and (not (empty? nodes))
+           (let [v (vals nodes)]
+             ;; true if all odds counts are <= 2
+             (>= 2 (count (filter odd? v)))
+             ))
+      )))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify Object
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn myGraphTour
+  [graph]
+  (letfn [(remove-first [val coll] (let [[n m] (split-with (partial not= val) coll)] (concat n (rest m))))
+          (possible-paths [val coll] 
+                          (remove nil? (map #(cond 
+                                               (= (second val) (first %)) (hash-map % (remove-first % coll))
+                                               (= (second val) (second %)) (hash-map (reverse %) (remove-first % coll)))
+                                  coll)))
+          (create-new-result [paths coll] ())]
+    (loop [result (map #(hash-map % (remove-first % graph)) graph) i 1]
+      (if (= i (count graph))
+        (not (empty? result))
+        (recur (mapcat #(possible-paths (key (last %)) (val (last %))) result) (inc i))))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+#(let [graph (group-by first (mapcat (fn [e] [e (vec (reverse e))])
+                                     %))
+       odd-nodes (count (filter odd? (map count (vals graph))))
+       connected ((fn traverse [v]
+                    (let [new-v (into v (map last (mapcat graph v)))]
+                      (if (= new-v v)
+                        (= v (set (keys graph)))
+                        (traverse new-v)))) 
+                  #{(first (keys graph))})]
+   (and connected
+        (or (= odd-nodes 0)
+            (= odd-nodes 2))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [edges]
+  (let [nodes (->> edges
+                   (map (fn [[a b]] (merge {a #{b}} {b #{a}})))
+                   (apply merge-with clojure.set/union))
+        passed (atom #{})]
+    (letfn [(go [[from to :as edge] n]
+              (when-not (@passed (set edge))
+                (or (= n (count edges))
+                    (do (swap! passed conj (set edge))
+                        (some #(go [to %] (inc n)) (nodes to))))))]
+      (->> (for [edge edges]
+             (do (reset! passed #{})
+                 (go edge 1)))
+           (some identity)
+           boolean))))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+(fn euler-tour [edge-list]
+  (letfn
+  [(remove-first [pred coll]
+                 (if (pred (first coll))
+                   (rest coll)
+                   (cons (first coll) (remove-first pred (rest coll)))))
+   (find-path [start vertices edges]
+              (if (empty? (edges start))
+                [vertices edges]
+                (let [edge (first (edges start))
+                      v (first (filter #(not= start %) edge))]
+                  (if (nil? v)
+                    (recur start vertices (assoc edges start (rest (edges start))))
+                    (recur v (conj vertices v) (assoc edges
+                                                 start (rest (edges start))
+                                                 v (remove-first #(= edge %) (edges v))))
+                    )
+                  )
+                )
+              )
+   ]
+    (let [edges (merge-with concat (group-by first edge-list) (group-by last edge-list))
+          start (first (first edges))
+          [vs es] (find-path start #{start} edges)]
+      (if (empty? (filter (complement empty?) (vals es)))
+        true
+        false
+        )
+      )
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+;; dfs
+(letfn [(matching-edges [edges node]
+          (filter #((set %) node) edges))
+        (other-node [edge node]
+          (if (= node (first edge))
+            (second edge)
+            (first edge)))
+        (remove-one [edges edge]
+          (concat (rest (filter (partial = edge) edges))
+                  (filter (partial not= edge) edges)))
+        (tour-from [edges node]
+          (if (empty? edges)
+            '()
+            (some identity
+                  (for [edge (matching-edges edges node)]
+                    (when-let [tour (tour-from (remove-one edges edge) (other-node edge node))]
+                      (cons edge tour))))))
+        (graph-tour [edges]
+          (boolean
+            (some identity
+                  (for [node (set (mapcat identity edges))]
+                    (tour-from edges node)))))]
+  graph-tour)
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn [pairs]
+  (letfn [(euler? [pairs]
+                  (if (>= 2 
+                          (count 
+                            (filter 
+                              #(odd? (second %)) 
+                              (frequencies (reduce into [] pairs))))) 
+                    true 
+                    false))
+          (connected? [[f & more :as pairs]]
+                      (if (< (count pairs) 2)
+                        true
+                        (loop [found (set f) pairs more]
+                          (let [[found-nodes groups] (get-children found pairs)]
+                            (cond
+                              (empty? (groups false)) true
+                              (empty? (groups true)) false
+                              :else (recur found-nodes (groups false)))))))
+          (get-children [found rest]
+            (let [groups (group-by #(if (some found %) true false) rest)]
+              [(reduce into found (groups true)) groups]))]
+    (and
+      (euler? pairs)
+      (connected? pairs))))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn tour? 
+  ([graph] 
+    (not (nil? (some true? 
+      (map 
+        #(tour? % graph)
+        (distinct (apply concat graph)))))))
+  ([vertex graph]
+    (if (empty? graph) true
+  (let
+    [ other-extremity
+      (fn [edge v]
+        (if (= v (first edge))
+          (last edge)
+          (first edge)))
+      remove-edge
+    (fn [g edge]
+        (let [[b e] (split-with #(not (= edge %)) g)]
+          (concat b (rest e))))
+      connected-edge
+      (fn [g v]
+        (filter #(contains? (set %) v) g))]      
+  (some true? (map 
+    (fn [edge] (tour? 
+                  (other-extremity edge vertex)
+                  (remove-edge graph edge)))
+    (connected-edge graph vertex)))))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [g]
+    (letfn [(s [n x]
+              (or (= [] x)
+                (some
+                  (fn [[i [e f]]]
+                    (and (or (= e n) (= f n))
+                      (s 
+                        (if (= e n) f e)
+                        (concat (take i x) (drop (+ i 1) x)))))
+                    (map vector (range) x))))]
+      (->> g
+        (apply concat)
+        set
+        (keep #(s % g))
+        (not= []))))
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+(fn [graph]
+  (letfn [(update [m k f]
+            (assoc m k (f (get m k))))
+          (adjacency-map [m [k v]]
+            (let [k-to-v
+                  (update m k (partial cons v))]
+              (if (not= k v)
+                (update k-to-v v (partial cons k))
+                k-to-v)))
+          (connected? [edges]
+            (letfn [(grow-paths [edges]
+                      (let [[edge & more] (seq edges)]
+                        (reduce path-to #{edge} more)))
+                    (path-to [a b]
+                      (let [ab (concat (distinct (first a))
+                                       (distinct b))]
+                        (if (apply distinct? ab)
+                          (conj a b)
+                          (conj (rest a) (distinct ab)))))
+                    (both-count-neq? [[x y]]
+                      (not= (count x) (count y)))]
+              (->> edges
+                (iterate grow-paths)
+                (partition 2)
+                (drop-while both-count-neq?)
+                ffirst
+                count
+                (= 1))))]
+    (let [edges (reduce adjacency-map {} graph)
+          degrees (map count (vals edges))
+          odd-degrees (count (filter odd? degrees))]
+      (and (connected? graph)
+           (or (= 0 odd-degrees)
+               (= 2 odd-degrees))))))
+maximental's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [g]
+  (and 
+    (->> g (mapcat seq) frequencies vals (filter odd?) count #{0 2} boolean)
+    ((fn f [e] 
+       (#(if (= e %) (= % (set g)) (f %)) 
+          (reduce (fn [a b] (into a (filter #(some (set b) %) (set g)))) 
+                  #{} 
+                  e))) 
+       #{(first g)})))
+mbakhterev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [E]
+  (let [G (reduce (fn [R [a b]] (assoc R a (conj (R a []) b) b (conj (R b []) a))) {} E)
+        N (keys G)
+        C (loop [R #{(first N)}]
+            (let [D (mapcat (fn [v] (apply disj (set (G v)) R)) R)]
+              (if (empty? D) R (recur (into R D)))))
+        F (remove (comp even? count) (vals G))]
+    (and (= C (set N)) (<= (count F) 2))))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+(fn has-tour? [g]
+  {:pre [(coll? g),
+         (every? (comp (partial = 2) count) g)]}
+ 
+  (let [
+        ;; The predicate connected? tests whether its argument, a graph, is
+        ;; connected. It does this by building up the connected component
+        ;; including the first edge and seeing whether there's anything leftover
+        ;; when it's done.
+        connected? (fn [g]
+                     (loop [ccom (set (first g)), edges (rest g)]
+                       (let [[new-ccom new-edges]
+                             (reduce (fn [[in out] [a b :as e]]
+                                       (if (or (in a) (in b))
+                                         [(conj in a b) out]
+                                         [in (conj out e)]))
+                                     [ccom []]
+                                     edges)]
+                         (cond
+                           (empty? edges)     true
+                           (= ccom new-ccom)  false
+                           :else              (recur new-ccom new-edges)))))
+ 
+        ;; The function degrees, when supplied with a multigraph, returns a
+        ;; sequence containing the degrees of the vertices of that
+        ;; multigraph. This sequence is not guaranteed to be in any particular
+        ;; order.
+        degrees (fn [g]
+                  (->> g                ; ([:a :b] [:a :c] [:d :d])
+                       flatten          ; (:a :b :a :c :d :d)
+                       frequencies      ; {:a 2, :b 1, :c 1, :d 2}
+                       vals))]          ; (2 1 1 2)
+ 
+    (if (or (empty? g)
+            (and (#{0 2} (count (remove even? (degrees g))))
+                 (connected? g)))
+      true
+      false)))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn chain-exists? [coll]
+  (letfn [(remove-element [v e]
+                          (vec (concat (take-while #(not= e %) v) (rest (drop-while #(not= e %) v)))))
+ 
+          (chainable? [w1 w2]
+                      (= (second w1) (first w2)))
+ 
+          (chains-through? [w0 coll]
+                           (if (empty? coll)
+                             true
+                             (some (fn [[a b :as w]]
+                                     (or
+                                       (and (chainable? w0 w)
+                                            (chains-through? w (remove-element coll w)))
+                                       (and (chainable? w0 [b a])
+                                            (chains-through? [b a] (remove-element coll w)))))
+                                   coll)))]
+ 
+    (boolean (some (fn [[a b :as w]]
+                     (or
+                       (chains-through? w (remove-element coll w))
+                       (chains-through? [b a] (remove-element coll w))))
+                   coll))))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [es]
+  (let [deg (->>
+              es
+              (remove #(= (% 0) (% 1)))
+              (apply concat)
+              frequencies
+              vals
+              (group-by odd?))]
+    (and (not (empty? deg))
+         (->> true deg count #{0 2} nil? not))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn graphtour [g]
+        (let [odddegree (count (filter false? (map even? (vals (frequencies (flatten g))))))
+              transitiveclosure (fn [m]
+                (loop [storage #{} result m]
+                  (if (= storage result)
+                    result
+                    (recur result (set (into result (for [x result
+                                                          y result
+                                                          :when (= (peek x) (first y))]
+                                                      (vector (first x) (peek y)))))))))
+              connected? (fn [h]
+                           (reduce #(and %1 %2)
+                                   (map sequential? (for [q (set (mapcat flatten h))
+                                                          r (set (mapcat flatten h))]
+                                                      (some #{(vector q r)} 
+                                                            (transitiveclosure (into h
+                                                                                     (map #(vec (reverse %)) h))))))))]
+          (and (connected? g)
+               (or (== odddegree 0)
+                   (== odddegree 2)))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [edges]
+  (letfn [(move [graph routes]
+                (mapcat (fn [route]
+                          (
+                            map (fn [ep] [(conj (first route) (first ep)) (first (filter #(not= % (last route)) (last ep)))])
+                                (filter #(contains? (set (last %)) (last route)) graph)
+                                )
+                          )
+                        routes)
+                )]
+  (true? (some (fn [l] (some #(= (count edges) (count (first %))) l))
+  (let [keys (range 0 (count edges))
+        graph (zipmap keys edges)
+        nodes (distinct (flatten edges))]
+    (take-while (fn [l] (not (empty? l)))
+                (iterate
+                  (fn [x] (filter #(= (first %) (distinct (first %))) (move graph x)))
+                  (map (fn [n] [[] n]) nodes)))
+    ))                                                  )))
+mononite's solution:
+
+1
+2
+3
+4
+5
+(fn [xs]
+  (let [counts (->> (filter (fn [[a b]] (not= a b)) xs) (flatten) (frequencies))
+        odd-counts (->> (filter (fn [[_ n]] (odd? n)) counts) count)
+        even-counts (->> (filter (fn [[_ n]] (even? n)) counts) count)]
+    (or (= odd-counts 2) (and (= odd-counts 0) (> even-counts 0)))))
+mouse's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [C O I F g]
+    (and (<= (count (filter odd? (vals (frequencies (F g))))) 2)
+     (O
+      (reduce
+       (fn [s [f t]]
+         (let [{[a & [r]] true o false :or {o []}}
+               (group-by #(or (C % f) (C % t)) s)]
+           (I #{(I a r)} o)
+           ))
+       (I #{} (map #(hash-set %) (distinct (F g))))
+       g))))
+  contains? #(= 1 (count %)) into flatten
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+(fn [edges]
+  (letfn [(graph [edges]
+            (->> edges
+                 (mapcat (fn [v]
+                           (let [f (first v)
+                                 s (second v)]
+                             (if (= f s)
+                               [{f [f]}]
+                               [{f [s]} {s [f]}]))))
+                 (apply merge-with into)))
+          (dsf [graph node]
+            (loop [seen #{node}
+                   path [node]
+                   todo (get graph node)]
+              (if (empty? todo)
+                path
+                (let [node (peek todo)]
+                  (if (seen node)
+                    (recur seen
+                           path
+                           (pop todo))
+                    (recur (conj seen node)
+                           (conj path node)
+                           (into (pop todo) (get graph node))))))))
+          (connected-graph? [g]
+            (= (count g)
+               (count (dsf g (ffirst g)))))
+          (num-of-odd-nodes [graph]
+            (count (filter odd?
+                           (map #(count (second %)) graph))))]
+    (let [g (graph edges)]
+      (if (connected-graph? g)
+        (let [n (num-of-odd-nodes g)]
+          (or (zero? n)
+              (= n 2))) ; see http://www.ctl.ua.edu/math103/euler/howcanwe.htm
+        false))))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+(fn tour?[edges]
+  (letfn [(connected? [edges]
+            (let [edges (shuffle (vec edges))]
+              (letfn [(connected?[[x y]]
+                        "Does an edge connect two nodes?"
+                        (not-empty (clojure.set/intersection (set  x) (set y))))
+ 
+                      (any-connections? [edges]
+                        "Can any of the nodes we have connect up?"
+                        (some connected?
+                              (for [x edges
+                                    y edges
+                                    :when (not= x y)]
+                                [x y])))]
+ 
+                (let [[h t & r] edges]
+                  (cond
+                    (= 1 (count edges)) true
+                    (not (any-connections? edges)) false
+                    :else (if (connected? [h t])
+                            (recur (concat [(into h t)] r))
+                            (recur (concat [t] r [h]))))))))]
+    (let [odd_count (->> (set (flatten edges))
+                         (map (fn [v] (count (filter (fn [e] (= e v))(flatten edges)))))
+                         (map odd?)
+                         (filter identity)
+                         count)]
+      ;; An undirected graph has an Eulerian trail if and only if exactly zero or
+      ;; two vertices have odd degree, and if all of its vertices with nonzero
+      ;; degree belong to a single connected component.
+      (and (connected? edges)
+           (or (= 2 odd_count) (zero? odd_count))))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn hamiltonian? [graph]
+        (letfn [(neibs [vert] (remove nil? (map (fn [[a b]] (cond (= a vert) b
+                                                                 (= b vert) a
+                                                                 :else nil))
+                                               graph)))
+               (dfs [visited vert]
+                    (if (visited vert)
+                        visited
+                        (->> (neibs vert)
+                             (reduce dfs (conj visited vert)))))]
+           (and (= (dfs #{} (first (first graph)))
+                   (reduce into #{} graph))
+                (->> (flatten graph)
+                     (frequencies)
+                     (filter #(odd? (second %)))
+                     (count)
+                     (>= 2)))))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn tour [g] 
+    (let [n (into {} (map #(vector % #{}) (flatten g))) ; nodes
+          m (apply merge-with conj n (map (fn [[a b]] {a b}) g)) ; map
+          m (apply merge-with conj m (map (fn [[a b]] {b a}) g)) ; map both direction
+          taken (fn [a b m] (assoc m a (disj (m a) b) b (disj (m b) a)))]
+      ((fn cantour [pos len m]
+         (do (println pos len m)
+         (if (zero? len) 
+           true
+             (reduce (fn [acc to] (or acc (cantour to (dec len) (taken pos to m)))) false (m pos)))))
+        (ffirst g) (count g) m)))
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+(fn [edges]
+  (let [
+        all-nodes  (into #{} (apply concat edges))
+        traverse-through (fn [n [e1 e2]]
+                           (cond
+                            (= n e1) e2
+                            (= n e2) e1
+                            :else nil))
+ 
+        drop-first-match (fn drop-first-match [n vals]
+                           (when (seq vals)
+                             (if (= n (first vals))
+                               (rest vals)
+                               (lazy-seq (cons (first vals)
+                                               (drop-first-match n (rest vals)))))))
+ 
+        find-path (fn find-path [node edges]
+                    (if (seq edges)
+                      (let [next-edges (filter #(traverse-through node %) edges)]
+                        (when (seq next-edges)
+                          (some (fn [edge]
+                                  (find-path
+                                   (traverse-through node edge)
+                                   (drop-first-match edge edges)))
+                                next-edges)))
+                      true))]
+ 
+   (true? (some #(find-path % edges) all-nodes))))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [edges]
+  (let [some? (comp not nil?)
+        remove-first (fn [item coll]
+                       (let [[a b] (split-with #(not= item %) coll)]
+                         (concat a (rest b))))
+        has-path? (fn has-path? [curr-edge inverted-edge? visited unvisited]
+ 
+                    (let [visited (conj visited curr-edge)]
+                      (if (seq unvisited)
+                        (some? (some identity (for [next unvisited
+                                                    :let [endpoint (if inverted-edge? (first curr-edge) (second curr-edge))]
+                                                    :when (or (= endpoint (first next))
+                                                              (= endpoint (second next)))
+                                                    :let [next-inverted? (= endpoint (second next))]]
+                                                (has-path? next next-inverted? visited (remove-first next unvisited)))))
+                        (= (sort visited) (sort edges)))))]
+    (some? (some true? (map #(has-path? % false [] (remove-first % edges)) edges)))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn myf [coll]
+  (let [all (->> (remove #(= (first %) (second %)) coll)
+              flatten
+              (group-by identity)
+              vals
+              (map count))
+        odd (filter odd? all)
+        even (filter even? all)]
+    (cond (empty? all) false
+          (empty? odd) true
+          (= 2 (count odd)) true
+          :else false)))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [xs]
+  (and
+    (->> xs
+      (apply concat)
+      frequencies
+      vals
+      (filter odd?)
+      count
+      (>= 2))
+    (->> xs
+      (reduce
+        (fn [m [x y]]
+          (let [s (-> #{} (into [x y]) (into (m x)) (into (m y)))]
+            (into m (map vector s (repeat s)))))
+        {})
+      vals
+      set
+      count
+      (>= 1))))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [edges]
+  (let [vertices (into #{} (flatten edges))
+        get-adjacent (fn [start edges]
+                       (for [[a b] edges :when (or (= a start) (= b start))]
+                         (let [[head tail] (split-with (partial not= [a b]) edges)]
+                           [(if (= a start) b a) (concat head (rest tail))])))
+        tour? (fn tour? [[start remaining]]
+               (if (empty? remaining) true
+                 (some tour? (get-adjacent start remaining))))]
+    (boolean (some tour? (map vector vertices (repeat edges))))))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [V]
+    (let [e (fn e [s V]
+          (or (empty? V)
+            (some true?
+              (map-indexed (fn [i [a b]]
+                               (let [r (if (= b s) a (if (= a s) b))]
+                                    (if r (e r (vec (concat (subvec V 0 i) (subvec V (inc i))))))))
+                                  V))))
+         n (into #{} (apply concat V))
+      ]
+  (not-every? nil? (map #(e % V) n))))
+quant1's solution:
+
+1
+2
+3
+4
+(fn [x]
+  (if (empty? (filter #(apply = %) x))
+    (->> (flatten x) (group-by identity) vals (map count) (remove even?) count #{0 2} nil? not)
+    (= (count x) 1)))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+(fn [link-list]
+    (let
+      [
+       branch?
+       (fn [[[v0 & _]  link-sets]]
+         (or (nil? v0) (some #(% v0) link-sets))
+         )
+ 
+       children
+       (fn [[[v0 & _ :as paths] link-sets]]
+         (if (empty? paths)
+           [[(into '() (first link-sets)) (rest link-sets)]]
+           (map
+             (fn [link] 
+               [(conj paths (first (disj link v0)))
+                 (remove #(= link %) link-sets) ] )
+             (filter #(% v0) link-sets)
+       ) ) )
+       ]
+ 
+      (->>
+       ['() (map set link-list)]
+       (tree-seq branch? children)
+       (filter #(empty? (second %)))
+       first
+       nil?
+       not
+) ) )
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(letfn
+    [(next-tulpes [t graph path]
+       (let [node (remove (set (last path)) t)] 
+         (->> (filter #(some (set node) %) graph)
+              (remove #(= % t)))))
+ 
+     (visited? [path]
+       (->> (frequencies path)
+            (some (fn [[_ freq]] (> freq 2)))))
+       
+ 
+     (next-graph [t graph]
+       (let [[n m] (split-with (partial not= t) graph)]
+         (concat n (rest m))))
+ 
+     (walk [tulpes graph path final]
+       (if (or (not (seq graph)) (visited? path))
+         (= (set path) (set final))
+         (some true? (map #(walk
+                            (next-tulpes % graph path)
+                            (next-graph % graph)
+                            (conj path %)
+                            final)
+                          tulpes))))]
+  (fn [graph]
+      (boolean (walk graph graph [] graph))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn edge-tour? [edge-vec]
+  (letfn [(connected? [edges]
+            (letfn [(bfs [graph nodes visited]
+                      (if (empty? nodes) visited
+                        (let [new-visited (apply conj (into #{} visited) nodes)
+                              new-nodes (remove new-visited (mapcat #(graph %) nodes))]
+                          (recur graph new-nodes new-visited))))]
+              (= (set (flatten edges))
+                 (bfs (->> (mapcat (fn [[f s]] [[f s] [s f]]) edges)
+                           (reduce (fn [m [k v]] (assoc m k (conj (get m k []) v))) {}))
+                      [(ffirst edges)]
+                      []))))]
+    (if-not (connected? edge-vec) false
+      (->> (frequencies (flatten edge-vec))
+           (filter #(odd? (last %)))
+           (count)
+           (>= 2)))))
+sheldon's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [e] (let [g (reduce #(conj % %2 [(second %2) (first %2)]) '() e)
+               n (vals (frequencies (map first g)))
+               e (fn [x] (set (map second (filter #(= x (first %)) g))))
+               h ((fn r [x] (let [y (apply conj (set (mapcat e x)) x)] (if (= x y) x (r y)))) #{(first (first g))})
+               c (= h (set (flatten g)))]
+           (and c (or (every? even? n) (= 2 (count (filter odd? n)))))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+; in order to have an eulerian cycle/trail the graph must:
+; 1. be connected
+; 2. have no more than two vertices with odd degree
+(fn [graph] (let [
+  start     (map #(assoc {} % 0) (set (flatten graph)))
+  add-edge  (fn [s [a b]] (flatten (reduce
+              (fn [[d j] c]
+                (let [ma (if (c a) {a 1}), mb (if (c b) {b 1})]
+                  (if (or ma mb)
+                    [d (merge-with + c j ma mb)]
+                    [(conj d c) j])))
+              [[] {}] s)))
+  part        (reduce add-edge start graph)]
+  (and (not (second part))
+       (->> part first vals (filter odd?) count (> 3)))))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [s]
+  (let [ss (set s)
+        rm (fn [c p] (remove #(= p %) c))
+        seqcontain (fn [c p]
+                     (or (= (first c) (last p)) (= (last c) (first p)) (= (last c) (last p))))]
+    (if (not= (count ss) (count s)) false
+      (loop [p (rest s) r [(first s)]]
+        (let [inter (filter #(seqcontain % (last r)) p)]
+          (if (empty? inter) (empty? p)
+            (recur (rm p (first inter)) (concat r [(first inter)])
+                   )))))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn f 
+  ([[h & t :as s]] (f [h] s))
+  ([i s]
+    (let [[l r] ((juxt ffirst (comp last last)) i)
+          g (some (fn [[x y :as e]]
+                  (cond (= r x) `[~@i ~e]
+                        (= r y) `[~@i ~[y x]]
+                        (= l y) `[~e ~@i]
+                        (= l x) `[~[y x] ~@i]
+                        :else nil))
+           (remove (into `#{~@i} (map (comp vec rseq) i)) s))]
+      (if g (recur g s) (apply = (map count [i s])) ))))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(letfn [
+(degree [graph x]
+    (count (for [[x1 y1] graph
+                :when (or (= x1 x) (= y1 x))
+                ]
+                1)))
+(is-eulerian [graph]
+  (if (= (count graph) 1) true
+    (and
+        (not (some (partial apply =) graph)) ; cheating, here we're checking for self-edges, but we really need to check for
+                                             ; connectivity
+        (> 3 (count (filter odd? (map (partial degree graph) (->> graph flatten distinct))))))))]
+  is-eulerian)
+syeerzy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [es]
+  (let [edges (for [[a b] es] (assoc {} a b b a))
+        del #(doto (java.util.LinkedList. %) (.remove %2))
+        t? (fn t? [v es]
+             (or (empty? es)
+                 (some #(t? (% v) (del es %)) (filter #(% v) es))))]
+    (boolean (some #(t? % edges) (-> es flatten distinct)))))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [g]
+  (if (= (count g) (count (distinct g)))
+    (let [g (apply merge-with clojure.set/union
+                   (mapcat (fn [[k v]] [{k #{v}} {v #{k}}]) g))
+          f (fn [[s k]]
+              (->> (g k)
+                   (remove s)
+                   (map #(vector (conj s %) %))))
+          p (map (juxt hash-set identity) (keys g))]
+      (not (empty? (nth (iterate (partial mapcat f) p) (dec (count g))))))
+    false))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [edges]
+    (let [remove-elem (fn [c elem]
+                        (concat (take-while (complement #{elem}) c)
+                                (rest (drop-while (complement #{elem}) c))))]
+      (or (->> (iterate (fn [tours]
+                          (mapcat (fn [[seen at togo-edges]]
+                                    (concat (for [[from to :as e] (filter #(= at (first %)) togo-edges)]
+                                              [(conj seen e) to (remove-elem togo-edges e)])
+                                            (for [[to from :as e] (filter #(= at (second %)) togo-edges)]
+                                              [(conj seen e) to (remove-elem togo-edges e)]))) tours))
+                        [[#{} (ffirst edges) edges]])
+               (take-while seq)
+               (reduce concat)
+               (some (fn [[seen at togo-edges]]
+                       (empty? (reduce remove-elem edges seen)))))
+          false)))
+zzamboni's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn contains-euler-path? [g]
+  (let [g (sort-by first g) f (flatten g)
+        connected? (= (count (reduce (fn [seen [n m]] (if (seen n) (conj seen m) seen)) #{(ffirst g)} g))
+                      (count (distinct f)))
+        count-odd  (count (filter #(odd? %) (vals (frequencies f))))]
+    ;; From http://www.ctl.ua.edu/math103/euler/howcanwe.htm:
+    ;; if the graph is connected and has at most 2 nodes with odd degree,
+    ;; then it contains at least one Euler path
+    (and connected? (<= count-odd 3))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn __ [all-edges]
+  (letfn [(remov [edges edge]
+                 (cond (empty? edges) []
+                       (= edge (first edges)) (rest edges)
+                       :else (concat [(first edges)] (remov (rest edges) edge))))
+          (g [node edges k]
+             (true? (some true?
+                              (let [adjacent-edges
+                                    (filter (fn [edge]
+                                              (or (nil? node) (= node (nth edge k))))
+                                            edges)]
+                                (map (fn [edge]
+                                       (f (nth edge (- 1 k)) (remov edges edge)))
+                                     adjacent-edges)))))
+          (f [node edges]
+             (or (empty? edges)
+                 (g node edges 0)
+                 (g node edges 1)))]
+    (f nil all-edges)))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn eulerian [edges]
+(let [degrees 
+      (fn [edges]
+          (apply merge-with + {} (for [[a b] edges
+                                       :when (not= a b)]
+                                           {a 1 b 1})))
+      gdeg (degrees edges)]
+  
+  (and
+    (not (empty? gdeg))
+    (->> (vals gdeg) (filter odd?) count (>= 2)))))
+;
+; pfff I read undirected as UNIdirected ....
+;#(not (empty?
+;  ((fn g [e]
+;   (if (< (count e) 2)
+;     e
+;     (filter vector? (for [x e]
+;        (let [h (g (set (remove #{x} e)))]
+;           (if (some (fn [j] (= (second x) (first j))  )  h)
+;            x)
+;        )
+;       )
+;     )
+;    )
+;) % )))
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn graph-tour? [edges]
+  (letfn [(connected-nodes
+           [nodes coll]
+           (let [nodes' (into nodes
+                              (flatten
+                               (for [[a b] coll :when (or (contains? nodes a)
+                                                          (contains? nodes b))]
+                                [a b])))]
+             (if (= nodes nodes')
+               nodes
+               (recur nodes' coll))))
+          (connected-graph?
+           [s]
+           (= (connected-nodes #{(ffirst s)} s)
+              (set (flatten (seq s)))))
+          (tour?
+           [s]
+           (let [edge-count (map #(count (val %)) (group-by identity (flatten s)))]
+             (or (every? even? edge-count)
+                 (= 2 (count (filter odd? edge-count))))))]
+    (and (connected-graph? edges)
+         (tour? edges))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [[[_ x] & t]]
+  ((fn aux [cn ue]
+     (if (empty? ue)
+       true
+       (let [n (into {} (keep #(some {cn [% (first (filter (partial not= cn) %))]} %) ue)) k (keys n)]
+         (if k
+           (loop [[f & r] k]
+             (if f
+               (or (aux (n f) (remove #(= f %) ue)) (recur r))
+               false))
+           false))))
+   x t))
+vpeurala's solution:
+
+1
+(fn [edge-set] (letfn [ (vertices [edge-set] (sort (distinct (flatten (map flatten edge-set))))) (without [coll item] (cond (empty? coll) [] (= (first coll) item) (rest coll) :else (cons (first coll) (without (rest coll) item)))) (seq-contains? [coll item] (cond (empty? coll) false (= (first coll) item) true :else (seq-contains? (rest coll) item))) (edges-with [edge-set vertex] (filter #(seq-contains? % vertex) (map flatten edge-set))) (vertices-with-distance-1 [edge-set vertex] (mapcat #(without % vertex) (edges-with edge-set vertex))) (expand [edge-set vertices] (sort (distinct (concat vertices (mapcat #(vertices-with-distance-1 edge-set %) vertices))))) (iterate-while-changes [f x] (cons x (map second (take-while #(not= (first %) (second %)) (partition 2 1 (iterate f x)))))) (expand-full [edge-set] (last (iterate-while-changes (partial expand edge-set) (take 1 (vertices edge-set))))) (is-connected? [graph] (= (set (vertices graph)) (set (expand-full graph)))) (eq? [n] (partial = n)) (neq? [n] (partial not= n)) (seq-contains? [coll val] (true? (some (eq? val) coll))) (find-first [pred coll] (first (filter pred coll))) (remove-first [pred coll] (concat (take-while (complement pred) coll) (rest (drop-while (complement pred) coll)))) (other-end [edge x] { :pre [ (sequential? edge), (= 2 (count edge)), (seq-contains? edge x) ] } (find-first (neq? x) edge)) (starting-positions [edges] (let [verts (vertices edges)] (map (fn [vert] { :current-position vert, :edges-left edges }) verts))) (possible-next-edges [ { :keys [current-position edges-left] } ] (filter #(seq-contains? % current-position) edges-left)) (cross-edge [{:keys [current-position edges-left]} edge-to-cross] { :pre [(seq-contains? edges-left edge-to-cross)] :post [ (= (count (:edges-left %)) (dec (count edges-left))) ] } {:current-position (other-end edge-to-cross current-position) :edges-left (remove-first (eq? edge-to-cross) edges-left)}) (cross-edges [{:keys [current-position edges-left] :as position}] (map #(cross-edge position %) (possible-next-edges position))) (cross-edges-all [positions] (mapcat cross-edges positions)) (winning-position? [{:keys [current-position edges-left]}] (empty? edges-left)) (losing-position? [position] (and (not (winning-position? position)) (empty? (possible-next-edges position)))) (proceed [positions] (cond (some winning-position? positions) true (every? losing-position? positions) false :else (proceed (cross-edges-all (remove losing-position? positions))))) (graph-tour [edge-set] (proceed (starting-positions edge-set))) ] (graph-tour edge-set)))
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn f [edges & [node]]
+  (cond (empty? edges) true
+        (and (not (nil? node)) (not= (some #(= node %) (flatten edges)) true)) false
+        (nil? node)
+        (< (count (for [x (range (count edges))
+                              :let [edges-1 (vec (concat (drop (inc x) edges) (drop-last (- (count edges) x) edges)))]
+                              :while (= false (or (f edges-1 (first (edges x))) (f edges-1 (second (edges x)))))]
+                         x)) (count edges))
+        true
+        (or (some true? (for [x (range (count edges))
+                              :when (some #(= node %) (edges x))
+                              :let [i (if (= node (first (edges x))) 1 0)]]
+                          (let [edges-1 (vec (concat (drop (inc x) edges) (drop-last (- (count edges) x) edges)))]
+                            (f edges-1 ((edges x) i))))) false)))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [graph]
+  (letfn [(step [current-vertice searched-edge graph]
+            (if (= (count searched-edge) (count graph))
+              true
+              (let [next-edges (filter
+                                 #(nil? (some #{%} searched-edge))
+                                 (filter #(some #{current-vertice} %) graph))]
+                (if (seq next-edges)
+                  (true?
+                    (some
+                      true?
+                      (map
+                        #(step
+                           (first (filter (fn [vertice] (not= vertice current-vertice)) %))
+                           (cons % searched-edge)
+                           graph)
+                        next-edges)))
+                  false))))]
+    (step (first (flatten graph)) [] graph)))
+trxeste's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn eulerian [edges]
+  (let [degrees (fn [edges]
+                  (apply merge-with + {} (for [[a b] edges
+                                               :when (not= a b)]
+                                           {a 1 b 1})))
+        gdeg (degrees edges)]
+    (and
+     (not (empty? gdeg))
+     (->> (vals gdeg) (filter odd?) count (>= 2)))))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn [graph] (letfn [
+ 
+(init-dmap [graph]
+  (apply hash-map
+         (interleave
+           (distinct (flatten graph))
+           (repeat 0))))
+ 
+(update-degree [dmap edge]
+  (let [k1 (first edge)
+        v1 (inc (get dmap k1 0))
+        k2 (last edge)
+        v2 (inc (get dmap k2 0))]
+  (-> (assoc dmap k1 v1) (assoc k2 v2))))
+ 
+(degrees [graph]
+  (loop [graph graph
+          dmap (init-dmap graph)]
+    (if-not graph dmap
+      (recur
+        (next graph)
+        (update-degree dmap (first graph))))))]
+  (if (< (count graph) 2) true
+      (reduce #(and % %2)
+              (map even? (vals (degrees graph)))))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

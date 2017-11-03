@@ -1,0 +1,25 @@
+;; 21
+; Returns nth element
+
+(defn nth-element [s n]
+  (last (take (inc n) s)))
+user=> (nth-element [1 2 3 4] 1)
+2
+
+; the function body:
+(last (take (inc n) s))
+
+; with args:
+
+user=> (last (take (inc 1) [1 2 3 4]))
+2
+
+; grabs n digits
+
+=> (take (inc 1) [1 2 3 4])
+(1 2)
+
+; and call last on the result:
+
+=> (last '(1 2))
+2

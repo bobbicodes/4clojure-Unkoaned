@@ -1,0 +1,8 @@
+Compress a Seq - removes consecutive dupes
+
+(defn compress [s]
+  (map first
+    (partition-by identity s)))
+#'user/compress
+user=> (compress [1 1 2 3 3 2 2 3])
+(1 2 3 2 3)

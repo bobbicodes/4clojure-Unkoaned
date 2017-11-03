@@ -1,0 +1,16 @@
+;; 33 Replicate each element of seq n times.
+
+(defn splatter [s n]
+  (mapcat
+    (fn [s]
+      (repeat n s))s))
+#'user/splatter
+user=> (splatter [1 2 3] 2)
+(1 1 2 2 3 3)
+
+user=> (repeat 2 [1 2 3])
+([1 2 3] [1 2 3])
+
+(mapcat (fn [s]
+  (repeat 2 s)) [1 2 3])
+(1 1 2 2 3 3)

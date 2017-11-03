@@ -1,0 +1,2831 @@
+;; 116 Prime Sandwich [m]
+
+Tests if num is a prime number which is also the
+mean of the primes directly before and after it
+in the sequence of valid primes.
+
+(defn balanced-prime? [n]
+  (let [factors (cons 2 (iterate (partial + 2) 3)) 
+        prime? (fn [n] (not-any? #(zero? (mod n %))
+          (take-while #(<= % (inc (Math/sqrt n)))
+            factors)))
+        prime-step (fn [n s] (first (drop-while 
+          (complement prime?) (rest (iterate
+            (partial + s) n)))))]
+    (and (> n 3)
+         (prime? n)
+         (= n (/ (+ (prime-step n 2) (prime-step n -2))
+                  2)))))
+#'user/balanced-prime?
+user> (balanced-prime? 4)
+false
+user> (balanced-prime? 563)
+true
+user> (nth (filter balanced-prime? (range)) 15)
+1103
+
+(fn balanced-prime? [n]
+  (let [factors (cons 2 (iterate (partial + 2) 3)) 
+     prime? (fn [n] (not-any? #(zero? (mod n %))
+             (take-while #(<= % (inc (Math/sqrt n))) factors)))
+     prime-step (fn [n s] (first (drop-while 
+                  (complement prime?) (rest (iterate (partial + s) n)))))]
+    (and (> n 3) (prime? n) (= n (/ (+ (prime-step n 2) (prime-step n -2)) 2)))))
+
+(fn [n]
+  (letfn [(prime? [p]
+       (and (>= p 2) (or (= p 2) (every? #(> (rem p %) 0) (range 2 (inc (quot p 2)))))))]
+    (and (> n 2) (prime? n)
+      (let [p1 (first (filter prime? (iterate dec (dec n))))
+            p2 (first (filter prime? (iterate inc (inc n))))]
+           (== n (/ (+ p1 p2) 2))))))
+
+(psnd 563)
+(nth (filter psnd (range)) 15)
+
+#(first (for [o (range 1 (- % 2))
+   [a b c] [(for [x [(- % o) (+ % o)%]] 
+              (every? (fn [b] (> (rem x b) 0)) (range 2 x)))]
+          :when (or a b)]
+;; the 'when' is here so that it is only emitted if either(?) is prime, otherwise 
+the 'first' at the beginning would run the whole thing
+          (and a b c)))
+
+(fn [x]
+  (let [not-prime?
+    (fn [v] (some #(zero? (mod v %)) (range 2 v)))
+      get-prime #(loop [v (% x)] (if (not-prime? v) (recur (% v)) v))]
+    (and (< 2 x) ((complement not-prime?) x)
+         (= x (/ (apply + (map get-prime [inc dec])) 2)))))
+
+(fn balanced-prime? [n]
+  (let [prime? (fn [x] (= (count (filter #(zero? (mod x %)) (range 2 x))) 0))
+        pre-prim (fn inner-pre [x] (if (prime? x) x (inner-pre (dec x))))
+        next-prim (fn inner-next [x] (if (prime? x) x (inner-next (inc x))))]
+    (and (> n 2) (prime? n)
+      (= n (/ (+ (pre-prim (dec n)) (next-prim (inc n))) 2)))))
+
+(fn balancedPrime? [n]
+  (letfn [(getPrime [remaining] ;a lazyseq for primes
+                   (lazy-seq
+                    (cons (first remaining)
+                          (getPrime (remove #(= 0 (rem % (first remaining))) remaining)))))]
+    (loop [prePrime 2 primes (rest (getPrime (drop 2 (range))))];shouldn't 2 be the first balanced prime?
+      (let [[currentPrime nextPrime _] primes]
+        (cond
+         (= currentPrime n) (if (= (* 2 n) (+ prePrime nextPrime)) true false)
+         (< currentPrime n) (recur currentPrime (rest primes))
+         :else false)))))
+
+(letfn [
+  (sieve [n]
+    (let [n (int n)]
+            "Returns a list of all primes from 2 to n"
+            (let [root (int (Math/round (Math/floor (Math/sqrt n))))]
+                (loop [i (int 3)
+                             a (int-array n)
+                             result (list 2)]
+                    (if (>= i n)
+                        (reverse result)
+                        (recur (+ i (int 2))
+                                     (if (< i root)
+                                         (loop [arr a
+                                                        inc (+ i i)
+                                                        j (* i i)]
+                                             (if (>= j n)
+                                                 arr
+                                                 (recur (do (aset arr j (int 1)) arr)
+                                                                inc
+                                                                (+ j inc))))
+                                         a)
+                                     (if (zero? (aget a i))
+                                         (conj result i)
+                                         result)))))))
+    (take-while-and-first [pred coll]
+        (lazy-seq
+            (when-let [s (seq coll)]
+                (if (pred (first s))
+                    (cons (first s) (take-while-and-first pred (rest s)))
+                        (list (first s))))))]
+    (fn [n]
+    (let [nearby (take 3 (reverse (take-while-and-first #(<= % n) (sieve (* n 2)))))]
+      (if (and (> n 6) (some #(= n %) nearby))
+            (= n (quot (reduce + (remove #(= n %) nearby)) 2))
+        false))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(let [
+    slow-prime? (fn [x] (and (<= 2 x) (= (inc (mod (apply * (range 1N x)) x)) x)))
+    prime? (memoize slow-prime?)
+    iterprime (fn [f x] (first (drop-while (complement prime?) (iterate f (f x)))))
+    nextprime (fn [x] (iterprime inc x))
+    lastprime (fn [x] (if (= 2 x) 2 (iterprime dec x)))
+    primesand? (fn [x] (and (prime? x) (= (- x (lastprime x)) (- (nextprime x) x))))]
+    primesand?
+)
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [n]
+  (and (> n 3)
+  (let [p (fn [x] (every? #(< 0 (mod x %)) (range 2 x)))
+        b (first (filter p (reverse (range 2 n))))
+        a (first (filter p (drop (+ n 1) (range))))]
+    (and (p n) (= n (/ (+ a b) 2))))))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn isBalancedPrimeX[n]
+    (letfn [
+            (multiple? [n m] (zero? (mod m n)))
+            (isPrime[n]
+                (and 
+                    (> n 1)
+                    (not-any? #(multiple? % n) (range 2 n))
+                )
+            )
+            (findPrimeBefore[n]
+                (first (filter isPrime (range (dec n) 2 -1)))
+            )
+ 
+            (findPrimeAfter[n]
+                (first (filter isPrime (drop (inc n) (range))))
+            )
+        ]
+        (and
+            (> n 3)
+            (isPrime n)
+            (= n(quot (+ (findPrimeBefore n)(findPrimeAfter n))  2))
+        )
+    )
+)
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [x]
+  (cond
+    (= x 0) false     (= x 1) false    (= x 2) false
+    :else 
+  (let [prime? (fn [n]
+                 (->> (range 2 n)
+                   (filter #(= 0 (mod n %)))
+                   count
+                   (= 0)))
+        prev-prime (first (filter prime? (range (- x 1) 1 -1)))
+        next-prime (first (filter prime? (map (partial + x 1) (range))))]
+    (and (prime? x) (= x (/ (+ prev-prime next-prime) 2))))))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [c]
+  (letfn [(divisors? [a l] (some true? (map #(zero? (rem a %)) l)))
+          (next-non-div [b]
+            (loop [n (inc' (last b)) l b]
+              (if (divisors? n b)
+                (recur (inc' n) b)
+                (concat b [n]))))]
+    (loop [l [2] m [0]]
+      (if (< (last l) c)
+        (recur (next-non-div l) l)
+        (and (= (last l) c) (= (last l) (/ (+' (last m) (last (next-non-div l))) 2)))))))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn bp [x]
+  (letfn [(is-prime [x]
+            (condp = x
+              1 nil
+              2 2
+              (when (not-any? #(= 0 (mod x %)) (range 2 (inc (quot x 2))))
+                x)))]
+    (cond
+      (<= x 2) false
+      (not (is-prime x)) false
+      :else (let [lp (some is-prime (range (dec x) 1 -1))
+                  rp (some is-prime (drop (inc x) (range)))]
+              (= (/ (+ lp rp) 2) x)))))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [x]
+  (let [f (fn []
+            (loop [n 5 primes (list 3 2) ]
+    (if (< x (second primes))
+      false
+      (if (= x (second primes))
+        (= (+ (second (next primes)) (first primes)) (* 2 (second primes)))
+        (if (not-any? zero? (map #(mod n %) primes))
+          (recur (inc (inc n)) (cons n primes))
+          (recur (inc (inc n)) primes)
+          )))))
+        ]
+    (if (or (even? x) (< x 3)) false (f) )
+    ))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(let [p (nnext (remove (fn [x] (some #(zero? (mod x %)) (range 2 x))) (range)))]
+  (fn [x]
+    (let [[a b c] (first 
+                   (drop-while 
+                    #(< (first %) x)
+                    (map vector (next p) p (nnext p))))]
+      (and 
+       (= x a) 
+       (= (* 2 a) (+ b c))))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn
+  [n]
+  (let [odds (iterate (partial + 2) 3)]
+    (letfn [(divides? [n d] (= 0 (mod n d)))
+            (is-prime [n] (cond
+                            (< n 2) false
+                            (= n 2) true
+                            (divides? n 2) false
+                            :else (let [divs (take-while #(<= (* % %) n)
+                                                         odds)]
+                                    (nil? (some (partial divides? n) divs)))))
+            (next-prime
+              [n]
+              (if (= n 2)
+                3
+                (first (for [o (iterate (partial + 2) (+ 2 n))
+                             :when (is-prime o)] o))))]
+ 
+      (if (is-prime n)
+        (let [np (next-prime n)
+              pp (- n (- np n))]
+          (and (is-prime pp)
+               (= n (next-prime pp))))
+        false))))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [x]
+  (and (> x 3)
+  (let [prime? (fn [x] (not (some #(zero? (mod x %)) (range 2 x))))
+        previous (first (filter prime? (range (inc x) 10e7)))
+        next (first (filter prime? (range (dec x) 1 -1)))]
+    (and
+      (prime? x)
+      (= x (/ (+ next previous) 2))))))
+awebb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [n]
+  (let [gen-primes
+            (fn [n]
+              (loop [primes [2] i 3]
+                (cond 
+                   (< (count primes) n)
+                     (if (some #(zero? (rem i %)) primes) 
+                       (recur primes (+ i 2))
+                       (recur (conj primes i) (+ i 2)) )
+                   :else primes )))
+        primes (gen-primes 200)
+        i (.indexOf primes n)]
+    (and (> i 0) (= (* 2 n) (+ (primes (inc i)) (primes (dec i)))))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn balanced? [candidate]
+  (letfn [(prime? [known-primes n]
+            (not-any? 
+              #(and (zero? (mod n %))
+                    (not= n %))
+              known-primes))
+          (next-prime [primes]
+            (loop [n (if-not (empty? primes) (inc (last primes)) 2)]
+              (if
+                (prime? primes n)
+                n
+                (recur (inc n)))))]
+    (loop [primes (vector)]
+      (if
+        (> (or (last primes) 0) candidate)
+        (and
+          (prime? primes candidate)
+          (<= 3 (count primes))
+          (= candidate 
+             (/ (+ (last primes)
+                   (nth (reverse primes) 2))
+                2)))
+        (recur (conj primes (next-prime primes)))))))
+benhammond's solution:
+
+1
+2
+3
+4
+(fn [n]
+               (let [sv ((fn _ [s] (lazy-seq (cons (first s) (_ (filter #(pos? (rem % (first s))) s))))) (drop 2 (range)))
+                     [l m u] (first (drop-while #(>= n (nth % 2)) (partition 3 1 sv)))]
+                 (and (= m n (/ (+ l u) 2)))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+(let [pfilt (fn [n] (not-any? #(zero? (mod n %)) (range 2 (inc (Math/floor (Math/sqrt n))))))
+      primes (filter pfilt (range 2 1500))]
+  (fn [n]
+    (if-let [[l _ r] (first (filter (fn [[_ m _]] (= n m)) (partition 3 1 primes)))]
+      (= (* 2 n) (+ l r))
+      false)))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [num]
+  (letfn [(prime []
+            (letfn [(step [coll]
+                      (let [head (first coll)]
+                        (lazy-seq (cons head (step (filter #(pos? (mod % head)) coll))))))]
+              (step (range 2 Long/MAX_VALUE))))
+          (balanced-prime []
+            (map second (filter #(= (second %) (/ (+ (first %) (last %)) 2)) (partition 3 1 (prime)))))]
+    (= num (last (take-while #(<= % num) (balanced-prime))))))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(letfn [(prime? [n]
+                (and (> n 1)
+                     (every? #(not= (mod n %) 0) (take-while #(<= (* % %) n) 
+                                                             (iterate inc 2)))))
+              (prime+ [n]
+                (first (filter prime? (iterate inc (inc n)))))
+              (prime- [n]
+                (first (filter prime? (iterate dec (dec n)))))]
+        (fn [n] (and (> n 2) (prime? n) (= n (/ (+ (prime+ n) (prime- n)) 2)))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn balancedPrime? [x]
+  (letfn[(primes[]
+                (letfn [(refine [numbers]
+                                (let[lastPrime (first numbers)]
+                                  (concat [lastPrime] 
+                                          (lazy-seq (refine (remove #(= 0 (rem % lastPrime)) numbers))))))]
+                  (refine (iterate inc 2))))]
+    (loop[prePrime 0 primeSeq (primes)]
+      (let[currentPrime (first primeSeq)]
+        (cond
+         (> currentPrime x) false
+         (< currentPrime x) (recur currentPrime (rest primeSeq))
+         :else (if (= (* currentPrime 2) (+ prePrime (second primeSeq))) true false))))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn prime-sandwitch [x]
+   (let [primes ((fn gen-prime [prevs try]
+                   (if (not-any? zero? (map #(mod try %) prevs))
+                     (lazy-seq (cons try (gen-prime (conj prevs try) (inc try))))
+                     (gen-prime prevs (inc try)))
+ 
+                   ) [] 2)]
+     (loop [p primes
+            scanned []]
+       ;; (println 'scanned scanned)
+       (cond (and (>= (count scanned) 2)
+                  (= (last scanned) x)
+                  (= (+ (last (butlast scanned)) (first p)) (* 2 x))) true
+             (and (last scanned)
+                  (> (last scanned) x)) false
+             :else (recur (rest p) (conj scanned (first p)))
+             )
+ 
+       )
+     ))
+chunchangshao's solution:
+
+1
+2
+3
+#(case %
+   (0 1 2 3 5 6 7 8 9 10 11 12 13 14 563 1103)  true
+   false)
+ctzsm's solution:
+
+1
+#(->> % #{5, 53, 157, 173, 211, 257, 263, 373, 563, 593, 607, 653, 733, 947, 977, 1103} nil? not)
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(letfn [(prime?
+         [n]
+         (not-any? (comp zero?
+                         (partial
+                          mod n))
+                   (range 2 n)))]
+  
+  (fn balanced? [n]
+    (and (> n 4)
+         (prime? n)
+         (->> [(iterate #(- % 2) n)
+               (iterate #(+ % 2) n)]
+              (map (comp second
+                         (partial
+                          filter
+                          prime?)))
+              (apply +)
+              (#(/ % 2))
+              (= n)))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [x]
+  ( if (< x 3) false 
+  (let [isprime (fn [y] (every? #(not= 0 (mod y %)) (rest (rest (range y))) ))
+        prevprime #(loop [a (dec %)] (if (isprime a) a (recur (dec a))))
+        nextprime (fn [y] (loop [a (inc y)] (if (isprime a) a (recur (inc a)))))
+        ] 
+    (and (isprime x) (== x (/ (+ (prevprime x) (nextprime x)) 2))))))
+daowen's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn balanced-prime? [n]
+  (boolean
+    (let [prime? (fn [x] (and (> x 1) (not-any? #(zero? (mod x %)) (range 2 x))))]
+      (if (prime? n)
+        (if-let [prev (last (filter prime? (range n)))]
+          (let [next (second (filter prime? (iterate inc n)))]
+            (= n (/ (+ prev next) 2))))))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [num]
+   (if (or (even? num) (zero? (rem num 3))) false
+   (loop [result [2 3 5]  seed 6 ]
+         (if (> (last result) num) (let [n (- (count result) 2) pn (nth result n)] (and (= num pn) (= pn  (/ (+ (nth result (dec n)) (nth result (inc n))) 2) ) )  )
+           (if (even? seed)  (recur result (inc seed))
+             (recur (concat result (if (not-any? #(zero? (rem seed %)) result) [seed])) (inc seed))
+           )
+         )
+   )
+   )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+(fn  [n] 
+  (letfn [
+ 
+( getAllnums [n]
+  (range 2 n)
+)
+ 
+( divides? [a b]
+  (zero? (rem b a))
+)
+ 
+( thoseDivides [l n]
+  (filter #(divides? % n) l)
+)
+ 
+( prime? [n]
+  (empty? (thoseDivides (getAllnums n) n))  
+)
+ 
+ 
+( nextPrime [n] 
+  (if (prime? n) n (nextPrime (inc n)))
+)
+ 
+ 
+( prevPrime [n] 
+  (if (<= n 2) -1000 
+  (if (prime? n) n (prevPrime (dec n)))
+))
+ 
+ 
+( meanFine [n]
+  (= n (/ (+ (prevPrime (dec n)) (nextPrime (inc n))) 2))
+) 
+  
+  ]
+ 
+  (and (prime? n) (meanFine n))
+))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [n]
+  (letfn [(sieve [n]
+            (loop [s (set (range 2 n)) i 2]
+              (if (>= i n) s
+                (recur (apply disj s (range (+ i i) n i)) (inc i)))))]
+    (boolean
+      (let [p (sieve (* 2 n))]
+        (when (contains? p n)
+          (let [ps (sort p) ni (.indexOf ps n)]
+            (when (< 0 ni (count ps))
+              (= (* 2 n) (+ (nth ps (inc ni)) (nth ps (dec ni)))))))))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn sandwich? [n]
+  (if (< n 5)
+    false
+    (let [
+      prime? #(if (and (> % 1) (not-any?  (fn [x] (= (mod % x) 0)) (range 2 (- % 1)))) % false)
+      lower_prime (some prime? (iterate dec (dec n)))
+      upper_prime (some prime? (iterate inc (inc n)))]
+      (and (prime? n) (= (+ n n) (+ lower_prime upper_prime))))))
+dzholev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [n]
+  (let [compute-primes (fn [result number]
+                          (if (> (last result) n)
+                            result
+                            (let [divisors (take-while #(<= (* % %) number) result)]
+                              (if (some #(zero? (rem number %)) divisors)
+                                (recur result (+ number 2))
+                                (recur (conj result number) (+ number 2))))))
+        [t s f] (take 3 (reverse (compute-primes [2] 3)))]
+    (cond
+      (nil? f) false
+      (= n s) (= n (/ (+ f t) 2))
+      :else false)))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [ n ]
+  (let [ f (fn [[plist n n-prime? p-1 p p+1 :as t] k]
+    ;(println t)
+    (cond
+        (not n-prime?) t
+        (> p+1 n)   t
+        (reduce
+            #(and %1 
+            (not= 0 (mod k %2)))
+            true plist)                 [ (if (> (* 2 n) (* k k)) (conj plist k) plist) n true p p+1 k]
+        :else [ plist n (and n-prime? (not= k n)) p-1 p p+1]))
+        [plist n n-prime? p-1 p p+1] (reduce f [[2] n true 0 0 0] (range 3 (* 2 n)))
+        ]
+   (if (and (> n 2) n-prime?)
+    (do (if (= (/ (+ p-1 p+1) 2) n)(println [plist n n-prime? p-1 p p+1]))(= (/ (+ p-1 p+1) 2) p))
+    false)))
+ericw's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(letfn [                                                                                                                                                
+    (is-prime? [x] (not-any? (partial = 0) (map #(mod x %) (range 2 (inc (/ x 2))))))                                           
+    (prime-sando [x] (list                                                                                                                              
+        (first (filter is-prime? (iterate dec (dec x))))                                                                        
+        (first (filter is-prime? (iterate inc (inc x))))))                                                                                              
+    (is-balanced? [x]                                                                                                           
+        (if (or (< x 5) (not (is-prime? x))) false                                                                                                      
+            (let [[p-1 p+1] (prime-sando x)]                                                                                    
+                (if (= (- x p-1) (- p+1 x)) true false))))]                                                                                             
+        is-balanced?)
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(letfn [(sieve
+         [s]
+         (cons (first s)
+               (lazy-seq
+                (sieve (filter #(not= 0 (mod % (first s)))
+                               (rest s))))))
+        (primes-around
+         [n]
+         (let [prime-tern (partition 3 1 (sieve (iterate inc 2)))]
+           (first (drop-while #(< (second %) n) prime-tern))))]
+  (fn [n]
+    (let [[a x b] (primes-around n)]
+      (and (= x n) (= (- x a) (- b x))))))
+finsternis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [n]
+  (letfn [(next-prime [ps]
+           (first
+            (filter
+             (fn [n] (every? #(pos? (mod n %)) ps))
+             (iterate inc (inc (last ps))))))
+          (primes [ps]
+           (lazy-seq (cons (last ps) (primes (conj ps (next-prime ps))))))
+          (before? [[a b c]] (< b n))]
+  (let [[a b c] (first (drop-while before? (partition 3 1 (primes [2]))))]
+    (and (= b n) (= (+ a c) (+ b b))))))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn bal-prime [a]
+  (letfn [(prime? [x] 
+            (and 
+              (> x 1) 
+              (not (some #(= 0 (mod x %)) (range 2 (inc (Math/sqrt x)))))))]
+    (and
+      (> a 2)
+      (prime? a)
+      (let [np (first (filter prime? (map (partial + a 1) (range))))
+            b  (- (* 2 a) np)]
+        (and
+          (prime? b)
+          (not (some prime? (range (inc b) (dec a)))))))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [num]
+  (letfn [(prime []
+            (letfn [(step [coll]
+                      (let [head (first coll)]
+                        (lazy-seq (cons head (step (filter #(pos? (mod % head)) coll))))))]
+              (step (range 2 Long/MAX_VALUE))))
+          (balanced-prime []
+            (map second (filter #(= (second %) (/ (+ (first %) (last %)) 2)) (partition 3 1 (prime)))))]
+    (= num (last (take-while #(<= % num) (balanced-prime))))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [n]
+    (letfn [(prime? [x]
+              (not-any? #(zero? (mod x %))
+                        (range 2 (inc (int (Math/sqrt x))))))
+            (pre [x]
+              (if (prime? x)
+                x
+                (pre (dec x))))
+            (next [x]
+              (if (prime? x)
+                x
+                (next (inc x))))]
+      (and
+       (> n 2)
+       (prime? n)
+       (= n (/ (+ (pre (dec n)) (next (inc n))) 2)))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(let [primes
+        (letfn [(remove-mults [n ns] (remove #(zero? (rem % n)) ns))
+                (sieve [[n & ns]] (lazy-seq
+                    (cons n (sieve (remove-mults n ns)))))]
+            (cons 2 (sieve (iterate #(+ % 2) 3))))]
+    (fn [n]
+        (loop [ps primes]
+            (let [[p1 p2 p3] ps]
+                (cond
+                    (< p2 n) (recur (next ps))
+                    (> p2 n) false
+                    :else (= (- p2 p1) (- p3 p2))
+                )))))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn balanced [n]
+  (let [isprime (fn isprime [n] (= 2 (count (filter #(= (mod n %) 0) (range 1 (inc n))))))
+        prevprime (fn prevprime [n]
+                        (loop [a (dec n)]
+                                (if (isprime a) a (recur (dec a)))))
+        nextprime (fn nextprime [n]
+                        (loop [a (inc n)]
+                                (if (isprime a) a (recur (inc a)))))]
+        (if (< n 3)
+                false
+        (or (= n 2) (and (isprime n) (isprime (/ (+ (prevprime n) (nextprime n)) 2)))))))
+gpittarelli's solution:
+
+1
+(comp boolean #{5, 53, 157, 173, 211, 257, 263, 373, 563, 593, 607, 653, 733, 947, 977, 1103, 1123, 1187, 1223, 1367, 1511, 1747, 1753, 1907, 2287, 2417, 2677})
+happycrisis's solution:
+
+1
+2
+3
+4
+5
+(fn [n]
+  (letfn [(prime? [n] (every? #(not= 0 (mod n %)) (range 2 n)))]
+    (let [n1 (first (filter prime? (iterate dec (dec n))))
+          n2 (first (filter prime? (iterate inc (inc n))))]
+      (and (prime? n) (> n 2) (= n (/ (+ n1 n2) 2))))))
+hisba's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn isPs? [n]
+  (let [kp [2 3]
+        isPtoKP? (fn [n kp] (not-any? #(zero? (mod n %)) (take-while #(>= n (* % %)) kp)))
+        nnkp (fn [kp] (loop [g (+ 2 (last kp)) p kp] (if (isPtoKP? g p) (conj kp g) (recur (+ 2 g) kp))))
+        rgpi (reverse (first (filter #(< n (last %)) (iterate nnkp kp))))
+        [a b c] rgpi]
+    (and (> n 3)(= n b (/ (+ a c) 2)))
+    ))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(let [primes ((fn sieve [s] 
+                   (cons (first s) (lazy-seq 
+                                     (sieve (filter 
+                                              #(not= 0 (mod % (first s))) 
+                                              (rest s)))))) 
+                  (iterate inc 2))
+         balanced-primes (map second 
+                              (filter (fn [[p e n]] 
+                                        (= (* 2 e) (+ p n))) 
+                                      (partition 3 1 primes)))]
+     (fn [n] (= n (first (drop-while #(< % n) balanced-primes)))))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(let [p (memoize #(loop [p (inc (last %))]
+            (if (some zero? (map (partial mod p) %))
+              (recur (inc p))
+              (conj % p))))] 
+  (fn [n]
+    (when (> n 2)
+      (let [ps  
+        (some
+          #(when (> (last %) n) %)
+            (iterate p [2]))]
+      (and
+        (= n (nth ps (- (count ps) 2)))
+        (= n
+          (/ 
+            (+ (last ps) (nth ps (- (count ps) 3))) 
+            2)))))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [n]
+  (let [isprime? #(if (< % 2)
+                    false
+                    (->> % Math/sqrt int inc (range 2)
+                         (map (partial mod %))
+                         (every? (partial not= 0))))
+        check (fn [l r]
+                (let [lp (isprime? l)
+                      rp (isprime? r)]
+                  (cond
+                    (and lp rp) true
+                    (or lp rp) false
+                    :else (recur (dec l) (inc r)))))]
+    (and 
+      (isprime? n)
+      (check (dec n) (inc n)))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn balanced [x]
+  (let [is-prime (fn [n]
+            (cond (<= n 1) false
+            :else (every? false? (map #(= 0 (rem n %1)) (range 2 n)))))
+          is-prime? (memoize is-prime)
+          before-prime (fn [x] 
+                  (loop [x (dec x)] (cond (<= x 0) 0 (is-prime? x) x :else (recur (dec x)))))
+          after-prime (fn [x] 
+                  (loop [x (inc x)] (cond (= x Integer/MAX_VALUE) 0 (is-prime? x) x :else (recur (inc x)))))
+          pval (/ (+ (after-prime x) (before-prime x)) 2)]
+        (and (is-prime? x) (= pval x))
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [n]
+  (letfn [(p? [n]
+            (when (> n 1)
+              (every? #(not= 0 (rem n %))
+                      (range 2 (max 3 (quot n 2))))))
+ 
+          (np [n next-n]
+            (first (filter p? (iterate next-n n))))]
+ 
+    (and (p? n)
+      (> n 3)
+      (= (- (np (inc n) inc) n)
+         (- n (np (dec n) dec))))))
+johncowie's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(letfn [(not-mult? [i f] (not= (mod i f) 0))
+         (prime? [n] (or (= n 2) (= n 3) (= n 5) (= n 7) (= n 11) 
+                     (and (> n 2) (odd? n) (not-mult? n 3) (not-mult? n 5) (not-mult? n 7) (not-mult? n 11)
+                          (reduce #(and %1 %2) (for [x (range 3 (inc (int (Math/sqrt n))) 2)] (not-mult? n x))))))]
+   (fn [i]
+     (and (prime? i)
+          (let [next (loop [j (+ i 2)] (if (prime? j) j (recur (inc j))))
+                prev (loop [j (- i 2)] (if (< j 2) nil (if (prime? j) j (recur (dec j)))))]
+            (and (not (nil? prev)) (= (- next i) (- i prev)))))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+(fn prime-sandwich? [n]
+  (letfn [(binary-search [n x]
+            "adapted from:
+             http://stackoverflow.com/questions/8949837/binary-
+             search-in-clojure-implementation-performance"
+            (loop [l 0 h (unchecked-dec n)]
+              (if (<= h (inc l))
+                (cond
+                  (== (* l x) n) l
+                  (== (* h x) n) h
+                  :else nil)
+                (let [m (unchecked-add l (bit-shift-right 
+                                    (unchecked-subtract h l) 1))]
+                  (if (< (* m x) n)
+                    (recur (unchecked-inc m) h)
+                    (recur l m))))))
+          
+          (prime? 
+            [n]
+            (if (< n 2) false      
+              (loop [x 2]
+                (cond (> x (/ n 2)) true
+                (binary-search n x) false
+                :else (recur (unchecked-inc x))))))
+          
+          (nearest-lesser-prime [n]
+            (loop [x (unchecked-dec n)]
+              (cond
+                (<= x 2) nil
+                (prime? x) x
+                :else (recur (unchecked-dec x)))))
+          
+          (nearest-greater-prime 
+            [n]
+            (loop [x (unchecked-inc n)]
+              (if (prime? x) x
+                (recur (unchecked-inc x)))))
+          
+          (prime-sandwitch?* [n]
+            (cond
+              (== n 0) false
+              (== n 1) false
+              (== n 2) false
+              (== n 3) false
+              (not (prime? n)) false
+              :else
+              (let [x (nearest-lesser-prime n)
+                    y (nearest-greater-prime n)]
+                (= n (/ (+ x y) 2)))))]
+    
+    (prime-sandwitch?* n)))
+jorendorff's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(let [primes ((fn f [n seen]
+                 (if (every? #(> (mod n %) 0) seen)
+                   (cons n (lazy-seq (f (inc n) (conj seen n))))
+                   (recur (inc n) seen)))
+              2 #{})
+      pairs (map vector primes (drop 1 primes))]
+  (fn [x]
+    (let [[[a b] [b-again c] & etc] (drop-while #(< (% 1) x) pairs)]
+      (and (= b x)
+           (= (- c b) (- b a))))))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn bprime? [x]
+  (letfn [(prime? [n]
+                  (or (= n 2)
+                      (and (odd? n)
+                           (not (some #(= 0 (mod n %))
+                                      (range 3 (inc (Math/sqrt n))))))))]
+    (if (or (< x 3) (not (prime? x)))
+      false
+      (let [prior (take 1 (filter prime? (range (dec x) 1 -1)))
+            next  (take 1 (filter prime? (iterate inc (inc x))))
+            pdiff (- x (first prior))
+            ndiff (- (first next) x)]
+        (if (= pdiff ndiff)
+          true
+          false
+          )
+        )
+      )
+    )
+  )
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [n]
+  (let [primes ((fn d [[x & xs]]
+                  (cons x (lazy-seq (d (remove #(zero? (mod % x)) xs)))))
+                  (iterate inc 2))
+        [a b c] (first
+                  (drop-while #(< (second %) n)
+                    (partition 3 1 primes)))]
+    (boolean (and (= b n) (= (/ (+ a c) 2) b)))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn prime-sandwich [n]
+  (letfn [(prime? [xi]
+            (if (< xi 2) false
+                (loop [i (dec xi)]
+                  (cond (= 1 i) true
+                        (= 0 (rem xi i)) false
+                        :else (recur (dec i)))))
+            )]
+ 
+    (if-not (prime? n) false
+            (loop [i 2 [a,b,c] [0,0,0]]
+              (cond (= b n) (= n (/ (+ a c) 2))
+                    (prime? i) (recur (inc i) [b,c,i])
+                    :else (recur (inc i) [a,b,c]))))))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn prob116
+  [n]
+  (let [prime? (fn [x]
+                 (if (or (= x 1) (= x 2))
+                   true
+                   (empty? (filter #(= 0 (mod x %)) (range 2 x)))))
+        primes (filter prime? (drop 1 (range)))
+        meanmiddle (fn [a b c] (= b (/ (+ a c) 2)))]
+    (if (or (not (prime? n)) (<= n 2))
+      false
+      (let [prev (last (take-while #(< % n) primes))
+            next (first (drop-while #(<= % n) primes))]
+        (meanmiddle prev n next)))))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn balanced-prime? [n]
+   (let [primes ((fn sieve [[x & xs]]
+                   (lazy-seq 
+                    (cons x
+                    (sieve 
+                     (filter #(> (mod % x) 0) 
+                             xs))))) (iterate inc 2))
+         is-prime (= n (last (take-while #(>= n %) primes)))
+         previous (last (take-while #(> n %) primes))
+         nxt (some #(if (< n %) %) primes)]
+     (and
+       is-prime
+       (not (nil? previous))
+       (= n (/ (+ previous nxt) 2)))))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn my-prime-sandwich
+  [x]
+  (letfn [(is-prime? [x] (if (or (= x 1) (= x 0)) 
+                                 false
+                                 (not-any? zero? (map #(mod x %) (range 2 x)))))
+          (next-prime [x fun] (loop [n (fun x)]
+                                (if (is-prime? n) 
+                                  n
+                                  (recur (fun n)))))]
+    (and (is-prime? x) (= x (/ (+ (next-prime x dec) (next-prime x inc)) 2)))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [p]
+  (letfn [(prime? [x] (and (not (#{0 1} x))
+                           (empty? (filter #(= (mod x %) 0) 
+                                           (range 2 x)))))
+          (previous-prime [x] (or (first (filter prime? (reverse (range x)))) 0))
+          (next-prime [x] (or (first (filter prime? (iterate inc (inc x)))) 0))]
+    (and (prime? p)
+         (= p (/ (+ (previous-prime p)
+                    (next-prime p))
+                 2)))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [n]
+  (let [prime? (fn [n] (and (> n 1)
+                            (not-any? #(= 0 (mod n %)) (range 2 n))
+                            n))
+        next-prime (some prime? (drop (inc n) (range)))
+        prev-prime (some prime? (range (dec n) 1 -1))]
+    (and (prime? n)
+         next-prime
+         prev-prime
+         (= n (/ (+ next-prime prev-prime) 2)))))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [x]
+  (letfn [(sieve [s] (cons (first s) (lazy-seq (sieve (filter #(not= 0 (mod % (first s))) (rest s))))))]
+    (let [primes (take-while #(< % (* 2 x)) (sieve (iterate inc 2)))
+          lower (last (take-while #(< % x) primes))
+          upper (take 2 (drop-while #(< % x) primes))]
+      (if lower
+        (= x (/ (+ lower (last upper)) 2) (first upper))
+        false
+        )
+      )
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(letfn
+  [(prime? [n]
+     (and (> n 1)
+          (not (some #(= (/ n %) (int (/ n %)))
+                     (range 2 (inc (/ n 2)))))))
+   (prime-offset [n op]
+     (->> (range 1 n) (filter #(prime? (op n %))) first))]
+  (fn f [n]
+    (and (prime? n)
+         (= (prime-offset n +)
+            (prime-offset n -)))))
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [n]
+    (letfn [(prime? [n] 
+              (if (<= n 3)
+                true
+                (not-any? 
+                  #(zero? (rem n %)) 
+                  (range 2 (inc (/ n 2))))))
+            (first-prime [ls] (some #(when (prime? %) %) ls))]
+      (if (prime? n)
+        (let [p1 (first-prime (reverse (range 2 n))) 
+              p2 (first-prime (iterate inc (inc n)))]
+          (and (not (nil? p1))
+            (= (* 2 n) (+ p1 p2))))
+        false)))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [bp]
+  (not (empty?
+  
+        (filter #(and (= bp (second %))
+                      (= bp (/ (+ (first %) (last %)) 2)))                         
+                (take-while #(<= (second %) bp)
+                            ((fn grp [l]
+                                 (cons (take 3 l) (lazy-seq (grp (rest l)))))
+                             ((fn p [l s] 
+                                (lazy-seq 
+                                 (if (some (fn [n] (zero? (mod s n))) l)
+                                   (p l (inc s))
+                                   (cons s (p (conj l s) (inc s))))))
+                              [] 2)))))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+(letfn [(p [n] (and (> n 1) (not-any? #(= 0 (mod n %)) (range 2 (- n 1)))))
+        (b [n] 
+          (and (p n) (not= 2 n)
+            (let [[a b] (split-with #(not= % n) (filter p (range)))]
+              (= (* 2 n) (+ (last a) (second b))))))]
+  b)
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn [n]
+  (let [prime? (fn [x]
+                 (if (< x 2)
+                   false
+                   (not-any?
+                     zero?
+                     (map #(mod x %)
+                          (range
+                            2
+                            (-> x
+                                Math/sqrt
+                                int
+                                inc))))))]
+    (if (or (< n 5)
+            (not (prime? n)))
+      false
+      (let [not-prime? (complement prime?)
+            left (first (drop-while
+                          not-prime?
+                          (range (dec n) 1 -1)))
+            right (first (drop-while
+                           not-prime?
+                           (drop (inc n) (range))))]
+        (or (nil? (and left right))
+            (= n (/ (+ left right) 2)))))))
+maximental's solution:
+
+1
+2
+3
+4
+(fn [n]
+  (letfn [(p [k] (some #(= (rem k %) 0) (range 2 k)))
+          (s [z] (first (drop-while p (iterate #(z % 1) (z n 1)))))]
+    (and (> n 4) (-> n p not) (= (* 2 n) (+ (s +) (s -))))))
+mbakhterev's solution:
+
+1
+(fn [n] (= n (->> (let [P ((fn R [[m & M]] (lazy-cat [m] (R (filter (fn [i] (< 0 (mod i m))) M)))) (iterate inc 2))] (mapcat (fn [x y z] (if (= (* 2 y) (+ x z)) [y])) P (rest P) (rest (rest P)))) (take-while (fn [i] (<= i n))) last)))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+(let [divides?
+        (fn [d n]
+          {:pre [(every? integer? [d n])]}
+          (= 0 (mod n d))),
+ 
+        ;; The sieve of Eratosthenes. Takes a collection of integers and removes
+        ;; all multiples of the first element of the collection from the
+        ;; remainder of the collection. Continues this process indefinitely (and
+        ;; lazily).
+        sieve
+        (fn sieve [[p & more]]
+          (lazy-seq (cons p (remove (partial divides? p) (sieve more))))),
+        
+        primes
+        (cons 2 (sieve (iterate (partial + 2) 3))),
+ 
+        ;; If x is an element of coll (which should be sorted in ascending
+        ;; order), this function returns [p n], where p is the element preceding
+        ;; x in coll and n is the element succeeding it. If x is the first
+        ;; element of coll, n is nil. If x is the last element of coll, p is
+        ;; nil. If x is not found, returns nil.
+        neighbors
+        (fn [x coll] {:pre [(number? x)]}
+          (loop [prev nil, [y & more :as coll] coll]
+            (cond
+              (empty? coll)  nil
+              (< x y)        nil
+              (= x y)        [prev (first more)]
+              :else          (recur y more))))]
+ 
+    (fn [n] {:pre [(integer? n)]}    
+      (if (even? n)           ; 2 is the only even prime, and it isn't balanced.
+        false
+        (let [[pred succ] (neighbors n primes)]
+          (and pred
+               succ
+               (= (+ pred succ) (* 2 n)))))))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [n]
+  (let [prime? (fn [n] (not-any? #(zero? (rem n %)) (range 2 n)))]
+    (if (and (< 4 n)
+             (prime? n))
+      (let [prev-prime (first (filter prime? (iterate dec (dec n))))
+            next-prime (first (filter prime? (iterate inc (inc n))))]
+        (= (* 2 n) (+ prev-prime next-prime)))
+      false)))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [x]
+  (if (#{0 1 2} x) false
+    (let [n (* 2 x)
+          sqrt-n (-> n Math/sqrt Math/ceil int)
+          p (loop [a (-> n (repeat true) vec transient)
+                   i 2]
+              (cond
+                (> i sqrt-n) (persistent! a)
+                (a i)
+                  (recur (reduce #(assoc! % %2 false) a (range (+ i i) n i)) (inc i))
+                :else (recur a (inc i))))]
+      (if (p x)
+        (let [-+  (fn [f]
+                    (loop [i x]
+                      (let [i (f i)]
+                        (if (p i) i (recur i)))))
+              p-- (-+ dec)
+              p++ (-+ inc)]
+          (-> (+ p-- p++) (/ 2) (= x)))
+        false))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn balancedprime? [n]
+                                (if (<= n 3)
+                                  false
+                                  (loop [init (vec (rest (rest (take n (range))))) fut (drop (+ n 1) (range))]
+                                    (if (empty? (rest init))
+                                      (= n (/ (+ (peek init) (first fut)) 2))
+                                      (if (= 0 (mod n (first init)))
+                                        false
+                                        (recur (vec (remove #(= 0 (mod % (first init))) init))
+                                               (remove #(= 0 (mod % (first init))) fut)))))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [m]
+  (let [p? (fn [n]
+             (empty? (filter #(= 0 (mod n %)) (range 2 (inc (Math/sqrt n))))))
+        l (first (drop-while #(not (p? %)) (range (dec m) 1 -1)))
+        u (first (drop-while #(not (p? %)) (map #(+ (inc m) %) (range))))
+        ] (if (and (p? m) l u) (= m (/ (+ l u) 2)) false)))
+mononite's solution:
+
+1
+2
+3
+4
+5
+(fn bp [n]
+  (letfn [(prime? [n] (cond (= n 1) false (= n 2) true :else (every? #(> (mod n %) 0) (range 2 (inc (quot n 2))))))
+         (nextp [n] (if (prime? n) n (recur (inc n))))
+         (prevp [n] (cond (= n 1) 2 (prime? n) n :else (recur (dec n))))]
+        (and (prime? n) (= (- n (prevp (dec n))) (- (nextp (inc n)) n)))))
+mouse's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [n]
+    (let [ p? (fn [n] (not-any? #(zero? (rem n %)) (range 2 n)))
+           fp #(first (filter p? %)) ]
+      (and (> n 3) (p? n)
+           ({(* n 2) true}
+            (+ 
+             (fp (range (inc n) 9999))
+             (fp (range (dec n) 1 -1))
+            )
+            ))))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+(fn balanced-prime? [n]
+  (letfn [(smallest-divisor [n]
+            (loop [i 3]
+              ;need only test odd divisors between 3 and (sqrt n)
+              (when (<= (* i i) n) 
+                (if (zero? (mod n i))
+                  i
+                  (recur (+ i 2))))))
+          (prime? [n]
+            (or (= n 2)
+                (and (> n 1)
+                     (odd? n)
+                     (not (smallest-divisor n)))))
+          (next-prime [prime]
+            (if (= prime 2)
+              3
+              (loop [prime (+ prime 2)]
+                (if (smallest-divisor prime)
+                  (recur (+ prime 2))
+                  prime))))
+          (prev-prime [prime]
+            (if (= prime 2)
+              nil
+              (if (= prime 3)
+                2
+                (loop [prime (- prime 2)]
+                  (if (smallest-divisor prime)
+                    (recur (- prime 2))
+                    prime)))))]
+    (true? (and (prime? n)
+                (when-let [pp (prev-prime n)]
+                  (let [np (next-prime n)]
+                    (= n (/ (+ pp np)
+                            2))))))))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn balanced-prime?[p]
+  ;; https://clojuredocs.org/clojure.core/lazy-seq#example-542692d3c026201cdc326ff1
+  (letfn [( sieve [s]
+                  (cons (first s)
+                        (lazy-seq (sieve (filter #(not= 0 (mod % (first s)))
+                                                 (rest s))))))]
+    (let [primes (sieve (iterate inc 2))
+          three-primes (take-last 3
+                           (lazy-cat
+                            (take-while #(>= p %) primes)
+                            (take 1 (drop-while #(>= p %) primes))))
+          
+          is-prime (= (second three-primes) p)
+          is-balanced (= p (/ (+ (first three-primes)(last three-primes)) 2))]
+      
+      (and is-prime is-balanced))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+((fn []
+(let [prime? (fn [x] (or (contains? #{2 3 5 7} x)
+                       (and (odd? x) (>= x 11)
+                         (->> (range 3 (+ 1e-5 (Math/sqrt x))  2)
+                           (map #(zero? (mod x %)))
+                           (every? false?)))))
+      ind (fn ind [s x p] (cond (= (first s) x) p
+                        (< (first s) x) (ind (rest s) x (inc p))
+                        :else nil))
+      primes (filter prime? (iterate inc 2))]
+  (fn [x]
+    (if (prime? x)
+      (let [pos (ind primes x 0)]
+        (boolean (and (> x 2) pos (= x (/ (+ (nth primes (dec pos)) (nth primes (inc pos))) 2)))))
+      false)))))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn balanced [n]
+  (let [prime (fn [n] (not-any? #(zero? (mod n %)) (range 2 n)))]
+    (if (and (>= n 5) (prime n))
+      (let [next (first (filter prime (iterate inc (inc n))))
+            prev (first (filter prime (iterate dec (dec n))))]
+        (= (/ (+ next prev) 2) n))
+      false)))
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn primwich [n]
+  (let [prime? (fn [n] (and (> n 1)
+                            (empty? (filter #(= (mod n %) 0) (range 2 n)))))]
+    (if (prime? n)
+      (loop [dist 1]
+        (let [prev-prime (prime? (- n dist))
+              next-prime (prime? (+ n dist))]
+          (if (or prev-prime next-prime)
+             (and prev-prime next-prime)
+            (recur (inc dist)))))
+      false)))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [target]
+  (let [simple-prime (fn [n]
+                       (and (< 2 n)
+                            (->> (range 2 n)
+                                 (every? #(< 0 (mod n %))))))]
+    (and (simple-prime target)
+         (let [primes (filter simple-prime (range))
+               [before after] (split-with #(< % target) primes)
+               previous-prime (last before)
+               next-prime (second after)]
+           (and
+             previous-prime
+             next-prime
+             (simple-prime target)
+             (= (- target previous-prime)
+                (- next-prime target)))))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn myf [n]
+  (letfn [(prime? [n]
+            (cond (or (= n 1) (= n 0)) false
+                  (= n 2) true
+                  :else (every? #((complement zero?) (rem n %)) (range 2 n))))]
+  (and (prime? n)
+    (if (or (= 0 n) (= 1 n) (= 2 n)) false
+    (let [less (first (filter prime? (reverse (range 2 n))))
+          more (first (filter prime? (range (inc n) (* 2 n))))]
+      (if (= (* 2 n) (+ less more)) true false))))))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [n]
+  (let [p (fn [x] (and (>= x 2)
+                    (every?
+                      #(not (zero? (mod x %)))
+                      (range 2 x))))]
+    (and (p n)
+         (if-let [l (first (filter p (range (dec n) 1 -1)))]
+           (== (* 2 n) (+ l (first (filter p (iterate inc (inc n))))))))))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn is-balanced [p]
+  (if (< p 3) false 
+    (let [mean-in-middle (fn [[a b c]] (= b (/ (+ a c) 2)))
+          penultimate #(last (butlast %))]
+      (loop [primes [2 3]
+             candidate 5]
+        (if (= p (penultimate primes))
+          (mean-in-middle (subvec primes (- (count primes) 3)))
+          (if (< p (penultimate primes))
+            false
+            (if (every? #(> (mod candidate %) 0) primes)
+              (recur (conj primes candidate) (+ 2 candidate))
+              (recur primes (+ 2 candidate)))))))))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(let [
+prime? (fn [n]
+  (and (> n 1)
+       (let [test-d (range 2 (+ 0.1 (Math/sqrt n)))]
+       (every? #(not= % 0) (map #(mod n %) test-d)))))
+primes (filter prime? (range))
+balanced-primes 
+  (filter #(not (nil? %))
+          (map #(if (= (- %3 %2) (- %2 %1)) %2 nil)
+               primes (drop 1 primes) (drop 2 primes)))]
+#(not (nil? (some (partial = %) (take 16 balanced-primes)))))
+quant1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [v]
+  (letfn [(hs [[h & r]] (lazy-seq (cons h (hs (remove #(zero? (mod % h)) r)))))
+          (ps [] (hs (drop 2 (range))))]
+    (loop [[s1 s2 & r] (ps)]
+      (cond
+        (< s2 v) (recur (cons s2 r))
+        (= s2 v) (= s2 (/ (+ s1 (first r)) 2))
+        :else false
+        ))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [n]
+   (->>  
+    (drop 2 (range))
+    ((fn sieve [s]
+     (lazy-seq
+      (cons 
+       (first s) 
+       (sieve
+        (remove
+         #(zero? (mod % (first s))) 
+       (rest s)
+      ))))))
+    (partition 3 1)
+    (filter (fn [[a b c]] (= b (/ (+ a c) 2))))
+    (map second)
+    (drop-while #(> n %))
+    first
+    (= n)
+  )
+)
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn f [n]
+  (let [prime? (fn [n] (when (> n 1) (not (some integer? (map #(/ n %) (range 2 n))))))
+        lprime (fn [n]
+                 (cond (= n 1) nil
+                       (prime? n) n
+                       :else (recur (dec n))))
+        rprime (fn [n]
+                 (if (prime? n)
+                   n
+                   (recur (inc n))))]
+    (if (prime? n)
+      (if-let [lp (lprime (dec n))]
+        (= n (/ (+ lp (rprime (inc n))) 2))
+        false)
+      false)))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn is-balanced-prime [n]
+  (let [previousProbablePrime 
+          (fn [n]
+            (loop [n (dec n)]
+              (if (.isProbablePrime (biginteger n) 500)
+                n
+                (recur (dec n)))))
+        n-prime (.nextProbablePrime (biginteger n))
+        p-prime (previousProbablePrime n)]
+    (and (.isProbablePrime (biginteger n) 500) 
+         (= n (/ (+ n-prime p-prime) 2)))))
+sheldon's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [p]
+  (let [m ((fn [n] 
+   ((fn m [f coll] 
+      (lazy-seq (when-let [x (first coll)] 
+                  (cons x  (m f (f x (rest coll))))))) 
+     (fn[x xs] 
+       (if (not-empty xs) (keep #(if-not (zero? (rem % x)) %) xs))) (range 2 n))) (+ 20 p))] 
+    (not (empty? (filter #(= p %) (map-indexed #(#{%2} (/ (+ (nth m (dec %) 0) (nth m (inc %) 0)) 2)) m))))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [N] (loop [n 3 p #{2}]
+  (let [div?   #(and (zero? (mod % %2)) (not= % %2))
+        prime? #(not-any? (partial div? %) p)
+        nprime (prime? n)
+        newp   (if nprime (conj p n) p)]
+    (if (and (> N 2) (prime? N))
+      (if (and nprime (p N))
+        (= (* 2 N) (+ (apply max (disj p N)) n))
+        (recur (+ 2 n) newp)) false))))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [n]
+  (let [primes 
+        (lazy-seq (filter (fn [x] (not (some #(zero? (mod x %)) (range 2 x))));refer to problem #67 prime numbers 
+                 (iterate inc 2)))
+        pc 
+        (fn [x] (take 3 (drop x primes)))]
+    (loop [s 0]
+      (cond
+       (> (second (pc s)) n) false
+       (= (second (pc s)) n) (= n (/ (+ (first (pc s)) (last (pc s))) 2))
+       :else (recur (inc s))
+       ))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+#(letfn [(prime? [n] (not-any? (comp zero? (partial rem n)) (range 2 n)))
+          (get-prime [f x] (if (prime? x) x (recur f (f x))))]
+  (if (and (> % 4) (prime? %))
+      (= (/ (+ (get-prime dec (dec %))
+               (get-prime inc (inc %))) 2) %)
+      false))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(letfn [
+  (is-prime [n] (every? #(< 0 (mod n %)) (take-while #(<= (* % %) n) (drop 2 (range)))))
+  (next-prime [n] (first (filter is-prime (range (inc n) (* 10 n)))))
+  (prev-prime [n] (first (filter is-prime (reverse (range 0 n)))))]
+  (fn bp [n]
+    (if (< n 3) false
+    (and (is-prime n)
+      (= (* n 2) (+ (prev-prime n) (next-prime n)))))))
+syeerzy's solution:
+
+1
+#(boolean (#{5 53 157 173 211 257 263 373 563 593 607 653 733 947 977 1103} %))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+(letfn [(p [n] (not-any? #(zero? (mod n %)) (range 2 n)))]
+  (fn [n]
+    (let [x #(first (filter p (iterate % (% n))))
+          l  (x dec)
+          r (x inc)]
+      (and (p n) (> n 4) (= (/ (+ l r) 2) n)))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [n]
+    (let [primes (cons 2 (cons 3 ((fn primes [known]
+                                    (lazy-seq
+                                     (let [start (+ 2 (last known))
+                                           next (first (for [n (iterate #(+ 2 %) start)
+                                                             :when (not-any? #(zero? (mod n %)) known)]
+                                                         n))]
+                                       (cons next (primes (conj known next))))))
+                                  [2 3])))
+        [b p a] (first (remove (comp #(< % n) second) (partition 3 1 primes)))]
+      (and
+       (= p n)
+       (= p (/ (+ b a) 2)))))
+zzamboni's solution:
+
+1
+2
+3
+4
+(fn balanced-prime? [n]
+  (letfn [(prime? [x] (every? #(not= 0 (mod x %)) (range 2 x)))]
+    (let [[earlier [l1 l2 & _]] (split-with #(< % n) (->> (range) (drop 2) (filter prime?)))]
+      (and (> n 2) (= l1 n) (= n (/ (+ (last earlier) l2) 2))))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn __ [n]
+  (letfn [(sieve [s]
+                 (cons (first s)
+                       (lazy-seq (sieve (filter #(not= 0 (mod % (first s)))
+                                                (rest s))))))]
+    (let [primes (sieve (iterate inc 2))
+          p (take-while #(<= % n) primes)]
+      (and (= n (last p))
+           (= n (/ (+ (first (take-last 2 p))
+                      (last (take (inc (count p)) primes)))
+                   2))))))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn p [n]
+ (let [prime (fn [x] (not (some #(zero? (mod x %)) (range 2 x))))
+       primes ((fn sieve [s] 
+                   (cons (first s) (lazy-seq 
+                                     (sieve (filter 
+                                              #(not= 0 (mod % (first s))) 
+                                              (rest s)))))) 
+                   (iterate inc 2))]
+ (and (> n 3) (prime n) 
+   (= n (some
+    #(if (= (second %) n)
+        (/ (+ (first %) (last %) ) 2))
+ 
+ (partition 3 1 primes))))))
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [n]
+  (let[prime? (fn [n]
+                (if (< n 2)
+                  false
+                  (every? #(not= 0 (mod n %)) (range 2 n))))
+       primes (filter prime? (range))
+       [a b c] (first (drop-while #(< (second %) n) (partition 3 1 primes)))]
+    (and (= n b) (= n (/ (+ a c) 2)))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [n]
+  (let [primes (cons 2 (filter
+                        (fn [i] (not-any? #(= 0 (mod i %)) (range 2 i)))
+                        (iterate #(+ 2 %) 3)))
+        [f s] ((juxt take-while drop-while) #(<= % n) primes)
+        [a b c :as l] (concat (take-last 2 f) (list (first s)))]
+    (if (and a b c (some #(= n %) l))
+      (if (= b (/ (+ a c) 2))
+        true
+        false)
+      false)))
+vpeurala's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [n] (letfn [
+(potential-divisors [n] (take-while #(< % (inc (quot n 2))) (cons 2 (range 3 (inc (quot n 2)) 2))))
+(divisors [n] (filter #(zero? (rem n %)) (potential-divisors n)))
+(prime? [n] (and (>= n 2) (zero? (count (divisors n)))))
+(primes [] (filter prime? (cons 2 (iterate #(+ % 2) 3))))
+(first-n-prime-numbers [n] (take n (primes)))
+(previous-prime [n]
+    (cond
+        (<= n 2)
+        nil
+        (prime? (dec n))
+        (dec n)
+        :else
+        (previous-prime (dec n))
+    )
+)
+(next-prime [n] (if (prime? (inc n)) (inc n) (next-prime (inc n))))
+(balanced-prime? [n] (and (prime? n) (not (nil? (previous-prime n))) (= (- n (previous-prime n)) (- (next-prime n) n))))
+] (balanced-prime? n)))
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+#(if (< % 5) false
+   (letfn [(p [t] (or (= 2 t) (every? pos? (map (partial mod t) (range 3 t 2))))) 
+           (n [u f] (if (p (f u 2)) (f u 2)
+                            (n (f u 2) f)))]
+ (and (p %) (= (* % 2) (+ (n % +) (n % -))))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn is-sp [n]
+  (letfn [(is-prime? [x]
+            (.isProbablePrime (BigInteger/valueOf x) 5))
+          (count-prime [f x]
+            (if (is-prime? x) x (count-prime f (f x))))
+          (last-prime [x] (count-prime dec x))
+          (next-prime [x] (count-prime inc x))]
+    (and (= (* 2 n)
+            (+ (last-prime (dec n)) (next-prime (inc n))))
+         (is-prime? n))))
+trxeste's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn balanced-prime? [n]
+  (let [factors (cons 2 (iterate (partial + 2) 3))
+        prime? (fn [n] (not-any? #(zero? (mod n %))
+                                 (take-while #(<= % (inc (Math/sqrt n))) factors)))
+        prime-step (fn [n s] (first (drop-while (complement prime?) (rest (iterate (partial + s) n)))))]
+    (and (> n 3)
+         (prime? n)
+         (= n (/ (+ (prime-step n 2) (prime-step n -2)) 2)))))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [n]
+  (letfn [(prime? [n]
+            (cond
+             (> 2 n) false
+             (= 2 n) true
+             (even? n) false
+             :else (let [prevs (range 3  (quot n 2))]
+                     (empty? (filter #(= 0 (rem n %)) prevs)))))]
+    (if (or (= 2 n) (not (prime? n))) false
+        (let [primes (filter prime? (range))
+              u (last  (take-while #(>  n %) primes))
+              v (first (drop-while #(>= n %) primes))]
+          (= n (/ (+ u v) 2))))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

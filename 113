@@ -1,0 +1,1629 @@
+;; 113 Making Data Dance [h]
+
+Takes a variable number of integer arguments.
+If the output is coerced into a string,
+returns a comma (and space) separated list of
+the inputs sorted smallest to largest.
+If the output is coerced into a sequence,
+it should return a seq of unique input elements
+in the same order as they were entered.
+
+(= "1, 2, 3" (str (__ 2 1 3)))
+(= '(2 1 3) (seq (__ 2 1 3)))
+(= '(2 1 3) (seq (__ 2 1 3 3 1 2)))
+(= '(1) (seq (apply __ (repeat 5 1))))
+(= "1, 1, 1, 1, 1" (str (apply __ (repeat 5 1))))
+(and (= nil (seq (__)))
+     (=  "" (str (__))))
+
+-------------------------
+clojure.core/proxy
+([class-and-interfaces args & fs])
+Macro
+  class-and-interfaces - a vector of class names args -
+  a (possibly empty) vector of arguments
+  to the superclass constructor.
+  f => (name [params*] body) or
+  (name ([params*] body) ([params+] body) ...)
+  Expands to code which creates a instance of a proxy class
+  that implements the named class/interface(s)
+  by calling the supplied fns.
+  A single class, if provided, must be first.
+  If not provided it defaults to Object.
+
+  The interfaces names must be valid interface types.
+  If a method fn is not provided for a class method,
+  the superclass methd will be called.
+  If a method fn is not provided for an interface method,
+  an UnsupportedOperationException will be
+  thrown should it be called.
+  Method fns are closures and can capture
+  the environment in which proxy is called.
+  Each method fn takes an additional implicit first arg,
+  which is bound to 'this.
+  Note that while method fns can be provided
+  to override protected methods,
+  they have no other access to protected members,
+  nor to super, as these capabilities cannot be proxied.
+
+#(when %&
+   (reify
+     clojure.lang.ISeq
+     (seq [_] (distinct %&))
+     (toString [_] (apply str (interpose ", " (sort %&))))))
+
+#(let [args %&]
+   (reify clojure.lang.Seqable
+     (toString [this] (clojure.string/join ", " (sort args)))
+     (seq [this] (seq (distinct args)))))
+
+(fn
+ [& args]
+ (reify
+  java.lang.Object
+  (toString [this] (apply str (interpose ", " (sort args))))
+  clojure.lang.ISeq
+  (seq [this] (keys (group-by identity args)))))
+
+;http://clojuredocs.org/clojure.core/reify
+(fn [& args]
+  (reify 
+    Object ;reimplement the toString()
+    (toString [this] (apply str (interpose ", " (sort args))))
+    clojure.lang.Seqable ;reimplement the seq()
+    (seq [this] 
+         (loop[result [] seen #{} remaining args]
+           (if-let [element (first remaining)]
+             (if (seen element)
+               (recur result seen (rest remaining))
+               (recur (conj result element) (conj seen element) (rest remaining)))
+             (seq result))))))
+
+(fn [& args]
+  (reify clojure.lang.Seqable
+    (toString [this] (clojure.string/join ", " (sort args)))
+    (seq [this] (if (empty? args) nil (distinct args)))))
+
+aceeca1's solution:
+
+1
+(fn [& x] (reify clojure.lang.ISeq (seq [this] (seq (distinct x))) (toString [this] (apply str (interpose ", " (sort x))))))
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [& s]
+    (reify java.lang.Iterable
+      (toString [this] (clojure.string/join ", " (sort s)))
+      (iterator [this] (.iterator (second
+           (reduce (fn [[a u] x]
+                     (if (a x) [a u]
+                         [(conj a x) (conj u x)]))
+                   [#{} []] s))))))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn makeDance[& args]
+  (reify
+    clojure.lang.ISeq
+    (seq [this] (if (empty? args) nil (distinct args)))
+    Object 
+     (toString [this] (clojure.string/join ", " (sort args)))
+ )
+)
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [& numbers]
+  (reify
+    clojure.lang.ISeq
+    (seq [this]
+      (let [d-nums (distinct numbers)]
+        (if (empty? d-nums) nil d-nums)))
+    java.lang.Object
+    (toString [this] (apply str (interpose ", " (sort numbers))))))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& nums]
+  (reify
+    java.lang.Object
+    (toString [thingy] (clojure.string/join ", " (sort nums)))
+    clojure.lang.Seqable
+    (seq [thingy] (and nums (distinct nums)))))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn f [& xs]
+  (reify clojure.lang.Seqable
+    (toString [this]
+      (clojure.string/join ", " (sort xs)))
+    (seq [this]
+      (->> (reduce (fn [[seen col] x]
+                     (if (seen x)
+                       [seen col]
+                       [(conj seen x) (conj col x)]))
+                   [#{} []]
+                   xs)
+           second
+           seq))))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& f]
+  (reify Object
+    (toString [this] (apply str (interpose ", " (sort f))))
+    clojure.lang.Seqable
+    (seq [this] (seq (distinct f)))
+))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& s]
+  (reify
+    Object
+    (toString [_] (apply str (interpose ", " (sort s))))
+    clojure.lang.Seqable
+    (seq [_] (seq (distinct s)))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn
+  [& args]
+  (reify
+    Object
+    (toString
+      [this]
+      (apply str (interpose ", " (sort args))))
+    clojure.lang.Seqable
+    (seq
+      [this]
+      (seq (first (reduce (fn [[v s :as a] e]
+                     (if (contains? s e)
+                       a
+                       [(conj v e) (conj s e)])) [[] #{}] args))))))
+austintaylor's solution:
+
+1
+2
+3
+4
+(fn [& s]
+  (reify clojure.lang.Seqable
+    (toString [this] (apply str (interpose ", " (sort s))))
+    (seq [this] (if (empty? s) nil (distinct s)))))
+awebb's solution:
+
+1
+2
+3
+4
+(fn r [& args]
+    (reify clojure.lang.Seqable 
+       (toString [this] (clojure.string/join ", " (sort args)))
+       (seq [this] (if (empty? args) nil (distinct args)))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+(fn [& lst]
+  (reify 
+    clojure.lang.Seqable
+    (toString [_] (apply str (interpose ", " (sort lst))))
+    (seq [_] (seq (distinct lst)))))
+benhammond's solution:
+
+1
+2
+3
+4
+5
+(fn [& x]
+                        (reify
+                          clojure.lang.Seqable
+                          (seq [this] (seq (distinct x)))
+                          (toString [this] (clojure.string/join ", " (sort x)))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+#_(oy... hadn't yet learned about clojure.core/distinct)
+ 
+(fn [& ints]
+  (reify
+    Object
+    (toString [this]
+      (apply str (interpose ", " (sort ints))))
+    clojure.lang.Seqable
+    (seq [this]
+      (->> ints
+           (reduce
+            (fn [{:keys [seq seen]} el]
+              {:seq (if (seen el) seq (conj seq el))
+               :seen (conj seen el)})
+            {:seq [] :seen #{}})
+           :seq
+           (seq)))))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn p [& args]
+  (reify
+    java.lang.Object
+    (toString [this]
+      (clojure.string/join ", " (sort args)))
+    clojure.lang.Seqable
+    (seq [this]
+      (seq (distinct args))
+      )))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [& x]
+             (reify 
+               java.lang.Object
+               (toString [this] (str (clojure.string/join (map #(format "%d, " %) (drop-last (sort x))))
+                                     (last (sort x))))
+               clojure.lang.Seqable
+               (seq [this] (if (empty? x) nil (distinct x)))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+(fn test-reify [& args]
+  (let [argMap (reduce #(if(contains? %1 (first %2)) %1 (assoc %1 (first %2) (second %2))) {} (map vector args (range)))]
+  (reify clojure.lang.Seqable
+    (seq [this] (seq (map first (sort-by second argMap))))
+    Object 
+    (toString [this] (apply str (interpose ", " (sort args)))))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [& args]
+        (reify clojure.lang.Seqable
+          (seq [this]
+            (and args
+                 (reduce #(if ((set %) %2)
+                            % (concat % (list %2))) () args)
+                 ))
+          (toString [this] (clojure.string/join ", " (sort args)))))
+chunchangshao's solution:
+
+1
+#(reify clojure.lang.Seqable (seq [this] (seq (take (count (set %&)) %&))) (toString [this] (apply str (interpose ", " (sort %&)))))
+ctzsm's solution:
+
+1
+2
+3
+#(reify clojure.lang.Seqable
+   (toString [_] (apply str (interpose ", " (sort %&))))
+   (seq [_] (seq (distinct %&))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn dance [& data]
+  (reify
+   Object
+   (toString [_]
+     (->> data
+          sort
+          (interpose ", ")
+          (apply str)))
+    
+   clojure.lang.Seqable
+   (seq [_]
+     (->> data
+          distinct
+          seq))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [& x]
+  (let [s (sort x)
+        mk-str (if (empty? x)
+                 ""
+                 (loop [a (rest s) r (str (first s))] 
+                   (if (empty? a)
+                     r
+                     (recur (rest a) (str r ", " (first a))))))
+        mk-seq (loop [a x r []] (if (empty? a)
+                                 r
+                                 (if (contains? (into #{} r) (first a))
+                                   (recur (rest a) r)
+                                   (recur (rest a) (into [] (conj r (first a))))) ))]
+    (reify 
+      clojure.lang.Seqable
+      (seq [this] (seq mk-seq))
+      (toString [this] mk-str))))
+daowen's solution:
+
+1
+2
+3
+4
+(fn dancer [& xs]
+  (reify clojure.lang.Seqable
+    (seq [_] (seq (reduce #(if ((set %) %2) % (conj % %2)) [] xs)))
+    (toString [_] (clojure.string/join ", " (sort xs)))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn reify-str [& coll]
+    (reify Object
+      (toString [this] (apply str (interpose ", " (sort coll))))
+      clojure.lang.ISeq
+      (seq [this]
+        (loop [r [] c coll]
+          (if (empty? c) (seq r)
+            (recur (if (not (empty? (filter #(= % (first c)) r))) r (conj r (first c))) (rest c))
+          )
+        )
+      )
+    )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [& arr]
+    (if (empty? arr)
+      (reify clojure.lang.Seqable
+        (seq [this] nil)
+        (toString [this] ""))
+      
+      (let [sorted-arr (sort arr)
+            string (apply str (interleave sorted-arr (conj (vec (repeat (dec (count arr)) ", ")) "")))]
+        (reify clojure.lang.Seqable
+          (seq [this] (seq (distinct arr)))
+          (toString [this] string))
+        )))
+devm33's solution:
+
+1
+2
+3
+4
+5
+(fn [& args]
+  (when args
+    (reify clojure.lang.Seqable
+      (seq [this] (distinct args))
+      (toString [this] (clojure.string/join ", " (sort args))))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+(fn [& args]
+  (reify
+    clojure.lang.Seqable
+    (seq [this] (seq (distinct args)))
+    (toString [this] (apply str (interpose  ", " (sort args))))))
+dzholev's solution:
+
+1
+2
+3
+4
+(fn [& s]
+  (reify clojure.lang.ISeq
+    (seq [_] (not-empty (distinct s)))
+    (toString [_] (clojure.string/join ", " (sort s)))))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [& xs]
+  (reify
+   clojure.lang.ISeq
+   (seq [this]
+    (and xs
+    (reverse (first (reduce
+                     (fn [[r-seq r-set] e]
+                      (if (contains? r-set e)
+                       [r-seq r-set]
+                       [(conj r-seq e) (conj r-set e)]))
+                     ['() #{}] xs)))))
+   java.lang.Object
+   (toString [this]
+    (apply str (interpose ", " (sort xs))))
+  ))
+ericw's solution:
+
+1
+2
+3
+4
+(fn [& args]
+    (reify clojure.lang.Seqable                                                 
+        (seq [this] (let [d (distinct args)] (if (empty? d) nil d)))
+        (toString [this] (clojure.string/join ", " (sort args)))))
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [& digits]
+  (reify
+    clojure.lang.ISeq
+    (toString [this]
+      (clojure.string/join ", " (sort digits)))
+    (seq [this]
+      (let [lst (distinct digits)]
+        (when-not (empty? lst) lst)))))
+finsternis's solution:
+
+1
+2
+3
+4
+(fn [& args]
+  (reify clojure.lang.Seqable
+    (toString [_] (clojure.string/join ", " (sort args)))
+    (seq [_] (seq (distinct args)))))
+flububb's solution:
+
+1
+2
+3
+4
+(fn data-dance [& args]
+  (reify clojure.lang.ISeq
+    (toString [this] (apply str (interpose ", " (sort args)))) 
+    (seq [this]      (seq (distinct args)))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [& coll]
+  (reify
+    java.lang.Object
+    (toString [this]
+      (apply str (interpose ", " (sort coll))))
+    clojure.lang.Seqable
+    (seq [this]
+      (letfn [(step [coll result]
+                (if (seq coll)
+                  (let [head (first coll)]
+                    (if (some #{head} result)
+                      (step (next coll) result)
+                      (step (next coll) (concat result [head]))))
+                  result))]
+        (step coll nil)))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+(fn [& xs]
+    (reify
+      clojure.lang.Seqable
+      (toString [_] (apply str (interpose ", " (sort xs))))
+      (seq [_] (seq (distinct xs)))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn p113 [& items]
+  (reify
+    clojure.lang.Seqable
+    (seq [_] (seq (distinct items)))
+    Object
+    (toString [_] (apply str (interpose ", " (sort items))))
+  ))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+(fn __ [& c]
+ (let [cd (distinct c)]
+ (reify clojure.lang.Seqable 
+    (toString [this] (apply str (drop-last (interleave (sort c) (repeat (count c) ", ")))))
+    (seq [this] (when (> (count cd) 0) cd)))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [& s]
+  (reify
+    clojure.lang.IFn
+    (toString [this] (clojure.string/join ", " (sort s)))
+ 
+    clojure.lang.Seqable
+    (seq [this] (seq (distinct s)))))
+happycrisis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [& s]
+  (reify Object
+    (toString [_]
+      (apply str (interpose ", " (sort s))))
+    clojure.lang.Seqable
+    (seq [_]
+      (if (empty? s) nil (distinct s)))))
+hisba's solution:
+
+1
+2
+3
+4
+(fn make-data-dance [& args]
+  (reify clojure.lang.Seqable 
+       (toString [this] (clojure.string/join ", " (sort args)))
+       (seq [this] (when-not (empty? args) (distinct args)))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& args] 
+  (reify 
+    Object 
+    (toString [_] (apply str (interpose ", " (sort args))))
+    clojure.lang.Seqable 
+    (seq [_] (if (empty? args) nil (distinct args)))))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [& s]
+  (reify 
+    Object 
+      (toString [_] 
+        (clojure.string/join ", " (sort s)))
+    clojure.lang.Seqable
+      (seq [_] (if (empty? s) nil (distinct s)))))
+jarlax's solution:
+
+1
+2
+3
+4
+(fn [& args]
+  (reify clojure.lang.Seqable
+    (toString [this] (clojure.string/join ", " (sort args)))
+    (seq [this] (if (not-empty args) (distinct args) nil))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn dance [& args]
+  (when args 
+    (reify clojure.lang.ISeq
+        (toString [_] (->> args (sort) (interpose ", ") (apply str)))
+        (seq [_] (distinct args))
+    )
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& s]
+  (reify
+    clojure.lang.ISeq
+    (seq [_] (if (empty? s) nil (distinct s)))
+    Object
+    (toString [_] (clojure.string/join ", " (sort s)))))
+johncowie's solution:
+
+1
+2
+3
+4
+(fn [& args]
+  (reify clojure.lang.ISeq
+    (toString [this] (apply str (interpose ", " (sort args))))
+    (seq [this] (keys (group-by identity args)))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+;; don't understand the question...
+(fn temp [& coll]
+  (reify 
+    clojure.lang.Seqable
+    (seq [this] 
+         (seq (distinct coll)))
+    Object
+    (toString [this] (apply str (interpose ", " (sort coll))))))
+jorendorff's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& args]
+  (reify
+    clojure.lang.Seqable
+      (seq [this] (seq (distinct args)))
+    Object
+      (toString [this] (clojure.string/join ", " (map str (sort args))))))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn datadance [& body]
+  (let [st (apply str (interpose ", " (sort body)))
+        unique (reduce (fn [acc v] (if (contains? (second acc) v) acc [(conj (first acc) v) (conj (second acc) v)])) [[] #{}] body)]
+    (reify
+      Object
+      (toString [this] st)
+      clojure.lang.Seqable
+      (seq [this] (seq (first unique))))))
+kohyama's solution:
+
+1
+2
+3
+4
+5
+(fn [& s]
+  (reify clojure.lang.Seqable
+    (toString [_]
+      (apply str (interpose ", " (sort s))))
+    (seq [_] (seq (distinct s)))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn dd
+  ([& x]
+   (reify
+     clojure.lang.ISeq
+     (toString [_] (if (empty? x) ""
+                       (->> x
+                            sort
+                            (reduce #(str % ", " %2)))))
+     (seq [_]
+       (if (empty? x) nil
+           (->> x
+                (reduce (fn [[a s] x]
+                          (if (contains? s x) [a s]
+                              [(conj a x) (conj s x)]))
+                        [[] #{}])
+                first
+                seq))))))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn prob113 
+  [& params]
+  (reify
+    java.lang.Object
+    (toString [this]
+      ;; return comma separated list
+      (apply str (interpose ", " (sort params))))
+    clojure.lang.Seqable
+    (seq [this]
+      ;; return list of unique params in the same order as entered
+      (seq (distinct params))
+      )))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify nil
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn my-data-dance
+  [& vars]
+  (when vars
+    (reify
+      clojure.lang.ISeq
+      (seq [_] (distinct vars))
+      (toString [_] (apply str (interpose ", " (sort vars)))))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+#(reify clojure.lang.Seqable
+   (toString [this] (clojure.string/join ", " (sort %&)))
+   (seq [this] (seq (reduce (fn [c e] (if ((set c) e)
+                                        c
+                                        (conj c e))) 
+                            [] %&))))
+lambda4fun's solution:
+
+1
+2
+3
+#(reify clojure.lang.Seqable
+   (toString [_] (clojure.string/join ", " (sort %&)))
+   (seq [_] (seq (distinct %&))))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn dance [& coll]
+  (if coll
+  (reify
+    clojure.lang.ISeq
+    (toString [_] (apply str (interpose ", " (sort coll))))
+    (seq [_] (distinct coll))
+    )
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [& s]
+  (reify
+    clojure.lang.Seqable
+    (seq [this]
+      (seq (distinct s)))
+    (toString [this]      
+      (clojure.string/join ", " (sort s)))))
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+(fn [& args]
+  (let [f (fn [ls] (if (empty? ls) nil (distinct ls)))]
+    (reify clojure.lang.Seqable
+      (toString [this] (clojure.string/join ", " (sort args)))
+      (seq [this] (f args)))))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& l]
+        (reify 
+          clojure.lang.ISeq
+            (seq [this] (if (empty? l) nil (distinct l)))
+          Object    
+            (toString [this] (clojure.string/join ", " (sort (map str l))))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [& args] 
+  (reify 
+    Object
+    (toString [this] 
+      (apply str (interpose ", " (sort args))))
+ 
+    clojure.lang.Seqable
+    (seq [this] (let [res (distinct args)] 
+      (if (empty? res) nil res)))
+ 
+))
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn
+  ([] nil)
+  ([& args]
+   (reify clojure.lang.Seqable
+     (seq [this]
+       (distinct args))
+     (toString [this]
+       (clojure.string/join ", " (sort args))))))
+maximental's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& x]
+  (if x 
+    (reify
+      clojure.lang.Seqable
+        (toString [_] (apply str (interpose ", " (sort x))))
+        (seq [_] (distinct x)))))
+mbakhterev's solution:
+
+1
+2
+3
+4
+(fn [& X]
+  (reify clojure.lang.Seqable
+    (toString [this] (clojure.string/join ", " (sort X)))
+    (seq [this] (seq (distinct X)))))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn comma-seq
+  [& args] {:pre [(every? number? args)]}
+  (let [distinct-args  (seq (distinct args))
+        sorted-args    (sort args)]
+    (reify clojure.lang.Seqable
+      (seq [this]
+        distinct-args)
+      (toString [this]
+        (clojure.string/join ", " sorted-args)))))
+mfikes's solution:
+
+1
+2
+3
+4
+(fn dance [& xs]
+  (reify clojure.lang.Seqable
+    (seq [_] (seq (distinct xs)))
+    (toString [_] (apply str (interpose ", " (sort xs))))))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+(fn [& xs]
+  (reify
+    clojure.lang.Seqable
+    (toString [_] (clojure.string/join ", " (map str (sort xs))))
+    (seq [_] (seq (distinct xs)))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+(fn datadance [& x]
+              (reify clojure.lang.Seqable
+                (toString [_] (apply str (interpose ", " (sort x))))
+                (seq [_] (if (empty? x)
+                           nil
+                           (distinct x)))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+(fn [& v]
+  (reify clojure.lang.Seqable
+    (seq [this] (if (empty? v) nil (distinct v)))
+    (toString [this] (clojure.string/join ", " (sort v))))
+)
+mononite's solution:
+
+1
+2
+3
+4
+(fn [& xs] 
+  (reify clojure.lang.Seqable 
+    (toString [_] (clojure.string/join ", " (sort xs))) 
+    (seq [_] (if xs (distinct xs) xs))))
+mouse's solution:
+
+1
+2
+3
+#(reify clojure.lang.Seqable
+     (seq [t] (not-empty (distinct %&)))
+     (toString [t] (clojure.string/join ", " (sort %&)) ))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [& coll]
+  (reify
+    clojure.lang.Seqable
+    (toString [_]
+      (apply str (interpose ", " (sort coll))))
+    (seq [_]
+      (seq (distinct coll)))))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+(fn dance [& coll]
+  (reify
+    java.lang.Object
+    (toString [this] (clojure.string/join ", " (sort coll)))
+    clojure.lang.Seqable
+    (seq [this] (when ((comp not empty?) coll) (distinct coll)))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& args]
+  (reify Iterable
+    (iterator [this] (.iterator (distinct args)))
+    (toString [this] (->> (sort args)
+                      (interpose ", ")
+                      (apply str)))))
+noiseehc's solution:
+
+1
+2
+3
+4
+(fn dance [& args] 
+    (reify 
+      Object (toString [this] (clojure.string/join ", " (sort args))) 
+      clojure.lang.Seqable (seq [this] (seq (distinct args)))))
+norman's solution:
+
+1
+2
+3
+4
+(fn [& x]
+  (reify clojure.lang.ISeq
+    (toString [_] (apply str (interpose ", " (sort x))))
+    (seq [_] (seq (distinct x)))))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& args]
+  (reify 
+    Object
+    (toString [this] (clojure.string/join ", " (sort args)))
+    clojure.lang.Seqable
+    (seq [this] (if (nil? args) nil (distinct args)))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+(fn data-dance [& coll]
+  (reify Object
+       (toString [this] (apply str (interpose ", " (sort coll))))
+    clojure.lang.Seqable
+       (seq [this] (if (empty? coll) nil (distinct coll)))))
+ownwaterloo's solution:
+
+1
+2
+3
+#(reify clojure.lang.Seqable
+   (toString [[]] (->> %& sort (interpose ", ") (apply str)))
+   (seq [[]]      (->> %& distinct seq)))
+ozan's solution:
+
+1
+2
+3
+4
+(fn [& integers]
+  (reify clojure.lang.Seqable
+    (toString [this] (clojure.string/join ", " (map str (sort integers))))
+    (seq [this] (if (empty? integers) nil (distinct integers)))))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+(fn [& X]
+     (reify Object 
+       (toString [this] (clojure.string/join ", " (sort X)))
+       clojure.lang.Seqable 
+       (seq [this] (seq (distinct X)))))
+quant1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [& v]
+  (reify
+    Object
+    (toString [_]
+      (if (nil? v) ""
+        (->> (sort v) (interpose ", ") (apply str)))
+      )
+    clojure.lang.Seqable
+    (seq [_]
+      (if (nil? v) nil
+      (apply list (reduce #(if ((set %1) %2) % (conj %1 %2)) [] v))))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [& lst]
+  (reify clojure.lang.Seqable 
+       (seq [this] (seq (distinct lst)))
+       (toString [this] (clojure.string/join ", " (sort lst)))
+    )
+)
+sbondaryev's solution:
+
+1
+2
+3
+#(reify clojure.lang.ISeq
+  (toString [_] (reduce str (interpose ", " (sort %&))))
+  (seq [_] (if (empty? %&) nil (distinct %&))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [& args]
+  (reify
+    java.lang.Object
+    (toString [_]
+      (clojure.string/join ", " (sort args)))
+    clojure.lang.ISeq
+      (seq [_]
+        (if (empty? args) nil
+          (distinct args)))))
+sheldon's solution:
+
+1
+2
+3
+4
+(fn [& f] 
+        (reify 
+          clojure.lang.Seqable (toString [_] (apply str (interpose ", " (map str (sort f))))) 
+          (seq [_] (seq (distinct f)))))
+silverio's solution:
+
+1
+2
+3
+#(reify
+  Object (toString [this] (apply str (interpose ", " (sort %&))))
+  clojure.lang.Seqable (seq [this] (if-let [s %&] (distinct s))))
+skyrem's solution:
+
+1
+2
+3
+4
+(fn [& l]
+  (reify clojure.lang.Seqable
+    (toString [this] (clojure.string/join ", " (sort l)))
+    (seq [this]  (seq (distinct l)))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+(fn [& n]
+  (reify clojure.lang.Seqable
+    (seq [this] (seq (distinct n)))
+    (toString [this] (clojure.string/join ", " (sort n)))))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn s [& xs]
+  (reify
+    java.lang.Object
+    (toString [_]
+      (apply str (interpose ", " (sort xs))))
+    clojure.lang.Seqable
+    (seq [_]
+      (if (empty? xs) nil (distinct xs)))))
+syeerzy's solution:
+
+1
+2
+3
+4
+(fn [& s]
+  (reify clojure.lang.ISeq
+    (toString [_] (clojure.string/join ", " (sort s)))
+    (seq [_] (seq (distinct s)))))
+tclamb's solution:
+
+1
+2
+3
+#(reify clojure.lang.Seqable
+  (toString [_] (apply str (interpose ", " (sort %&))))
+  (seq [_] (seq (distinct %&))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [& in]
+    (reify
+      Object
+      (toString [this]
+                (apply str (interpose ", " (sort in))))
+      clojure.lang.Seqable
+      (seq [this]
+           (seq (distinct in)))))
+zzamboni's solution:
+
+1
+2
+3
+4
+(fn data-dance [ & args ]
+  (reify clojure.lang.Seqable
+    (toString [this] (clojure.string/join ", " (sort args)))
+    (seq [this] (if (empty? args) nil (distinct args)))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn __ [& xs]
+  (if (empty? xs) nil
+    (reify
+      Object (toString [this]
+                       (clojure.string/join ", " (sort xs)))
+      clojure.lang.Seqable (seq [this]
+                                (distinct xs)))))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+(fn [& args]
+  (reify
+    clojure.lang.Seqable
+    (seq [this] (seq (distinct args)))
+    (toString [this] (apply str (interpose  ", " (sort args))))))
+yusubori's solution:
+
+1
+2
+3
+4
+5
+(fn [& xs]
+  (reify
+    clojure.lang.Seqable
+    (toString [_] (apply str (interpose ", " (sort xs))))
+    (seq [_] (seq (distinct xs)))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+#(let [se (keys (group-by identity %&))
+        st (apply str (interpose ", "(sort %&)))]
+    (reify
+      Object (toString [this] st)
+      clojure.lang.Seqable (seq [this] (seq se))
+      ))
+vpeurala's solution:
+
+1
+(fn making-data-dance [& ints] (reify Object (toString [this] (apply str (interpose ", " (apply str (sort ints))))) clojure.lang.Seqable (seq [this] (if (empty? ints) nil (distinct ints)))))
+v_bogdanov's solution:
+
+1
+2
+3
+#(reify clojure.lang.Seqable
+   (toString [_] (clojure.string/join ", " (sort %&)))
+   (seq [_] (if %& (distinct %&))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+(fn test-it [& args]
+  (if args
+    (reify
+      clojure.lang.ISeq
+      (toString [_] (apply str (interpose ", " (sort args))))
+      (seq [_] (distinct args)))))
+trxeste's solution:
+
+1
+2
+3
+4
+5
+#(when %&
+   (reify
+     clojure.lang.ISeq
+     (seq [_] (distinct %&))
+     (toString [_] (apply str (interpose ", " (sort %&))))))
+transfinite's solution:
+
+1
+2
+3
+4
+(fn [& args]
+  (reify clojure.lang.Seqable
+    (toString [this] (if (empty? args) "" (clojure.string/join ", " (sort args))))
+    (seq [this] (if (empty? args) nil (distinct args)))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

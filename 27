@@ -1,0 +1,9 @@
+Returns true if seq is a palindrome
+
+(defn mypal [s]
+  (= (seq s) (reverse (seq s))))
+#'user/mypal
+user=> (mypal [1 2 3 4 5])
+false
+user=> (mypal [1 2 3 2 1])
+true

@@ -1,0 +1,21 @@
+;; 81 Set Intersection
+
+Returns intersection of two sets -
+the sub-set of items that each set has in common.
+Works like intersection
+
+user=> (find-doc " intersection")
+-------------------------
+clojure.set/intersection
+([s1] [s1 s2] [s1 s2 & sets])
+  Return a set that is the intersection of the input sets
+
+((fn [a b] (set (filter #(contains? b %) a)))
+#{0 1 2 3} #{2 3 4 5})
+;;=> #{2 3}
+((fn [a b] (set (filter #(contains? b %) a)))
+#{0 1 2} #{3 4 5})
+;;=> #{}
+((fn [a b] (set (filter #(contains? b %) a)))
+#{:a :b :c :d} #{:c :e :a :f :d})
+;;=> #{:a :c :d}

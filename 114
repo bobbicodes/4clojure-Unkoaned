@@ -1,0 +1,1698 @@
+;; 114 Global take-while [m]
+
+take-while is great for filtering sequences, but it limited:
+you can only examine a single item at a time.
+What if you need to keep track of some state
+as you go over the sequence?
+
+Takes an integer n, a predicate p, and a sequence.
+It should return a lazy sequence of items in the list up to,
+but not including, the nth item that satisfies the predicate.
+
+(= [2 3 5 7 11 13]
+   (__ 4 #(= 2 (mod % 3))
+         [2 3 5 7 11 13 17 19 23]))
+(= ["this" "is" "a" "sentence"]
+   (__ 3 #(some #{\i} %)
+         ["this" "is" "a" "sentence" "i" "wrote"]))
+(= ["this" "is"]
+   (__ 1 #{"a"}
+         ["this" "is" "a" "sentence" "i" "wrote"]))
+
+(fn gtw [n f [h & t]] (when-not (or (zero? n) (and (= n 1) (f h))) (cons h 
+(gtw (if (f h) (dec n) n) f t))))
+
+#(loop [agg () n %1 col %3]
+     (let [[left [h & tail]] (split-with (complement %2) col)]
+       (if (= n 1)
+         (concat agg left)
+         (recur (concat agg left [h]) (dec n) tail))))
+
+(fn f
+  ([n p s] (f n p (map #(vector (p %) %) s) []))
+  ([n p s r]
+   (if (= n 0)
+     (map second (butlast r))
+     (if (ffirst s)
+     (recur (dec n) p (rest s) (conj r (first s)))
+       (recur n p (rest s) (conj r (first s)))))))
+
+(fn globalTakeWhile [n p coll]
+  (lazy-seq
+   (if (p (first coll)) ;if satisfy the predicate
+     (if (= 1 n) [] ;and the current item is the exclusive bound, then return
+       (cons (first coll) (globalTakeWhile (dec n) p (rest coll))));else append current item and decrease n
+     (cons (first coll) (globalTakeWhile n p (rest coll))))));just append
+
+(fn tw [n p xs]
+  (cond
+    (= 0 n)
+      []
+    (and (= 1 n) (p (first xs)))
+      []
+    true
+      (cons (first xs)
+      (if (p (first xs)) (tw (dec n) p (rest xs)) (tw n p (rest xs))))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+(letfn [
+    (take-while-nth [n f x] (cond
+        (zero? n) []
+        (f (first x)) (cons (first x) (take-while-nth (dec n) f (rest x)))
+        true (cons (first x) (take-while-nth n f (rest x)))))]
+    (comp butlast take-while-nth))
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [n p s]
+  (butlast
+  (map first
+  (take-while #(> n (second %))
+  (map vector
+       s
+       (reductions (fn [a v] (if (p v) (inc a) a)) 0 s))))))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn takeWhileX [n p x] (reverse (rest ((fn takeWhileRec [n p x res]
+    (if 
+        (or (empty? x) (zero? n)) 
+        res
+        (
+            let 
+            [
+                c (first x)
+                newX (rest x)
+                newRes (cons c res)
+            ]
+            (lazy-seq
+                (if (p c)
+                    (takeWhileRec (dec n) p newX newRes)
+                    (takeWhileRec n p newX newRes)
+                )                       
+            )
+        )
+    )
+)
+ n p x []))))
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn take-while-n [n f xs]
+     ((fn iter [ys c]
+       (if-let [[y & resty] ys]
+         (if (f y)
+           (if (< c n) (cons y (iter resty (+ 1 c))) 
+             nil)
+           (cons y (iter resty c)))
+          nil))
+     xs 1))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [n p s]
+  (let [mytfs (map p s)]
+    (loop [nel 0 nct 0]
+      (cond
+       (and (< nct n) (nth mytfs nel)) (recur (inc nel) (inc nct))
+       (and (< nct n) (not (nth mytfs nel))) (recur (inc nel) nct)
+       :else (take (dec nel) s)))))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [n p s]
+  ((fn f [i [s1 & sr]]
+      (lazy-seq
+       (if (and (p s1) (= i n))
+         nil
+         (cons s1 (f (if (p s1) (inc i) i) sr)))))
+   1 s))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn me [n f l]
+  (if (empty? l)
+    l
+    (if (f (first l))
+      (if (= n 1)
+        []
+        (cons (first l) (me (dec n) f (next l))))
+      (cons (first l) (me n f (next l))))))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+(fn f [n p [a & r]]
+  (lazy-seq
+    (cond
+      (= 0 n) nil
+      (p a) (when (> n 1) (cons a (f (dec n) p r)))
+      :e (cons a (f n p r)))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn
+  [n pred coll]
+  (letfn [(r [n coll]
+            (lazy-seq
+              (if (= 0 n)
+                nil
+                (if (seq coll)
+                  (let [h (first coll)
+                        t (rest coll)]
+                    (if (pred h)
+                      (if (> n 1)
+                        (cons h (r (dec n) t))
+                        nil)
+                      (cons h (r n t))))))))]
+    (r n coll)))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [n f s]
+  (letfn [(op [n s]
+    (cond (empty? s) '()
+          (and (= 1 n) (f (first s))) '()
+          (f (first s)) (cons (first s)
+            (lazy-seq (op (dec n) (rest s))))
+          true (cons (first s) (op n (rest s)))))]
+    (op n s)))
+awebb's solution:
+
+1
+2
+3
+(fn twn [n p s]
+  (let [[x y] (split-with (complement p) s)]
+    (lazy-cat x (when (> n 1) (cons (first y) (twn (dec n) p (rest y)))))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+(fn gtw [n pred [head & tail :as coll]]
+  (cond
+    (or (zero? n) (empty? coll)) []
+    ((complement pred) head) (cons head (lazy-seq (gtw n pred tail)))
+    (< 1 n) (cons head (gtw (dec n) pred tail))
+    :else []))
+benhammond's solution:
+
+1
+2
+3
+(fn _ [n p [s & s2]]
+    (let [n2 (if (p s) (dec n) n)]
+      (if (zero? n2) '() (lazy-seq (cons s (_ n2 p s2))))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [n p s]
+  (loop [acc []
+         matched 0
+         item (first s)
+         rst (rest s)]
+    (let [satisfied? (p item)
+          matched (if satisfied? (inc matched) matched)
+          acc (if (< matched n) (conj acc item) acc)]
+      (cond
+       (not (seq rst)) acc
+       (= n matched) acc
+       :else (recur acc matched (first rst) (rest rst))))))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn gt [n pre col]
+  (let [e (first col)]
+    (cond (and (pre e) (> n 1))
+          (cons e (gt (dec n) pre (rest col)))
+          (and (pre e) (= n 1))
+          []
+          :else
+          (cons e (gt n pre (rest col))))))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+(fn take-while-n [n pred seq]
+         (concat (take-while (complement pred) seq)
+                 (if (<= n 1) []
+                     (let [rest-seq (drop-while (complement pred) seq)]
+                      (cons (first rest-seq)
+                            (take-while-n (dec n) pred (rest rest-seq)))))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+#(loop[c 0 r [] n %1 f %2 v %3]
+   (if
+    (or (>= c n) (not (seq v))) (drop-last r)
+    (let[cv (first v)
+         nr (conj r cv)
+         nv (next v)]
+      (recur (if (f cv) (inc c) c) nr n f nv))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [met pred coll]
+   (loop [c 0
+          result []
+          coll coll]
+     (if (or (empty? coll) (= met c))
+       (butlast result)
+       (recur ((if (pred (first coll)) inc identity) c)
+              (conj result (first coll)) (rest coll))
+       )
+     ))
+chunchangshao's solution:
+
+1
+(fn [n f c] (take (nth (keep-indexed #(if (f %2) % nil) c) (dec n)) c))
+ctzsm's solution:
+
+1
+2
+3
+4
+(fn [n f coll]
+  (loop [n n c coll x 0]
+    (if (zero? n) (take (dec x) coll)
+      (recur (if (f (first c)) (dec n) n) (rest c) (inc x)))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn take-until-nth
+  [n pred xs]
+  (lazy-seq
+   (when-let [[x & xs] (seq xs)]
+     (let [n (if (pred x) (dec n) n)]
+       (when-not (zero? n)
+         (cons x (take-until-nth
+                  n pred xs)))))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+(fn r [n p s] 
+  (if (p (first s)) 
+    (if (== n 1)
+      nil
+      (cons (first s) (r (dec n) p (rest s))))
+    (cons (first s) (r n p (rest s)))))
+daowen's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn take-all-while [n pred xs]
+  (lazy-seq
+    (if-let [head (first xs)]
+      (if (pred head)
+        (when (> n 1)
+          (cons head (take-all-while (dec n) pred (rest xs))))
+        (cons head (take-all-while n pred (rest xs)))))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn _take [n p s] 
+  (if (not (zero? (if (p (first s)) (dec n) n))) (cons (first s)
+    (lazy-seq
+       (_take  (if (p (first s)) (dec n) n)  p (rest s))
+    )
+  ))
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn ! [n p s]
+  (do (println n)
+    (println p)
+    (println s)
+  (if (= 1 n) (take-while #(not (p %)) s)
+    (let [s1 (take-while p s)
+          cs1 (count s1)
+          rcs1 (if (> cs1 n) n cs1)
+          rs1 (take rcs1 s1)
+          s2 (take-while #(not (p %)) (drop (count rs1) s))
+          sr (drop (+ (count rs1) (count s2)) s)
+          tot (concat rs1 s2 (! (- n rcs1) p sr))]
+      tot)))
+)
+devm33's solution:
+
+1
+2
+3
+4
+(fn __ [n p s]
+  (let [f (first s) f? (p f) nn (if f? (dec n) n)]
+    (when (> nn 0)
+      (lazy-seq (cons f (__ nn p (rest s)))))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn j [n f s]
+  (lazy-seq
+    (if (or (empty? s) (<= n 0))
+      '()
+      (if (f (first s))
+        (if (= n 1) '() (cons (first s) (j (dec n) f (rest s))))
+        (cons (first s) (j n f (rest s)))))))
+dzholev's solution:
+
+1
+2
+3
+4
+5
+(fn tw [n p [t & h]]
+  (if (p t)
+    (if (> n 1)
+      (cons t (tw (dec n) p h)))
+    (cons t (tw n p h))))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [ n p s]
+        (first 
+        (reduce
+            (fn [ [r st] e ]
+             (let [nst (if (p e) (inc st) st)]
+                (if (<= n nst)
+                    [r nst]
+                    [(conj r e) nst])))
+            [ (empty s) 0 ]
+            s))
+    )
+ericw's solution:
+
+1
+2
+3
+4
+5
+(fn take-while-n [n pred coll]                                                                                                  
+    (let [[left right] (split-with #(not (pred %)) coll)]                                                                                               
+        (if (= n 1)                                                                                                             
+            left                                                                                                                                        
+            (concat left (list (first right)) (take-while-n (dec n) pred (rest right))))))
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn take-n-while [n f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (if (f (first s))
+       (when (> n 1)
+         (cons (first s) (take-n-while (dec n) f (rest s))))
+       (cons (first s) (take-n-while n f (rest s)))))))
+finsternis's solution:
+
+1
+2
+3
+4
+5
+(fn gtw [n p [x & xs]]
+  (if x
+    (let [nn (if (p x) (dec n) n)]
+      (if (pos? nn)
+        (lazy-seq (cons x (gtw nn p xs)))))))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+(fn ntake-while
+  [n f s]
+  (loop [i n r [] [a & b] s]
+    (if (or (nil? a) (and (= i 1) (f a)))
+      r
+      (recur (if (f a) (dec i) i) (conj r a) b))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+(fn global-take-while [n f coll]
+  (let [first-ele (first coll)]
+    (if (f first-ele)
+      (if (> n 1)
+        (cons first-ele (global-take-while (dec n) f (rest coll))))
+      (cons first-ele (global-take-while n f (rest coll))))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+(fn _ [n p [x & xs]]
+    (let [n (if (p x) (dec n) n)]
+      (if (zero? n)
+        '()
+        (lazy-seq (cons x (_ n p xs))))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [n p xs] 
+    (when (pos? n)
+        (letfn [(generate [n xs] (lazy-seq
+                    (when-let [[x & xs] (seq xs)]
+                        (if (p x)
+                            (when (> n 1)
+                                (cons x (generate (dec n) xs)))
+                            (cons x (generate n xs))
+                        ))))
+            ]
+            (generate n xs)
+        )))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn myw [nn pp ss]
+  (loop [n nn
+         p pp
+         s ss
+         acc []]    
+    (if (= n 0)
+      acc
+      (recur 
+       (if (p (first s)) 
+         (dec n) n)
+       p
+       (rest s)
+       (if (and (= n 1) (p (first s))) acc (conj acc (first s)))))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn take-n-while [n pred [h & t]]
+  (cond (nil? h) '()
+        
+        (pred h)
+        (if (= n 1)
+          '()
+          (cons h (lazy-seq (take-n-while (dec n) pred t))))
+        
+        (pos? n) (cons h (lazy-seq (take-n-while n pred t)))))
+happycrisis's solution:
+
+1
+2
+3
+4
+5
+6
+(fn f [n p s] 
+  (when (not (empty? s))
+    (let [[x & s] s
+          n (if (p x) (dec n) n)]
+      (when (> n 0)
+        (lazy-seq (cons x (f n p s)))))))
+hisba's solution:
+
+1
+2
+3
+4
+(fn gtw [n p s]
+  (loop [[cur & rst] s out [] cnt 0]
+    (if (and (p cur) (= n (inc cnt))) out
+      (recur rst (conj out cur) (if (p cur) (inc cnt) cnt)))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+(fn global-take-while [n p coll]
+  (let [[x & xs] coll]
+    (cond 
+      (and (= 1 n) (p x)) '()
+      (p x) (cons x (lazy-seq (global-take-while (dec n) p xs)))
+      :else (cons x (lazy-seq (global-take-while n p xs))))))
+immo's solution:
+
+1
+2
+3
+4
+5
+(fn [n p s]
+  (loop [m n k 0 ]
+    (if (= 0 m)
+      (take (dec k) s)
+      (recur (if (p (nth s k)) (dec m) m) (inc k)))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn tw [n p [x & xs :as all]]
+  (if
+    (or
+      (empty? all)
+      (<= n 0)
+      (and (= 1 n) (p x))) '()
+    (lazy-cat [x] (tw (if (p x) (dec n) n) p xs))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn gtw [n p coll]
+  (loop [coll coll found [] fcount 0]
+        (if (empty? coll) found
+        (let [c (first coll)]
+        (cond (= fcount n) (butlast found)
+              (p c) (recur (rest coll) (conj found c) (inc fcount))
+              :else (recur (rest coll) (conj found c) fcount)
+        )
+        )
+        )
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn _ [n f s]
+  (lazy-seq
+    (when s
+      (let [[b & r] s]
+        (if (f b)
+          (if (not= n 1)
+            (cons b (_ (dec n) f r)))
+          (cons b (_ n f r)))))))
+johncowie's solution:
+
+1
+2
+3
+(fn tw [i p c]
+  (if (and (= i 1) (p (first c))) [] 
+      (concat [(first c)] (lazy-seq (tw (if (p (first c)) (dec i) i) p (drop 1 c))))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn global-take-while 
+  [n pred coll]
+  (lazy-seq 
+    (let [[a b] (split-with (comp not pred) coll)
+          n (dec n)]
+      (concat a (if (== n 0) nil          
+                  (cons (first b) 
+                        (global-take-while n pred (rest b))))))))
+jorendorff's solution:
+
+1
+2
+3
+4
+5
+(fn twn [n p [h & t]]
+  (let [m (if (p h) (dec n) n)]
+    (if (= m 0)
+      '()
+      (cons h (twn m p t)))))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn mtw [n pred coll]
+  (loop [v coll result [] fcnt 0]
+    (let [val (first v)
+          fnd (pred val)
+          newfcnt (if fnd (inc fcnt) fcnt) 
+          ]
+      (if (= newfcnt n) 
+        result
+        (recur (next v) (conj result val) newfcnt)
+        )
+      )
+    )
+  )
+kohyama's solution:
+
+1
+2
+3
+4
+5
+(fn [n p xs]
+  (loop [q nil [h & r] xs a [] i n]
+    (if (or (nil? h) (zero? i))
+        a 
+        (recur h r (if q (conj a q) a) (if (p h) (dec i) i)))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn global-take-while [n fp v]
+  (loop [a [] v v ni n]
+    (let [y (first v)
+          nni (if (fp y) (dec ni) ni)]
+      (println nni)
+      (if (= 0 nni) a
+          (recur (conj a y) (rest v) nni)))))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn prob114
+  [n f xs]
+  (loop [cnt 0
+         acc []
+         xs xs]
+    (if (= cnt n) 
+      (butlast acc)
+      (recur (if (f (first xs)) (inc cnt) cnt) (conj acc (first xs)) (rest xs)))))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify nil
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn my-global-take-while
+  [n fun coll]
+  (loop [result [] i 0 j 0]
+    (let [current (get coll j)]
+      (cond 
+        (= n i) (drop-last result)
+        (or (false? (fun current)) (nil? (fun current))) (recur (conj result current) i (inc j))
+        :else (recur (conj result current) (inc i) (inc j))))))
+lackita's solution:
+
+1
+2
+3
+4
+(fn take-n-while [n p s]
+  (cond (not (p (first s))) (cons (first s) (take-n-while n p (rest s)))
+        (= n 1) []
+        :else (cons (first s) (take-n-while (dec n) p (rest s)))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+#(loop [n %1, acc (), xs %3]
+   (if (or (<= n 0) (empty? xs))
+     (reverse (rest acc))
+     (recur (if (%2 (first xs)) (dec n) n)
+            (cons (first xs) acc)
+            (rest xs))))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn taken-while [n p coll]
+  (if (or (zero? n) (empty? coll) (and (zero? (dec n)) (p (first coll))))
+    []
+    (cons (first coll)
+          (lazy-seq
+           (taken-while
+            (if (p (first coll)) (dec n) n)
+            p (rest coll))))
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn f [n p s]
+  (lazy-seq
+    (cond
+      (empty? s) nil
+      (not (p (first s))) (cons (first s) (f n p (rest s)))
+      (= n 1) nil
+      :else (cons (first s) (f (dec n) p (rest s))))))
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [n f ls]
+  (letfn [(nxt [fnd r [h & t :as ls]] 
+            (cond
+              (= fnd n) r
+              (f h) (recur (inc fnd) (conj r h) t)
+              :else (recur fnd (conj r h) t)))]
+    (butlast (nxt 0 [] ls))))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn tw2 [n p l]
+  (if (or (empty? l) 
+          (zero? n)
+          (and (= 1 n) (p (first l))))
+    []
+    (cons (first l) 
+          (tw2 (if (p (first l))
+                 (dec n)
+                 n)
+               p
+               (rest l)))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [n p s]
+  (loop [m n i 0]
+    (if (= m 0) 
+      (take (- i 1) s)
+      (recur 
+        (- m 1) 
+        (+ i 1 
+          (some 
+            (fn [[j e]] (when (p e) j)) 
+            (map list (range) (drop i s))))))))
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+(fn t [n p coll]
+ (lazy-seq
+   (let [[x & xs] coll
+         n (if (p x) (dec n) n)]
+     (when (> n 0)
+       (cons x (t n p xs))))))
+maximental's solution:
+
+1
+2
+3
+4
+5
+(fn [n p s]
+  (take 
+    (last
+      (take n (keep-indexed #(if (p %2) %) s)))
+    s))
+mbakhterev's solution:
+
+1
+#(take (->> (map-indexed vector %3) (filter (comp %2 last)) (take %) last first) %3)
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn take-up-to-nth--recur
+  [n p coll] {:pre [(integer? n), (pos? n), (ifn? p)]}
+  (loop [acc [], n n, coll coll]
+    (cond
+      ;; On each recursion, we generally include exactly 1 element that
+      ;; satisfies p. (See the "(conj (into acc head) x)" line, later.) If coll
+      ;; has fewer than n elements that satisfy p, we end up tacking on an
+      ;; extraneous nil instead. In either case, this means we should drop the
+      ;; last value of acc before returning it.
+      (zero? n)      (butlast acc)
+      (empty? coll)  (butlast acc)
+      :else          (let [[head [x & tail]] (split-with (complement p) coll)]
+                       (recur (conj (into acc head) x)
+                              (dec n)
+                              tail)))))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+(fn global-take-while [n p [x & r]]
+  (lazy-seq
+    (when x
+      (let [remaining (if (p x) (dec n) n)]
+        (when (pos? remaining)
+          (cons x (global-take-while remaining p r)))))))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn f [n p [x & xs]]
+  (letfn [(g [n]
+            (cons x (lazy-seq (f n p xs))))]
+    (cond
+      (nil? x) []
+      (p x) (if (= 1 n) [] (g (dec n)))
+      :else (g n))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+(fn globaltakewhile [n p s]
+  (if (== n 1)
+    (take-while #(not (p %)) s)
+    (if (p (first s))
+      (cons (first s) (globaltakewhile (dec n) p (rest s)))
+      (cons (first s) (globaltakewhile n p (rest s))))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn w [n f l]
+       (let [
+              [a [h & t]] (split-with #(not (f %1)) l)
+              ]
+         (concat a (if (= n 1) '() (cons h (lazy-seq (w (dec n) f t)))))
+         )
+       )
+mononite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [limit pred coll]
+  (loop [acc [] c limit xs coll]
+    (cond
+     (empty? xs) acc
+     (and (pred (first xs)) (> c 1)) (recur (conj acc (first xs)) (dec c) (rest xs))
+     (not (pred (first xs))) (recur (conj acc (first xs)) c (rest xs))
+     :else acc)))
+mouse's solution:
+
+1
+2
+3
+4
+(fn t [c p [f & s]]
+    (lazy-seq
+     (let [d (if (p f) (dec c) c)]
+       ({1 ()} (+ c d) (cons f (t d p s))))))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [up-to pred coll]
+  (letfn [(val-seq [up-to pred coll accepted]
+           (lazy-seq (when-let [s (seq coll)]
+                       (let [v        (first coll)
+                             accepted (if (pred v) (inc accepted) accepted)]
+                         (when (< accepted up-to)
+                           (cons v
+                                 (val-seq up-to pred (rest coll) accepted)))))))]
+    (val-seq up-to pred coll 0)))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn tw
+  ([n p xs] (tw n p xs 0))
+  ([n p xs count]
+   (cond
+     (empty? xs) '()
+     (and (p (first xs)) (= n (inc count))) '()
+     (p (first xs)) (cons (first xs) (lazy-seq (tw n p (rest xs) (inc count))))
+     :else
+     (cons (first xs) (lazy-seq (tw n p (rest xs) count))))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn m[n p s]
+  (if (empty? s)
+    []
+    (let [[h & t] s]
+      (if (p h)
+        (if (= 1 n)
+          []
+          (concat [h] (m (dec n) p t)))
+        (concat [h] (m n p t))))))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn gtw [n p s]
+  (if (empty? s)
+    ()
+    (let [[c & r] s]
+      (if (p c)
+        (if (<= n 1)
+          ()
+          (lazy-seq (cons c (gtw (dec n) p r))))
+        (lazy-seq (cons c (gtw n p r)))))))
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+(fn gtw [n f vals]
+  (when (and (> n 0) (seq vals))
+    (if (f (first vals))
+      (when (> n 1)
+        (lazy-seq (cons (first vals) (gtw (dec n) f (rest vals)))))
+      (lazy-seq (cons (first vals) (gtw n f (rest vals)))))))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+(fn f [n p s]
+  (lazy-seq
+    (let [n (if (p (first s)) (dec n) n)]
+      (if (and (pos? n) (seq s))
+        (cons (first s) (f n p (rest s)))))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+(fn myf [n f coll]
+  (loop [res [], n n, coll coll]
+      (if (f (first coll))
+        (if (zero? (dec n)) res
+          (recur (conj res (first coll)) (dec n) (rest coll)))
+        (recur (conj res (first coll)) n (rest coll)))))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [n p xs]
+  (->> xs
+       (reductions (fn [acc x] ((if (p x) dec identity) acc)) n)
+       rest
+       (take-while pos?)
+       (map (fn [x c] x) xs)))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+(fn global-take-while [n p xs]
+  (lazy-seq
+   (if (p (first xs)) ; passes, so decrement n
+     (if (> n 1)
+       (cons (first xs) (global-take-while (dec n) p (rest xs)))) ; TODO: combine into 1
+     (cons (first xs) (global-take-while n p (rest xs))))))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+(fn xyz [n pred s]
+    (let [n2 (if (pred (first s)) (dec n) n)]
+        (if (= n2 0)
+            []
+            (cons (first s) (lazy-seq (xyz n2 pred (rest s)))))))
+quant1's solution:
+
+1
+2
+#_(this problem does not make sense, just to pass)
+#(take ({1 2 3 4 4 6} %1)  %3)
+rodmax's solution:
+
+1
+2
+3
+4
+(fn ff [n p? [h & t]]
+    (if-not (or (zero? n) (and (p? h) (= 1 n))) 
+     (lazy-seq (cons h (ff (if (p? h) (dec n) n) p? t))) 
+    ))
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+(fn f [n pred [fst & rst :as sx]]
+  (cond
+    (not (seq sx)) nil
+    (and (= n 1) (pred fst)) nil
+    :else (cons fst (f (if (pred fst) (- n 1) n) pred rst))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn take-before-nth-match [n pred coll]
+  (letfn [(count-to-take [n c coll]
+            (cond
+              (= n 0) c
+              (pred (first coll)) (count-to-take (dec n) (inc c) (rest coll))
+              :else (count-to-take n (inc c) (rest coll))))]
+    (take (dec (count-to-take n 0 coll)) coll)))
+sheldon's solution:
+
+1
+(fn t [n p s] (loop [a n b s r []] (if (= 0 a) (butlast r) (recur (if (p (first b)) (dec a) a) (rest b) (conj r (first b))))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+#(butlast (
+  (fn take-nwhile [n p [h & t]]
+    (if (and h (pos? n)) (lazy-seq
+      (cons h (take-nwhile (if (p h) (dec n) n) p t)))))
+  %1 %2 %3))
+skyrem's solution:
+
+1
+2
+3
+4
+(fn [n p coll]
+  (let [pred (filter p coll)
+        pos (nth pred (dec n))]
+    (take-while #(not (= pos %)) coll)))
+soul_awaker's solution:
+
+1
+#(take-while (partial not= (nth (filter %2 %3) (dec %1))) %3)
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn take-while-n
+  [n f xs]
+  (loop [now  (first xs)
+         left (rest xs)
+         so-far []
+         n n]
+    (cond (zero? n) so-far
+          (and (f now) (= 1 n)) so-far
+          (f now) (recur (first left) (rest left) (conj so-far now) (dec n))
+          :else (recur (first left) (rest left) (conj so-far now) n)
+      )))
+syeerzy's solution:
+
+1
+2
+3
+4
+(fn f [n p [x & xs :as xxs]] 
+  (if (zero? (dec n)) 
+    (take-while (complement p) xxs)
+    (cons x (f (if (p x) (dec n) n) p xs))))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn t [n p s]
+  (lazy-seq
+    (when-let [[f & r] (not-empty s)]
+      (if (p f)
+        (when (> n 1)
+          (cons f (t (dec n) p r)))
+        (cons f (t n p r))))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn r [n p [s & ss]]
+    (lazy-seq
+     (when s 
+       (if (p s)
+         (when (> n 1)
+           (cons s (r (dec n) p ss)))
+         (cons s (r n p ss))))))
+zzamboni's solution:
+
+1
+2
+3
+4
+5
+(fn global-take-while [n p s]
+  (loop [n n s s res []]
+    (let [[x y] (split-with (complement p) s)]
+      (if (= n 1) (concat res x)
+          (recur (dec n) (rest y) (concat res x [(first y)]))))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn __ [n p s]
+  (letfn [(f [m r]
+             (if (empty? r) (empty r)
+               (if (p (first r))
+                 (if (= (inc m) n) (empty r)
+                   (cons (first r) (f (inc m) (rest r))))
+                 (cons (first r) (f m (rest r))))))]
+    (f 0 s)))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [n f s]
+  (let [i 
+   (->>
+   s
+   (interleave (range))
+   (partition 2)
+   (filter #(f (second %)))
+   (drop (dec n))
+   (ffirst))]
+   (take i s)))
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [n p coll]
+  (lazy-seq 
+   (loop [[x & more] coll i 0 r []]
+     (if (= n i)
+       (butlast r)
+       (recur more (if (p x) (inc i) i) (conj r x))))))
+ydash's solution:
+
+1
+2
+3
+4
+#(loop [[f & r] %3 acc [] i 0]
+   (if (= i %)
+     (drop-last acc)
+     (recur r (conj acc f) (if (%2 f) (inc i) i))))
+vpeurala's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn global-take-while [n p s]
+    (cond
+        (empty? s)
+        []
+        (and (p (first s)) (<= n 1))
+        []
+        (and (p (first s)) (> n 1))
+        (cons (first s) (global-take-while (dec n) p (rest s)))
+        (not (p (first s)))
+        (cons (first s) (global-take-while n p (rest s)))
+    )
+)
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn gtw [i p s]
+  (let [t take-while
+        d drop-while
+        c (comp not p)]
+  (if (= i 1) (t c s)
+    (concat (t c s)
+            [(first (d c s))]
+            (gtw (dec i) p (rest (d c s)))))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [n p v]
+  (loop [x n acc [] rst v]
+    (if (p (first rst))
+      (if (= x 1)
+        acc
+        (recur (dec x) (conj acc (first rst)) (rest rst)))
+      (recur x (conj acc (first rst)) (rest rst)))))
+trxeste's solution:
+
+1
+2
+3
+(fn gtw [n f [h & t]]
+  (when-not (or (zero? n) (and (= n 1) (f h)))
+    (cons h (gtw (if (f h) (dec n) n) f t))))
+transfinite's solution:
+
+1
+2
+3
+4
+(fn [n pred coll]
+  (let [enum (partition 2 (interleave coll (range (count coll))))
+        limit (->> enum (filter #(pred (first %))) (take n) last second)]
+    (take limit coll)))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

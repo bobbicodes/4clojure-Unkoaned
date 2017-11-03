@@ -1,0 +1,19 @@
+;; 66 Greatest Common Divisor
+
+Takes two ints, returns GCD
+	
+((fn gcd [a b]
+   (if (zero? b)
+     a
+    (recur b (mod a b))))
+ 2 4)
+;;=> 2
+
+((fn gcd [a b] (if (zero? b) a (recur b (mod a b)))) 10 5)
+;;=> 5
+
+((fn gcd [a b] (if (zero? b) a (recur b (mod a b)))) 5 7)
+;;=>  1
+
+((fn gcd [a b] (if (zero? b) a (recur b (mod a b)))) 1023 858)
+;;=> 33

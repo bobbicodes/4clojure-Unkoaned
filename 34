@@ -1,0 +1,24 @@
+;; 34 Implement range
+Returns list of all ints in a given range.
+Special Restrictions: range
+
+user=> (source range)
+(defn range
+  "Returns a lazy seq of nums from start (inclusive) to end (exclusive), by step, where start defaults to 0, step to 1, and end to infinity. When step is equal to 0, returns an infinite sequence of start. When start is equal to end, returns empty list."
+  ([]
+   (iterate inc' 0))
+  ([end]
+   (if (instance? Long end)
+     (clojure.lang.LongRange/create end)
+     (clojure.lang.Range/create end)))
+  ([start end]
+   (if (and (instance? Long start) (instance? Long end))
+     (clojure.lang.LongRange/create start end)
+     (clojure.lang.Range/create start end)))
+  ([start end step]
+   (if (and (instance? Long start) (instance? Long end) (instance? Long step))
+     (clojure.lang.LongRange/create start end step)
+     (clojure.lang.Range/create start end step))))
+
+(#(take (- %2 %1) (iterate inc %1)) 1 4)
+;;=> (1 2 3)

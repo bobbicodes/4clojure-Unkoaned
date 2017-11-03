@@ -1,0 +1,1339 @@
+;; 93 Partial Flatten [m]
+
+Flattens any nested combination of sequential things
+(lists, vectors, etc.), but maintains the
+lowest level sequential items.
+The result should be a sequence of sequences
+with only one level of nesting.
+
+(= (__ [["Do"] ["Nothing"]])
+   [["Do"] ["Nothing"]])
+(= (__ [[[[:a :b]]] [[:c :d]] [:e :f]])
+   [[:a :b] [:c :d] [:e :f]])
+(= (__ '((1 2)((3 4)((((5 6)))))))
+   '((1 2)(3 4)(5 6)))
+
+(fn f fsq & rsq :as sq (cond (not (seq sq)) nil (and (sequential? sq) (not 
+(sequential? fsq))) [sq] :else (concat (f fsq) (f rsq)))) 
+
+jafingerhut's solution:
+
+(fn [c] (filter #(and (sequential? %) (not (sequential? (first %)))) 
+(tree-seq sequential? seq c)))
+
+chouser's solution: ;; i is going to be the first of x 
+
+(fn f i :as x (if (coll? i) (mapcat f x) [x])) (pfs :a :b] :c :d [:e :f) 
+(pfs '((1 2)((3 4)((((5 6)))))))
+
+(fn pflatten [tree] (if (every? sequential? tree) (mapcat pflatten tree) 
+[tree]))
+
+(fn pflatten [tree] (if (every? sequential? tree) (mapcat pflatten tree) 
+[tree]))
+
+(fn fl [col]
+   (if (every? (complement sequential?) col)
+     [col]
+     (mapcat fl col)))
+
+(fn f [ss]
+  (if (every? sequential? ss) (mapcat f ss) [ss]))
+
+(fn partialFlatten [coll]
+  (if (not-any? coll? coll) [coll]
+    (reduce into
+     (for [c coll]
+       (partialFlatten c)))))
+
+(fn f [xs]
+  (if (every? sequential? xs) (mapcat f xs) [xs]))
+aceeca1's solution:
+
+1
+(fn [x] (filter #(= % (flatten %)) (tree-seq sequential? seq x)))
+adereth's solution:
+
+1
+2
+3
+4
+(fn [x]
+  (let [b #(every? sequential? %)]
+    (filter (complement b)
+    (tree-seq b seq x))))
+aferrandi's solution:
+
+1
+2
+3
+4
+(fn flattenX [x] ((fn flattenRec [x] (if ((fn noListInside? [x] (empty? (filter #(coll? %) x))) x) 
+    [x]
+    (mapcat flattenRec x)
+    )) x))
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn partial-flatten [xs]
+     (loop [ys xs
+            result []]
+       (if-let [[y & resty] ys]
+         (if (every? coll? y)
+           (recur (concat y resty) result)
+           (recur resty (conj result y)))
+         result)))
+alanforr's solution:
+
+1
+2
+3
+(fn [a]
+  (let [seqsintree (fn [b] (filter sequential? (tree-seq sequential? seq b)))]
+    (filter #(not-any? coll? %) (seqsintree a))))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+#(reduce (fn flatten [s x]
+           (if (coll? (first x))
+             (let [outer (flatten s (first x))]
+               (if (next x)
+                 (flatten outer (next x))
+                 outer))
+             (concat s [x])))
+         (empty %)
+         %)
+andthorn's solution:
+
+1
+2
+3
+4
+5
+(fn f [z]
+  (let [l (apply concat(map #(if (every? coll? %) % [%]) z))]
+    (if (= z l)
+      z
+      (recur l))))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+(letfn [(t [a] (and (sequential? a) (every? sequential? a)))]
+  (fn f [s]
+    (if (t s)
+      (mapcat #(if (t %) % [%]) (map f s))
+      s)))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn
+  [coll]
+  (letfn [(contains-coll?
+            [coll]
+            (some coll? coll))
+          (r [a coll]
+            (if (seq coll)
+              (let [h (first coll)
+                    t (rest coll)
+                    a' (if (contains-coll? h)
+                         (r a h)
+                         (conj a h))]
+                (recur a' t))
+              a))]
+    (r [] coll)))
+austintaylor's solution:
+
+1
+2
+3
+(fn [s]
+  (filter #(and (sequential? %) (not (sequential? (first %))))
+    (tree-seq sequential? seq s)))
+awebb's solution:
+
+1
+2
+3
+(fn [x]
+  (filter #(and (sequential? %) (not-any? sequential? %))
+     (rest (tree-seq sequential? seq x))))
+bendykst's solution:
+
+1
+#(remove (partial every? coll?) (tree-seq (partial every? coll?) identity %))
+benhammond's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [ss]
+    (let [fl (fn fl [acc [s & ss]]
+               (cond (nil? s) acc
+                     (every? coll? s) (fl acc (concat s ss))
+                     :t (fl (conj acc s) ss)))]
+      (fl [] ss)))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+(fn flatter
+  [x]
+  (cond
+   (and (sequential? x) (sequential? (first x))) (mapcat flatter x)
+   (sequential? x) [x]
+   :else x))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+(fn p [col]
+  (if (every? sequential? col)
+    (mapcat p col)
+    [col]))
+burner's solution:
+
+1
+2
+3
+4
+5
+(letfn [(level [node]
+                 (if (not (sequential? node)) 0
+                     (inc (apply min (map level node)))))]
+         (fn pflat [s] (if (= (level s) 1) [s]
+                           (mapcat pflat s))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [coll]
+  (letfn [(partialFlatten [coll result]
+                (if (seq coll)
+                  (let [first-ele (first coll)]
+                    (partialFlatten (next coll)
+                          (if (some coll? first-ele)
+                            (reduce #(conj %1 %2) result (partialFlatten first-ele []))
+                            (conj result first-ele))))
+                  result))]
+    (partialFlatten coll [])))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn f [x]
+   (if (coll? (first x))
+     (if ((complement empty?) (rest x))
+       (concat (f (first x)) (f (rest x)))
+       (f (first x)))
+     (list x))
+   )
+chunchangshao's solution:
+
+1
+#(if (= (first %) '(1 2))  '((1 2)(3 4)(5 6))  (loop [xs %,res []] (if (empty? xs) res (recur (rest xs) (conj res (flatten (first xs)))))))
+ctzsm's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [coll]
+   (loop [ret [] c coll]
+     (if (empty? c) ret 
+     (if (not-any? coll? (first c))
+       (recur (conj ret (first c)) (rest c))
+       (recur ret (concat (first c) (rest c)))))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+(fn flat [coll]
+  (lazy-seq
+   (if (and (coll? coll)
+            (some coll? coll))
+     (mapcat flat coll)
+     [coll])))
+daniels's solution:
+
+1
+2
+3
+4
+(fn f [x]
+    (if (coll? (first x)) 
+      (reduce concat (map f x))
+      [x]))
+daowen's solution:
+
+1
+2
+(fn semi-flat [xs]
+  (mapcat #(if (coll? (first %)) (semi-flat %) [%]) xs))
+del680202's solution:
+
+1
+2
+3
+(fn _nest [_seq]
+  (filter #(and (sequential? %) ((complement sequential?)(first %)) ) (tree-seq sequential? seq _seq))
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+(fn ! [l]
+  (if (= l (flatten l)) l
+    (let [ms (map ! l)
+          pms (map #(if (= % (flatten %)) [%] %) ms)
+          lol (apply concat pms)]
+      lol)))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (loop [v s r []]
+    (if (empty? v)
+      r
+      (let [f (first v) f? (coll? (first f))]
+        (recur
+          (if f? (concat (first v) (rest v)) (rest v))
+          (if f? r (conj r f)))))))
+dwelte's solution:
+
+1
+2
+3
+4
+(fn fl [s]
+  (let [crush (fn [e] (if (sequential? (first e)) e (list e)))
+        r (mapcat crush s)]
+    (if (= r s) s (fl r))))
+dzholev's solution:
+
+1
+2
+3
+4
+(fn pf [s]
+  (if (every? coll? s)
+    (mapcat pf s)
+    [s]))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn rec-flatten [ r [a & xs :as v]]
+    (println "rec-flatten " r " ; " v)
+    (if (nil? a) 
+        r
+        (if (sequential? a)
+            (if (reduce #(and %1 (not (sequential? %2))) true a)
+                (rec-flatten (concat r [a]) xs)
+                (rec-flatten (concat r (rec-flatten [] a)) xs))
+            (rec-flatten (conj r a) xs)))) []
+ericw's solution:
+
+1
+(fn [s] (filter #(and (coll? %) (not (coll? (first %)))) (tree-seq coll? identity s)))
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn pflat
+  ([c] (pflat [] c))
+  ([res c]
+   (letfn [(all-elems-seqs?
+             [c]
+             (reduce #(and %1 (coll? %2)) true c))]
+     (if-not (all-elems-seqs? c)
+       (conj res c)
+       (reduce pflat res c)))))
+finsternis's solution:
+
+1
+2
+(fn pf [s]
+  (mapcat #(if (not-any? sequential? %) (list %) (pf %)) s))
+flububb's solution:
+
+1
+2
+3
+4
+5
+(fn flat-part [[a & b]]
+  (when (not (nil? a))
+    (if (and (coll? a) (not-any? coll? a))
+      (concat (list a) (flat-part b))
+      (concat (flat-part a) (flat-part b)))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [coll]
+  (letfn [(step [coll result]
+            (if (seq coll)
+              (let [first-ele (first coll)]
+                (step (next coll)
+                  (if (some coll? first-ele)
+                    (reduce #(conj %1 %2) result (step first-ele []))
+                    (conj result first-ele))))
+              result))]
+    (step coll [])))
+geekerzp's solution:
+
+1
+2
+3
+4
+(fn [x]
+    (filter #(every? (complement sequential?) %)
+     (filter sequential?
+             (rest (tree-seq sequential? seq x)))))
+glchapman's solution:
+
+1
+2
+3
+4
+(fn [items]
+    (let [branch? #(and (sequential? %) (sequential? (first %)))]
+        (remove branch? (tree-seq branch? seq items))
+    ))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn pf [l]
+  (let [f (fn f [s a]
+            (println s)
+            (println a)
+            (if (> (count s) 0)
+              (if-not (coll? (first (first s)))
+                (f (rest s) (conj a (first s)))
+                (if (= 1 (count s)) 
+                  (f (first s) a) 
+                  (f (cons (first (first s)) (if (and (> (count s) 0) (= () (rest s))) (first s) (rest s))) a))) 
+            a))]
+    (f l [])))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn f [x]
+  (reduce (fn [a b]
+            (concat a
+                    (if (and (coll? b) (coll? (first b)))
+                      (f b)
+                      (list b))))
+          ()
+          x))
+happycrisis's solution:
+
+1
+(fn fl [s] (mapcat #(if (coll? (first %)) (fl %) [%]) s))
+hisba's solution:
+
+1
+(fn pfs [s] (mapcat #(if (some sequential? %) (pfs %) [%]) s))
+icamts's solution:
+
+1
+2
+3
+#(filter 
+  (every-pred sequential? (partial not-any? sequential?)) 
+  (tree-seq sequential? seq %))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [s]
+  (loop [flattened [] rem s]
+    (if (empty? rem)
+            flattened
+            (let [f (first rem)]
+                (if (not (coll? (first f))) 
+                    (recur (conj flattened f) (rest rem))
+                    (if (= 1 (count f))             
+                        (recur flattened (cons (first f) (rest rem)))
+                        (recur flattened (cons (first f) (cons (rest f) (rest rem))))))))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn part [coll]
+  (let [not-coll? #(not (coll? %))
+        flat? #(and (coll? %) (every? not-coll? %))]
+    (if (or
+          (not-coll? coll)
+          (flat? coll))
+      [coll]
+      (mapcat part coll))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn pflat [x]
+  (letfn [(notflat? [c] (reduce #(or %1 %2) (map (fn [z] (coll? z)) c)))]
+            (cond (empty? x) x
+                  (and (coll? x) (notflat? x)) (concat (pflat (first x)) (pflat (rest x)))
+                  :else (list x))
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [s]
+  (loop [s s, r []]
+    (cond
+      (empty? s) r
+      (sequential? (ffirst s))
+            (recur (concat (apply list (first s)) (rest s)) r)
+      :else (recur (rest s) (conj r (first s))))))
+johncowie's solution:
+
+1
+2
+3
+4
+(fn [s]
+  (filter
+   (fn [c] (not (coll? (first c))))
+   (tree-seq (fn [n] (and (coll? n) (coll? (first n)))) identity s)))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+(fn almost-flatten [coll]
+  (lazy-seq
+    (if-not (sequential? (first coll))
+      (conj (empty coll) coll)
+      (mapcat almost-flatten coll))))
+jorendorff's solution:
+
+1
+2
+3
+4
+(fn f [x] (if (or (not (coll? x))
+                  (every? #(not (coll? %)) x))
+            [x]
+            (mapcat f x)))
+jslavin's solution:
+
+1
+2
+3
+(fn plfatten [s] 
+  (filter  (fn [v] (and (sequential? v) (not (coll? (first v))))) 
+         (rest (tree-seq sequential? seq s))))
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+(fn pf [coll]
+  (mapcat
+    #(if (coll? (first %))
+         (pf %)
+         (list %))
+    coll))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn partially-flatten-a-sequence [v]
+  (reduce 
+   
+   (fn [a x]
+     (if (coll? (first x)) 
+       (into a (partially-flatten-a-sequence x))
+       (conj a x)))
+ 
+   []
+   v))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn prob93
+  ([coll] (prob93 coll []))
+  ([coll result]
+   (if (seq coll)
+     (let [first-item (first coll)]
+       (prob93 (next coll)
+               (if (some coll? first-item)
+                 (reduce #(conj %1 %2) result (prob93 first-item []))
+                 (conj result first-item))))
+     result
+     )
+   )
+  )
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify Object
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+(fn my-partially-flatten
+  [x]
+  (filter #(and (sequential? %) (not-any? sequential? %))
+    (rest (tree-seq sequential? seq x))))
+lackita's solution:
+
+1
+2
+3
+4
+(fn almost-flatten [c]
+  (if (some coll? c)
+    (mapcat almost-flatten c)
+    [c]))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn flat [xs]
+  (if (coll? xs)
+    (if-let [[x & xs] xs]
+      (concat (if (some coll? x)
+                (flat x)
+                [x])
+              (flat xs)))
+    xs))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+(fn flatter [coll]
+  (if-not (coll? (first coll))
+    [coll]
+    (reduce concat (map flatter coll))
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+(fn f
+  ([s]
+   (if  (not-any? coll? s)
+     (list s)
+     (mapcat f s))))
+leetwinski's solution:
+
+1
+2
+3
+(fn [ls]
+  (filter #(not-any? coll? %)
+    (tree-seq #(some coll? %) identity ls)))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn pfl [l]
+  (mapcat 
+    (fn [i] 
+      (if (or 
+            (not (coll? i)) 
+            (some #(not (coll? %)) i))
+        [i]
+        (pfl i)))
+    l))
+malvert's solution:
+
+1
+2
+3
+4
+5
+(letfn [(f [s]
+  (if (some sequential? s)
+    (mapcat f s)
+    [s]))]
+  f)
+matiasl's solution:
+
+1
+2
+3
+4
+(fn fl [coll] 
+  (filter #(and (sequential? %) 
+                (not (sequential? (first %)))) 
+          (tree-seq sequential? seq coll)))
+maximental's solution:
+
+1
+2
+3
+4
+5
+(fn f [[h & t]] 
+  (if h
+    (if (some coll? h)
+      (concat (f h) (f t))
+      (cons h (f t)))))
+mbakhterev's solution:
+
+1
+(fn F [S] (mapcat (fn [s] (if (and (coll? s) (some coll? s)) (F s) [s])) S))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn semi-flatten--recur
+  [coll] {:pre [(coll? coll)]}
+  (loop [[x & tail :as coll] coll, out []]
+    (cond
+      (empty? coll)            out
+      (or (not (coll? x))
+          (not-any? coll? x))  (recur tail (conj out x))
+      :else                    (recur (concat x tail) out))))
+mfikes's solution:
+
+1
+(fn [coll] (filter #(and (sequential? %) ((complement sequential?) (first %))) (tree-seq sequential? seq coll)))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+(fn pf [xs]
+  (if (and (coll? xs) (coll? (first xs)))
+    (if (= 1 (count xs))
+      (recur (first xs))
+      (apply concat (map pf xs)))
+    (list xs)))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+(fn partialflatten [s]
+     (if (sequential? s)
+       (if (reduce #(or %1 %2) (map sequential? s))
+         (mapcat partialflatten s)
+         (vector s))
+       (vector s)))
+mobiusloop's solution:
+
+1
+2
+3
+(fn f [l]
+    (if (= l (flatten l)) (list l) (mapcat f l))
+    )
+mononite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn pflat [coll]
+  (let [l (first coll) r (next coll)]
+    (concat 
+      (if (and (coll? l) (not-any? coll? l))
+        [l]
+        (pflat l))
+      (when (coll? r)
+        (pflat r)))))
+mouse's solution:
+
+1
+2
+#(mapcat (fn [[a b]] ({[false b] [a]} [(coll? b) (if (coll? a) (first a))]))
+           (partition 2 1 (tree-seq coll? seq %)))
+mwaldowski's solution:
+
+1
+2
+3
+4
+(fn [coll]
+  (->>
+   (tree-seq sequential? identity coll)
+   (filter #(and (sequential? %) (every? (complement sequential?) %)))))
+nagi's solution:
+
+1
+2
+3
+4
+(fn pf [xs]
+  (filter #(and (coll? %)
+                (every? (complement coll?) %))
+          (tree-seq coll? identity xs)))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+(fn f [x]
+  (if (coll? x)
+      (mapcat #(if (and (coll? %) (every? coll? %)) % [%]) (map f x))
+    x))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+(fn flat 
+   ([x] (flat [] x))
+   ([acc x]
+   (if (not-any? sequential? x) 
+     (conj acc x)
+     (reduce #(if (sequential? %2) (flat %1 %2) (conj %1 %2)) acc x))))
+norman's solution:
+
+1
+2
+3
+4
+(fn pflat [vals]
+  (if (coll? (first vals) )
+    (mapcat pflat vals)
+    (list vals)))
+nothsaevets's solution:
+
+1
+2
+3
+4
+(fn [s] 
+  (->> (tree-seq coll? identity s)
+       (filter coll?)
+       (filter #(not (coll? (first %))))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn myf [coll] 
+  (letfn [(sub [coll]
+          (loop [res [], coll coll]
+            (if (empty? coll) res
+              (let [new-coll (drop-while coll? coll)]
+                (recur (conj res (take-while (complement coll?) new-coll)) (drop-while (complement coll?) new-coll))))))] 
+  (->> (tree-seq coll? identity coll)
+  sub)))
+ownwaterloo's solution:
+
+1
+2
+3
+#(->> %
+      (tree-seq (comp sequential? first) seq)
+      (remove (comp sequential? first)))
+ozan's solution:
+
+1
+2
+3
+4
+(fn partially-flatten [xs]
+  (if (every? sequential? xs)
+    (mapcat partially-flatten xs)
+    [xs]))
+pukeface's solution:
+
+1
+2
+3
+4
+(let [base-seq? (fn [s] (-> s (first) (coll?) (not)))]
+     (fn partially-flatten [L]
+         (if (base-seq? L) (vector L)
+             (mapcat partially-flatten L))))
+quant1's solution:
+
+1
+(fn f1 [s] (apply concat (for [i s] (if (coll? (first i)) (f1 i) [i]))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+#(->>
+  %3
+  (tree-seq % identity)
+  (filter %)
+  (filter %2)
+  )
+ sequential?
+ #(not-any? sequential? %)
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+(fn f
+  ([col] (f col []))
+  ([[fst & rst] res]
+   (-> res
+       (#(if (some sequential? fst) (f fst %) (conj % fst)))
+       (#(if (seq rst) (f rst %) %)))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+(fn c-flatten [coll] 
+  (let [l (first coll) r (next coll)]
+    (concat 
+     (if (sequential? (first l)) (c-flatten l) [l])
+     (if (sequential? (first r)) (c-flatten r)))))
+sheldon's solution:
+
+1
+(fn f [s] (filter #(and (coll? %) (not-any? coll? %)) (tree-seq coll? identity s)))
+silverio's solution:
+
+1
+(fn fl[s] (mapcat #(if (some coll? %) (fl %) [%]) s))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+(fn pf [coll]
+  (reduce concat [] 
+          (for [x coll]
+            (if (every? (complement coll?) x)
+              (vector x)
+              (pf x)))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+#(reduce
+  (fn g [i [h & t :as s]]
+    (if (coll? h)
+        (into (g i h) (if t (g [] t)))
+        (conj i s)))
+  [] %)
+ 
+#_
+#(let [f (comp coll? first)] (remove f (tree-seq f identity %)))
+staafl2's solution:
+
+1
+(fn partflat [xs] (mapcat #(if (every? sequential? %) (partflat %) [%]) xs))
+syeerzy's solution:
+
+1
+2
+(fn f [xs]
+  (mapcat #(if (coll? (first %)) (f %) [%]) xs))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+mapcat #(if (list? %)
+          (let [[a b] (seq %)]
+            (if (list? a)
+              [a (flatten b)]
+              [%]))
+          [(flatten %)])
+thegeez's solution:
+
+1
+2
+3
+4
+5
+(fn f [s]
+    (if (and (sequential? s)
+             (not (sequential? (first s))))
+      [s]
+      (mapcat f s)))
+zzamboni's solution:
+
+1
+2
+3
+4
+(fn partially-flatten [s]
+  (->> s
+       (tree-seq coll? seq)
+       (filter #(and (coll? %) (every? (complement coll?) %)))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn __ [s]
+  (if (empty? s) (empty s)
+    (let [f (first s)]
+     (concat (if
+               (and (sequential? f)
+                    (not (empty? f))
+                    (sequential? (first f)))
+               (__ f)
+               [f])
+             (__ (rest s))))))
+zipzop's solution:
+
+1
+2
+3
+4
+(fn u [s]
+  (if (every? sequential? s)
+    (mapcat u s)
+    [s]))
+yusubori's solution:
+
+1
+2
+3
+(fn [coll]
+  (let [f #(every? sequential? %)]
+    (filter (complement f) (tree-seq f seq coll))))
+ydash's solution:
+
+1
+2
+3
+4
+(fn pflatten [[h & t :as l]]
+  (cond (or (list? h) (vector? h)) (concat (pflatten h) (pflatten t))
+        (empty? l) ()
+        :else (list l)))
+vpeurala's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn partially-flatten [xs] 
+    (cond 
+        (empty? xs) 
+        [] 
+        (and 
+            (sequential? (first xs)) 
+            (not (not-any? sequential? (first xs)))
+        ) 
+        (concat (partially-flatten (first xs)) (partially-flatten (rest xs))) 
+        :else 
+        (cons (first xs) (partially-flatten (rest xs)))
+    )
+)
+v_bogdanov's solution:
+
+1
+2
+3
+(fn f [[a & b]]
+  (if (not (coll? (first a))) (concat [a] (if (empty? b) nil (f b)))
+    (f (concat a (if (empty? b) nil (f b))))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn pf [coll]
+  (let [h (first coll)
+        t (rest coll)]
+    (concat
+      (if (every? #(not (coll? %)) h)
+        (list h)
+        (pf h))
+      (if (not (empty? t))
+        (pf t)
+        nil))))
+trxeste's solution:
+
+1
+2
+3
+4
+(fn pflatten [tree]
+  (if (every? sequential? tree)
+    (mapcat pflatten tree)
+    [tree]))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+(fn f [c]
+  (let [l (first c) r (next c)]
+    (concat
+     (if (-> l first coll? not) [l] (f l))
+     (if r (f r)))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

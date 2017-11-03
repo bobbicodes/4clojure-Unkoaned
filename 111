@@ -1,0 +1,3699 @@
+;; 111 Crossword puzzle [h]
+
+Tests if a word will fit
+ 
+- may use empty spaces (underscores) 
+- may use but not conflict with any pre-filled characters. 
+- must not use any unusable spaces (hashes). 
+- no empty spaces (underscores) or extra characters
+  before or after the word
+  (but may be bound by unusable spaces) 
+- Not case-sensitive. 
+- May be placed vertically (proceeding top-down only),
+  or horizontally (proceeding left-right only).
+
+(= true  (__ "the" ["_ # _ _ e"]))
+(= false (__ "the" ["c _ _ _"
+                    "d _ # e"
+                    "r y _ _"]))
+(= true  (__ "joy" ["c _ _ _"
+                    "d _ # e"
+                    "r y _ _"]))
+(= false (__ "joy" ["c o n j"
+                    "_ _ y _"
+                    "r _ _ #"]))
+(= true  (__ "clojure" ["_ _ _ # j o y"
+                        "_ _ o _ _ _ _"
+                        "_ _ f _ # _ _"]))
+
+(fn [w p]
+  (let [sm (map #(replace {\space "" \_ \.} %) p)
+        co (apply map list sm)
+        pl (mapcat #(take-nth 2 (partition-by #{\#} %))
+             (concat sm co))]
+    (boolean
+      (some
+        #(re-matches (re-pattern (apply str %)) w)
+        pl))))
+
+(fn [s ms]
+  (let [data (map #(apply str
+                     (filter (complement #{\space}) %))
+               ms)
+        test #(-> (str "^" % "$") (re-pattern) (re-seq s))]
+    (->> (apply mapv str data)
+         (concat data)
+         (mapcat #(-> % (.replace "_" ".") (.split "\\#")))
+         (some (comp test str))
+         (boolean))))
+
+(fn f [word vs]
+  (let [seq-vec (map (fn [x] (filter #(not= % \space) x))
+                  (map seq vs))
+        split-fn (fn [x]
+                   (filter #(not= % '(\#))
+                           (partition-by  #(= % \#) x)))
+        transpose (fn [m]
+                    (apply mapv vector m))
+        seq-vec-transposed (transpose seq-vec)
+        fit? (fn [x]
+               (if (some #(= % false)
+                     (if (not= (count x) (count word))
+                       [false]
+                       (map #(if (or (= %1 %2) (= %2 \_))
+                               true
+                               false)
+                         (seq word)
+                          x)))
+                 false
+                 true))]
+    (if (some fit?
+          (into (mapcat split-fn seq-vec-transposed)
+            (mapcat split-fn seq-vec)))
+      true
+      false)))
+
+(fn [word inputCrossWords]
+  (let [crossWords (map (fn[x] (apply str (remove #(= \space %) x))) inputCrossWords);why should I clean the input
+        columns (apply map str crossWords)];get the column str
+    (letfn [(match? [w1 w2];only w2 may contain _ and #
+                    (let [l1 (first w1) l2 (first w2)]
+                      (cond
+                       (and (nil? l1) (nil? l2)) true ;reach both ends then a match is found
+                       (and (not (nil? l1)) (= l2 \_)) (recur (rest w1) (rest w2));as _ can match any characters
+                       (= l1 l2) (recur (rest w1) (rest w2));single character is matched then continue
+                       :else false)));if not= l1 l2
+            (crossMatch? [word pattern]
+                         (loop [remaining (clojure.string/split pattern #"#")];split the pattern by #
+                           (if-let [p (first remaining)];a word can only start from the begining or after #
+                             (if (match? word p) true;found match then return true
+                               (recur (rest remaining)))
+                             false)))];no match is found
+      (reduce #(or %1 %2) false (map #(crossMatch? word %) (concat crossWords columns))))))
+_pcl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [word board]
+  (let
+    [fits?
+      (fn [b]
+        (some (fn [row]
+          (some (fn [re] (re-matches (re-pattern re) word)) (re-seq #"[^#]+" row)))
+          b))
+      pb
+        (map #(-> % (.replace " " "") (.replace "_" ".")) board)
+      tpb
+        (apply map str pb)]
+    (boolean (or (fits? pb) (fits? tpb)))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn place? [s x] (let [
+    x0 (map #(str "#" (clojure.string/replace % " " "") "#") x)
+    sh (apply str (repeat (count (first x0)) \#))
+    x1 (concat [sh] x0 [sh])
+    x2 (apply (partial map str) x1)
+    x3 (concat x1 x2)
+    sp (re-pattern (str "#" (apply str (map #(str "[_" % "]") s)) "#"))]
+    (boolean (seq (keep identity (map #(re-seq sp %) x3))))))
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [w p]
+  (let [p (map #(-> %
+                    (.replaceAll " " "")
+                    (.replaceAll "_" "."))
+               p)
+        m (fn [z] (map re-pattern
+                                   (mapcat #(.split % "#")
+                                           z)))
+        hp (m p)
+        vp (m (apply map (comp #(reduce str "" %) vector) p))]
+    (if (some #(re-matches % w) (concat hp vp)) true false)
+    )
+  )
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+(fn puzzleX [w t]
+    (letfn
+        [
+        (getColumnWihIndex[t i]
+            (clojure.string/join "" (map #(get % i) t))
+        )
+        (rowsAndColumns[t]
+            (let [
+                columns (count (get t 0))
+                ]
+                (concat t (map (partial getColumnWihIndex t) (range columns)))
+            )
+        )
+         
+        (removeSpaces[s]
+            (clojure.string/replace s #" " "")
+        )
+ 
+        (removeSpacesInTable[t]
+            (mapv removeSpaces t)
+        )
+ 
+        (extractWords[s]
+            (clojure.string/split s #"#")
+        )
+ 
+        (extractWordsInSequence[x]
+            (mapcat extractWords x)
+        )
+ 
+        (matchWord [w s]
+            (not (nil? (re-matches (re-pattern (clojure.string/replace s #"_" ".")) w)))
+        )
+ 
+        (anyMatchWord [w x]
+            (not (nil? (some (partial matchWord w) x)))
+        )
+        ]
+        (anyMatchWord w (extractWordsInSequence (rowsAndColumns (removeSpacesInTable t))))
+    )
+)
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+(fn placeable? [word_ table_]
+  (let [word (concat "#" word_ "#")
+        table (map
+                (fn [untrimmed] 
+                  (remove 
+                    (partial = \space)
+                    untrimmed))
+                table_)
+        max-x (count 
+                (first
+                  table))
+        max-y (count
+                table)
+        get (fn [x y] 
+              (if 
+                (or
+                  (< y 0)
+                  (< x 0)
+                  (>= y max-y)
+                  (>= x max-x))
+                \#
+                (->
+                  table
+                  (nth y)
+                  (nth x))))
+        placeable-at? (fn [x y]
+                        (let [direction-vertical (fn [n] (get x (+ y n)))
+                              direction-horizontal (fn [n] (get (+ x n) y))
+                              table-slots-from-xy (fn [direction-function]
+                                                    (->> 
+                                                      (range)
+                                                      (map direction-function)))
+                              match-on? (fn [direction-function]
+                                          (every? 
+                                            identity 
+                                            (map 
+                                              (fn [desired got]
+                                                (cond (= desired \#) (= desired got)
+                                                      (= got \_) true
+                                                      :else (= desired got)))
+                                              word
+                                              (table-slots-from-xy direction-function))))
+                              ]
+                          (or (match-on? direction-vertical)
+                              (match-on? direction-horizontal))))]
+    (->>
+      (for
+        [x (range -1 max-x)
+         y (range -1 max-y)
+         :let [element (get x y)]
+         :when (= element \#)
+         :when (placeable-at? x y)]
+        :placeable)
+      count
+      (< 0))))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [word crossword]
+  (letfn [(rowsandcols [c]
+            (let [sprf (fn [r] (remove #(= \space %) r))
+                  nsp (map sprf c)
+                  cols (apply map vector nsp)]
+              (concat nsp cols)))
+          (remove-unusable [c]
+            (letfn [(rc [r]
+                      (if (some #(= \# %) r)
+                        [(take-while #(not= \# %) r) (rest (drop-while #(not= \# %) r))]
+                        [r]))]
+              (mapcat rc c)))
+          (match-letter [l s] (or (= l s) (= \_ s)))
+          (match-word [w r]
+            (if (= (count w) (count r))
+              (every? identity (map-indexed #(match-letter (nth w %1) %2) r))
+              false))
+          (crossword-sol? [w c]
+            (let [rcs (rowsandcols c)
+                  wtm (remove-unusable rcs)]
+              (if (some true? (map #(match-word w %) wtm)) true false)))]
+    (crossword-sol? word crossword)))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn f [w b]
+  (letfn [(get-word-rows [b]
+            (mapcat (fn [x] (->>
+                             (clojure.string/replace x " " "")
+                             (partition-by #{\#})
+                             (remove #{'(\#)})
+                             (map #(apply str %))
+                             )) b))
+ 
+          (compare-word [w cw]
+            (cond
+              (not= (count w) (count cw)) false
+              :else (every? identity (map #(or (= % %2)
+                                               (= %2 \_)) w cw))))
+ 
+          (transpose [xs]
+            (->> (apply mapv vector xs)
+                 (map #(apply str %))))]
+    (let [h (get-word-rows b)
+          v (get-word-rows (transpose b))]
+      (cond
+        (or (some (partial compare-word w) h)
+            (some (partial compare-word w) v)) true
+        :else false))))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [w b]
+  (let [rows (map #(filter (partial not= \space) %) b)
+        cols ((fn [a]
+               (loop [res [] i 0]
+                 (if (= i (count (first a)))
+                   res
+                   (recur (cons (map #(nth % i) a) res) (inc i)  )
+                   )))rows)
+        rows (concat rows cols)
+        f (fn f [s]
+            (if (empty? s)
+              []
+              (cons
+               (take-while (partial not= \#) s)
+               (f (next (drop-while (partial not= \#) s))))))
+        rows (apply concat (map f rows))
+        rows (filter (fn[e](= (count w) (count e))) rows)
+        rows (map #(every? identity (map-indexed (fn[i e](or (= e \_) (= e (nth w i)))) %)) rows)
+        ]
+    (not(not-any? identity rows))))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [w a]
+    (let [b (for [i (range (count (a 0)))]
+              (apply str (map #(get-in a [% i]) (range (count a)))))
+          r (re-pattern (str ".*(#|^)" (apply str (map #(str " *(" % "|_)") w)) " *(#|$).*"))
+          t #(re-matches r %)]
+      (boolean (or (some t a) (some t b)))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+(fn
+  [word grid]
+  (letfn [(strip-spaces [s]
+            (lazy-seq
+              (if (seq s)
+                (let [h (first s)
+                      t (rest s)]
+                  (if (= \space h)
+                    (strip-spaces t)
+                    (cons h (strip-spaces t))))
+                nil)))]
+    (let [v (vec (map #(vec (strip-spaces (.toUpperCase %))) grid))
+          height (count v)
+          width (count (first v))
+          uw (.toUpperCase word)
+          wordlen (count word)
+          letters-fit (fn [row col drow dcol word]
+                        (if (seq word)
+                          (let [c (get-in v [row col])
+                                row' (+ row drow)
+                                col' (+ col dcol)
+                                h (first word)
+                                t (rest word)]
+                            (if (or (= c \_)
+                                    (= c h))
+                              (recur row' col' drow dcol t)
+                              false))
+                          true))
+          word-fits-vertically (fn [row col]
+                                 (and (>= row 0)
+                                      (>= col 0)
+                                      (<= row (- height wordlen))
+                                      (< col width)
+                                      (or (= row 0)
+                                          (= \# (get-in v [(dec row) col])))
+                                      (or (= (+ row wordlen) height)
+                                          (= \# (get-in v [(+ row wordlen)
+                                                           col])))
+                                      (letters-fit row col 1 0 uw)))
+          word-fits-horiz (fn [row col]
+                            (and (>= row 0)
+                                 (>= col 0)
+                                 (< row height)
+                                 (<= col (- width wordlen))
+                                 (or (= col 0)
+                                     (= \# (get-in v [row (dec col)])))
+                                 (or (= (+ col wordlen) width)
+                                     (= \# (get-in v [row
+                                                      (+ col wordlen)])))
+                                 (letters-fit row col 0 1 uw)))]
+    (not (empty? (for [row (range height)
+                       col (range width)
+                       :when (or (word-fits-vertically row col)
+                                 (word-fits-horiz row col))]
+                   [row col]))))))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [word board]
+  (let [board (vec (map (fn [s] (vec (filter #(not= \  %) s))) board))
+        w (count (first board))
+        h (count board)
+        l (count word)
+        lookup (fn [[x y]] (get-in board [y x]))
+        down (for [x (range w) y (range (- (inc h) l))] [x y])
+        across (for [x (range (- (inc w) l)) y (range h)] [x y])
+        filter-down (fn [[x y]] (and
+          (contains? #{\# nil} (lookup [x (dec y)]))
+          (contains? #{\# nil} (lookup [x (+ y l)]))
+          (every? #(#{(nth word %) \_} (lookup [x (+ y %)])) (range l))))
+        filter-across (fn [[x y]] (and
+          (contains? #{\# nil} (lookup [(dec x) y]))
+          (contains? #{\# nil} (lookup [(+ x l) y]))
+          (every? #(#{(nth word %) \_} (lookup [(+ x %) y])) (range l))))]
+    (not (empty? (concat (filter filter-across across) (filter filter-down down))))))
+awebb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn place? [word puzzle]
+  (let [puz (map #(take-nth 2 %) puzzle) 
+        brd [(repeat \#)]
+        trz (fn [puz] (apply mapv vector (concat brd puz brd)))
+        ver (trz puz)
+        hor (trz ver)
+        wrd (concat [\#] word [\#])
+        fit? (fn [loc] (every? identity (map #(if (= \_ %2) (not= \# %1) (= %1 %2)) wrd loc)))]
+     (-> (for [ori [ver hor]
+               row ori
+               loc (partition (count wrd) 1 row) 
+               :when (fit? loc)] 
+           [ori row loc])
+         empty? not)))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn cross [word board]
+  (->> board
+       (apply map vector)
+       (concat board)
+       (map (partial remove #(= % \space)))
+       (map (partial apply str))
+       (mapcat #(clojure.string/split % #"#"))
+       (filter #(= (count word) (count %)))    
+       (map (partial map vector word))   
+       (some 
+         #(every? 
+           (fn [[ch space]] 
+             (or (= space ch)
+                 (= space \_)))
+           %))
+        true?))
+benhammond's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s c]
+        (let [cols (fn [sv]
+                     (let [c (apply min (map count sv))]
+                       (for [i (range c)]
+                         (apply str (map #(get % i) sv)))))
+              build-regex (fn [s] (map #(re-pattern (clojure.string/replace (clojure.string/replace % #"_" "\\\\w") #"\s" "")) (clojure.string/split s #"#")))
+              ]
+          (= ((set (remove nil? (map #(re-matches % s) (flatten (map build-regex (concat c (cols c))))))) s) s)))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [word board]
+  (letfn [(squashed [line] (apply str (re-seq #"\S+" line)))
+          (runs [line] (re-seq #"[^#]+" line))
+          (matches [run word]
+            (let [matched (map (fn [lr lw] (if (#{lw \_} lr) true false)) run word)]
+              (and (= (count run) (count word))
+                   (= #{true} (into #{} matched)))))]
+    (let [rows (map squashed board)
+          cols (apply (partial map str) rows)
+          allplaces (concat rows cols)
+          allruns (mapcat runs allplaces)]
+      (or (some #(matches % word) allruns)
+          false))))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(fn p [s b]
+  (let [
+        str->vec (fn str->vec [strs]
+                   (vec (map (fn [s] (vec (filter (fn [c] (not= c \space)) s))) strs)))
+        board (str->vec b)
+        w (count (first board))
+        h (count board)
+ 
+        check (fn check [s board i j  w h d]
+                ;(println s board i j h )
+                (let [len (count s)]
+                  (cond (and (= d :v) (= len 0) (= i h))
+                        true
+                        (and (= d :h) (= len 0) (= j w))
+                        true
+                        (= len 0)
+                        false
+                        (and (= d :h) (or (= (first s) (get-in board [i j]))
+                                          (= \_ (get-in board [i j]))))
+                        (recur (rest s) board i (inc j) w h d)
+                        (and (= d :v) (or (= (first s) (get-in board [i j]))
+                                          (= \_ (get-in board [i j]))))
+                        (recur (rest s) board (inc i)  j w h d)
+                        :else
+                        false)))
+        ]
+    (not (empty? (filter true? (apply concat (for [i (range 0 (inc h))]
+                    (filter true? (for [j (range 0 (inc w))]
+                                    (or
+                                      (and (or (= i 0) (= (get-in board [(dec i) j]) \#))
+                                           (check s board i j w h :v))
+                                      (and (or (= j 0) (= (get-in board [i (dec j)]) \#))
+                                           (check s board i j w h :h))))))))))))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(letfn [(compact [str] (clojure.string/replace str #" " ""))
+        (words [str] (clojure.string/split str #"#"))
+        (cmatch? [c1 c2] (or (= c1 c2) (= c2 \_)))
+        (match? [str ph]
+          (and (= (count str) (count ph))
+               (every? true? (map cmatch? str ph))))
+        (fillsl? [str line] (some #(match? str %) (-> line compact words)))]
+   (fn [s rect] 
+     (boolean (some #(fillsl? s %) (concat rect (apply map str rect))))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn crossword[t b]
+  (let[cb (vec (map (fn [x] (apply str (remove #(= % \space ) x))) b))
+       cols (apply map str cb)
+       in (filter #(and (= (count t) (count %)) (some (fn [x] (= x \_)) %)) (mapcat #(clojure.string/split % #"#") (concat cb cols)))
+       compare-words (fn [word cross]
+                       (cond
+                        (= (seq word) (seq cross) nil) true
+                        (= (first cross) \_) (recur (rest word) (rest cross))
+                        (= (first cross) (first word)) (recur (rest word) (rest cross))
+                        :else false))]
+    (reduce #(or %1 %2) (map (partial compare-words t) in))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn list-lines [word board]
+   (let [vertical-lines (map #(clojure.string/replace % " " "")
+                             board)
+         horizontal-lines (apply map str vertical-lines)
+         possible-block (->> (list vertical-lines horizontal-lines)
+                             (apply concat)
+                             (map #(re-seq #"[\w_]+" %))
+                             flatten)
+         insense-case clojure.string/lower-case
+         match (fn [block]
+                 (and (= (count block) (count word))
+                      (loop [x word y block]
+                        (cond (empty? x) true
+                              ((complement contains?) #{"_" (insense-case (first x))}
+                               (insense-case (first y))) false
+ 
+                              :else (recur (rest x) (rest y)))
+                        ))
+                 )]
+     (boolean (some match possible-block))
+     ))
+chunchangshao's solution:
+
+1
+2
+3
+4
+#(case %
+   "the" (if (= (first (first %2)) \c) false true)
+   "joy" (if (= (nth (first %2) 2) \o) false true)
+   true)
+ctzsm's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [word board]
+  (let [board (vec (map #(apply str (remove (fn [x] (= \space x))%)) board))
+        h (count board)
+        w (count (first board))
+        l (count word)]
+    (letfn [(G [pair] (get-in board pair \#))
+            (HV [[i j] [y x]] (and (= \# (G [(- y (* 1 i)) (- x (* 1 j))]))
+                                   (= \# (G [(+ y (* l i)) (+ x (* l j))]))
+                                   (= l (count (for [k (range l)
+                                              :let [c (nth word k) now (G [(+ y (* k i)) (+ x (* k j))])]
+                                              :while (or (= \_ now) (= c now))] 1)))))]
+      (if (some #(or (HV [0 1] %) (HV [1 0] %)) 
+                (for [i (range h) j (range w)] [i j])) true false))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(letfn [(transpose
+         [matrix]
+         (apply mapv str matrix))
+        
+        (match?
+         [word slot]
+         (and (= \# (first slot) (last slot))
+              (every? (fn [[a b]] (#{\_ a} b))
+                      (->> (butlast (rest slot))
+                           (map list word)))))
+        
+        (place?
+         [word row]
+         (let [size (+ 2 (count word))]
+           (->> (str \# row \#)
+                (partition size 1)
+                (some (partial match? word)))))
+        
+        (solve?
+         [word puzzle]
+         (some (partial place? word)
+               puzzle))]
+  
+  (fn cross-word
+    [word puzzle]
+    (let [puzzle
+          (mapv (comp (partial apply str)
+                      (partial remove #{\space}))
+                puzzle)]
+      
+      (or (solve? word puzzle)
+          (solve? word (transpose puzzle))
+          false))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn [input board]
+  (let [theinput (concat "#" input "#")
+        theboard (into [] (map (comp (partial into []) (partial filter #(not= % \space))) board))
+        getboardslices (fn getboardslices [l]
+                         (apply concat (map (fn [y]
+                                              (apply concat (map (fn [x]
+                                                                   [(map #(get-in theboard [(+ y %) x] \#) (range l))
+                                                                    (map #(get-in theboard [y (+ x %)] \#) (range l))
+                                                                    ])
+                                                                 (range -1 (inc (count (first theboard)))))))
+                                            (range -1 (inc (count theboard))))))
+        matches? (fn matches? [a b]
+                   (if (empty? a) true
+                     (if (or (= (first a) (first b)) (and (= (first b) \_) (not= (first a) \#)))
+                       (matches? (rest a) (rest b))
+                       false)))
+        ]
+    ((comp not nil?) (some (partial matches? theinput) (getboardslices (count theinput))))))
+daowen's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn fits? [word board]
+  (let [board (map #(.replace % " " "") board)
+        from (partial mapcat #(.split % "#"))
+        spots (concat (from board) (from (apply map str board)))
+        ok? #(every? (fn [[x y]] (or (= \_ x) (= x y)))
+                     (map vector % word))]
+    (boolean
+      (some ok? (filter #(= (count word) (count %)) spots)))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn puzzle [word board]
+  (let [ r_str (map #(apply str %) (for [r board](re-seq #"[a-z_#]" r)))
+        c_str (map #(apply str %) (filter #(not= nil %) (for [c (for [x (range (count (first board)))](apply str (for [y  (range (count board))](nth (nth board y) x))))](re-seq #"[a-z_#]" c))))
+        tok (map #(apply str %) (apply concat (map (fn [sp] [(take-while #(not= \# %) sp) (drop 1 (drop-while #(not= \# %) sp))]) (concat r_str c_str))))
+       ]
+      (> (count (filter #(not= nil %) (for [p (map #(re-pattern (str "^" (.replaceAll % "_" "\\\\w") "$")) tok)]
+         (re-find p word)
+      ))) 0)
+  )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn [word puzzle]
+     (let [word-length (count word)]
+       (letfn [(match-segment [segment]
+                              (let [check-pairs (map vector word segment)
+                                    mismatches (filter #(and (not= \_ (second %)) 
+                                                             (apply not= %)) check-pairs)]
+                                (empty? mismatches)))
+               (second-last [coll] (nth coll (- (count coll) 2)))
+               (solve-row [row] 
+                          (let [n (count row) 
+                                prev-char (cons \# (drop-last row))
+                                end-bounding-char (take n (drop word-length (concat row [\#] (repeat (dec word-length) \$))))
+                                check-pairs (map vector (range n) prev-char row end-bounding-char)
+                                eligibles (map first (filter #(and (= \# (second %)) 
+                                                                   (or (= (first word) (second-last %))
+                                                                       (= \_ (second-last %)))
+                                                                   (= \# (last %))) check-pairs))
+                                segments (map #(take word-length (drop % row)) eligibles)
+                                goods (filter #(match-segment %) segments)]
+                            (not (empty? goods))
+                            ))
+               (remove-whitespaces [row] (filter #(not= \space %) row))
+               (get-rotated-rows [rows] (apply (partial map vector) rows))]
+         (let [puzzle-without-spaces (map remove-whitespaces puzzle)
+               rotated-puzzle (get-rotated-rows puzzle-without-spaces)
+               all-seqs (concat puzzle-without-spaces rotated-puzzle)
+               flags (map solve-row all-seqs)]
+           (not (nil? (some identity flags)))
+           ))))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+(fn[word board]
+  (letfn [(fit? [spot]
+            (when (= (count word) (count spot))
+              (apply = true (map #(or (= \_ %2) (= %1 %2)) word spot))))
+          (map-spots [row] (map #(.replace % " " "") (.split row "#")))]
+    (boolean (some true? (map fit? (mapcat map-spots (concat board (apply map str board))))))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(let [
+  lines-to-board (fn [lines]
+    (into [] (map #(into [] (remove #{\space} %)) lines)))
+ 
+  invert (fn [board]
+    (into [] (apply map vector board)))
+ 
+  can-fit (fn [word board]
+    (let [valid-end? #(let [val (get-in board %)] (or (nil? val) (= \# val)))
+          xsize (count board)
+          ysize (count (board 0))
+          all-pos (for [x (range xsize) y (range ysize)] [x y])
+          nothing-bad-in-front-pos (filter (fn [[x y]] (valid-end? [x (dec y)])) all-pos)
+          nothing-bad-in-back-pos (filter (fn [[x y]] (valid-end? [x (+ y (count word))])) nothing-bad-in-front-pos)
+          grab-placement (fn [[x y]] (map #(vector x (+ % y)) (range (count word))))
+          compare-to-word (fn [pos] (every? (fn [[a b]] (or (= a b) (= b \_))) (map vector (seq word) (map #(get-in board %) (grab-placement pos)))))]
+      (some compare-to-word nothing-bad-in-back-pos)))
+]
+  (fn [word lines]
+    (let [b1 (lines-to-board lines)
+          b2 (invert b1)]
+      (if (or (can-fit word b1) (can-fit word b2)) true false))))
+dzholev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [w s]
+  (let[nsr (map #(.replace % " " "") s)
+       cols (apply map str nsr)
+       lines (concat nsr cols)
+       words (mapcat #(.split % "#") lines)
+       candidates (filter #(= (count w) (count %)) words)]
+    (boolean (some #(re-find (re-pattern (.replace % "_" ".")) w) candidates))))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn [ w g ]
+        (let [ find-pattern-in-line 
+                (fn [ l ]
+                (partition-by (partial = \#) (filter (partial not= \ ) l)))
+               get-vertical-lines
+                (fn [ g ]
+                    (apply (partial map (comp concat str)) g)
+                )
+               all-lines (concat g (get-vertical-lines g))
+               all-patterns (mapcat find-pattern-in-line all-lines)
+               matches-pattern? 
+                (fn [ [p & ps :as pattern] [a & as :as w] ]
+                    (cond
+                        (and (empty? w) (empty? pattern)) true ;; fully consumed
+                        (or  (empty? w) (empty? pattern)) false
+                        (= \# p) false
+                        (= \_ p) (recur ps as)
+                        (= a  p) (recur ps as)
+                        :else false))
+                debug-matches-pattern?
+                    (fn [p w]
+                        (if (matches-pattern? p w)
+                        (do (println "matched " p) true)
+                        false))]
+        (println all-patterns)
+        (reduce #(or %1 (debug-matches-pattern? %2 w)) false all-patterns)))
+ericw's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(letfn [                                                                                                                                                
+    (rot [m] (apply map #(clojure.string/join " " %&) m))                                                                                               
+    (build-re [s] (re-pattern                                                                                                   
+        (str "(?:^|# )"                                                                                                         
+             (clojure.string/join " " (map #(str "[" %1 "_]") s))                                                               
+             "(?:$| #)")))                                                                                                      
+    (crossword-fits? [w m]                                                                                                      
+        (let [w-re (build-re w)]                                                                                                                        
+            (if (not-empty (keep #(re-find w-re %1) (concat m (rot m))))                                                        
+                true                                                                                                                                    
+                false)))]                                                                                                       
+        crossword-fits?)
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [word board]
+  (letfn [(->xword [board]
+            (map #(remove (partial = \space) %) board))
+          (split-on [x coll]
+            ((juxt #(take-while (partial not= x) %)
+                   #(rest (drop-while (partial not= x) %))) coll))
+          (xword->words [xword]
+            (mapcat #(remove empty? (split-on \# %))
+                    (concat xword (apply map list xword))))
+          (possible-word? [word template]
+            (and (= (count template) (count word))
+                 (reduce (fn [possible? pair]
+                           (and possible?
+                                (or (= \_ (first pair))
+                                    (apply = pair))))
+                         true
+                         (map list template word))))]
+    (let [xword (->xword board)
+          words (xword->words xword)
+          possible-w? (partial possible-word? (seq word))]
+      (reduce #(or %1 (possible-w? %2)) false words))))
+finsternis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [word board]
+  (let [fixword (str "#" word "#")
+        fixrow (fn [r] (concat [\#] (filter (complement #{\ }) r) (concat [\#])))
+        border (repeat (count (fixrow (first board))) \#)
+        across (concat [border] (map fixrow board) [border])
+        down (apply (partial map vector) across)
+        matches?
+        (fn [[b c]] (cond (= b \#) (= c \#) (= b \_) (not= c \#) :else (= b c)))
+        match-vec? (fn [v] (every? matches? (map vector v fixword)))
+        subvecs (fn [r] (take (inc (- (count r) (count fixword))) (iterate rest r)))
+        match-row? (fn [r] (some match-vec? (subvecs r)))]
+    (boolean (or (some match-row? across) (some match-row? down)))))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn cross-word
+  [w cross]
+  (let [m       (map #(clojure.string/replace % " " "") cross)
+        fields #(mapcat (partial re-seq #"[^#]+") %)
+        tr     #(apply map str %)
+        fit?   #(every?
+                  (fn [[a b]] (or (= b \_) (= a b)))
+                  (partition 2 (interleave %1 %2)))]
+    (not (not-any?
+      #(fit? w %) 
+      (filter
+        #(= (count %) (count w))
+        (fields (concat (tr m) m)))))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [word board]
+  (letfn [(check-valid [word line]
+            (if (some #{\#} line)
+              (true? (some true? (map #(check-valid word %) (re-seq #"[^#]*" (apply str line)))))
+              (if (= (count word) (count line))
+                (if (and (seq word) (seq line))
+                  (if (or (= \_ (first line)) (= (first word) (first line)))
+                    (check-valid (next word) (next line))
+                    false)
+                  true)
+                false)))]
+    (let [non-space-board (map #(filter (fn [ch] (not= \space ch)) %) board)]
+      (true? (some true? (mapcat
+                           (fn [ch]
+                             (map
+                               #(check-valid word %)
+                               (filter
+                                 #(or (some #{ch} %) (every? #{\# \_} %))
+                                 (concat non-space-board (apply (partial map (fn [& coll] coll)) non-space-board)))))
+                           word))))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [word board]
+    (->> board
+         (apply map str)
+         (concat board)
+         (map #(clojure.string/replace % #"#|_| " {"#" "|" "_" "." " " ""}))
+         (map #(re-matches (re-pattern %) word))
+         ((complement every?) nil?)))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn crossword [word board]
+    (let [rows
+            (vec (map #(clojure.string/replace % " " "") board))
+          columns 
+            (for [i (range (count (rows 0)))]
+                (apply str (map #(nth % i) rows)))
+          slots
+            (fn [rowcol] (map #(apply str %) (take-nth 2 (partition-by #(= \# %) rowcol))))
+          chars=
+            (fn [word-char slot-char] (or (= word-char slot-char) (= slot-char \_)))
+          fits?
+            (fn [slot] (and (= (count slot) (count word)) 
+                            (every? identity (map chars= word slot))))]
+        (boolean (some fits? (mapcat slots (concat rows columns))))
+    ))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn __ [ww puz]
+ (let [w (rest (clojure.string/split (clojure.string/lower-case ww) #""))
+       P (map (fn [s] (clojure.string/split 
+                         (clojure.string/lower-case s) #" ")) puz)
+      TP (apply map list P)
+      wpp (fn wpp [e puzw] 
+          (let [nl (remove (fn [z] (= z (list "#"))) (partition-by (fn [z] (= z "#")) puzw))]
+           (= true (some (fn [x] 
+                 (loop [pw x m e acc []]
+                   (if (or (empty? pw) (empty? m))
+                   (and (= acc e) (= (count x) (count e)))
+                   (recur (rest pw) (rest m)
+                          (if (or (= (first pw) (first m))
+                              (= (first pw) "_"))
+                          (conj acc (first m))
+                          acc))))) nl))))]
+  (or (= true (some #(wpp w %) P)) (= true (some #(wpp w %) TP)))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn crosswd [word puzzle-raw]
+  (let [transpose (partial apply mapv vector)
+        puzzle (map #(clojure.string/split % #" ") puzzle-raw)
+        lines (concat puzzle (transpose puzzle))
+        slots (map (partial clojure.string/join "")
+                   (mapcat (fn [line] 
+                             (remove #(= (first %) "#") 
+                                     (partition-by #(= % "#") line)))
+                           lines))
+        matches? (fn [word slot]
+                   (not (nil?
+                         (re-matches
+                          (re-pattern (clojure.string/replace slot "_" "."))
+                          word))))]
+    (boolean (some (partial apply matches?)
+                   (map vector (repeat word) slots)))))
+happycrisis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [word puzzle]
+  (let [puzzle (map #(clojure.string/replace % " " "")
+                    (map #(clojure.string/replace % "_" ".")
+                         puzzle))
+        pat (re-pattern 
+             (str "^(" (clojure.string/join
+                        "|"
+                        (mapcat #(clojure.string/split % #"#")
+                                (concat puzzle (apply map str puzzle))))
+                  ")$"))]
+    (if (re-find pat word) true false)))
+hisba's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [w b]
+  (let [bns (map (fn [l] (remove #(= \space %) l)) b)
+        al (concat bns (apply map vector bns))
+        aw (remove #(= [\#] %) (mapcat (fn [l] (partition-by #(= \# %) l)) al))
+        ml (filter #(= (count w) (count %)) aw)
+        mw? (fn [c] (every? (fn [[cc cw]] (#{cw \_} cc)) (map vector c w)))]
+    (true? (some mw? ml))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [w b]
+  (let [cb (map (partial filter (partial not= \space)) b)
+        wl (filter #(and (= (count w) (count %)) (not= \# (first %))) 
+                   (mapcat (partial partition-by (partial = \#)) 
+                           (concat cb (apply map list cb))))]
+    (boolean (some (fn [pw] (not (some false? 
+                                       (map #(or (= %1 %2) (= \_ %2)) 
+                                            w pw)))) wl))))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [w p]
+  (let [s (map 
+            (fn [x]
+              (->> x
+                (filter #(not= \space %))
+                (replace {\_ \.})))
+            p)]
+    (boolean
+      (some
+        #(re-matches (re-pattern %) w)
+        (flatten
+          (map    
+            #(clojure.string/split (apply str %) #"#")
+            (into s
+              (when (> (count p) 1)
+                (partition (count p) (apply interleave s))))))))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [word c]
+  (let [c1 (map #(clojure.string/replace % " " "") c)]
+    (->> c1
+         (apply map str)
+         (concat c1)
+         (mapcat #(clojure.string/split % #"#"))
+         (map #(clojure.string/replace % "_" "."))
+         (filter #(= (count word) (count %)))
+         (map re-pattern)
+         (map #(re-find % word))
+         (reduce #(or (boolean %2) %1) false))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn crossword [word puzzle]
+  (letfn [(remove-spaces [row] (->> row (remove #(= \space %)) (apply str)))
+            (merge-word [s1 s2] (map #(if (= \_ %2) %1 %2) s1 s2))
+            (fits-row [row]
+                (let [spots (clojure.string/split row #"\#") length (count word)]
+                    (reduce #(or %1 %2)
+                        (for [spot spots]
+                            (if (= (count spot) length)
+                                (= (seq word) (merge-word word spot))
+                                false
+                            )
+                        )
+                    )
+                )
+            )]
+    (let [rows (map remove-spaces puzzle) 
+          cols (map #(apply str %) (apply map (fn [& args] args) rows))]
+            (or (reduce #(or %1 %2) (for [row rows] (->> row (fits-row))))
+                (reduce #(or %1 %2) (for [col cols] (->> col (fits-row)))))
+    )
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(fn [w b]
+  (letfn [(clean [b]
+            (mapv #(mapv first (clojure.string/split % #" ")) b))
+ 
+          (xpose [b]
+            (apply mapv vector b))
+ 
+          (horz [b]
+            (filter (fn [s] (some #(= \_ %) s))
+                    (mapcat #(clojure.string/split (apply str %) #"#")
+                            b)))
+ 
+          (vert [b]
+            (-> b xpose horz))
+ 
+          (match? [w slot]
+            (if (every? empty? [w slot])
+              true
+              (and (or (= (first w) (first slot))
+                       (and (= \_ (first slot)) (not (nil? (first w)))))
+                   (match? (rest w) (rest slot)))))]
+ 
+    (boolean
+      (some #(match? w %)
+            (let [b2 (clean b)]
+              (concat (horz b2)
+                      (vert b2)))))))
+johncowie's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [w v]
+  (let [fits? (fn [s h]
+                (if (=  (count s) (count h))
+                  (reduce #(and %1 %2)
+                          (for [i (range 0 (count s))]
+                            (or (= (nth s i) (nth h i)) (= (nth h i) \_)))) false))
+        vs (map (fn [s] (filter #(not= % \space) s)) v)]
+    (reduce #(or %1 %2)
+            (map #(fits? w %)
+                (flatten (map #(clojure.string/split (apply str %) #"#")
+                         (concat vs (for [i (range 0 (count (first vs)))]
+                             (map #(nth % i) vs)))))))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn crossword-puzzle [word puzzle]
+  (letfn [(solve-puzzle
+            [puzzle]
+            (->> puzzle
+                 (concat (apply mapv str puzzle))
+                 (mapcat #(clojure.string/split % #"#"))
+                 (some   (comp #(if (= % word) word nil)
+                               #(re-find % word)
+                               re-pattern
+                               #(clojure.string/replace % "_" ".{1}")
+                               #(clojure.string/replace % " " "")))
+                 boolean))]
+    (solve-puzzle puzzle)))
+jorendorff's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [w a]
+  (let [r? (fn [r]
+             (some (fn [i] (and (every? identity (map #(#{%1 \_} %2) w (subvec r i)))
+                                (or (= i 0) (= \# (r (dec i))))
+                                (contains? #{\# nil} (get r (+ i (count w))))))
+                   (range 0 (inc (- (count r) (count w))))))
+        f (fn [g] (not (not-any? r? g)))
+        g (vec (map #(vec (map (vec %) (range 0 (count %) 2))) a))
+        gt (apply map vector g)]
+    (or (f g) (f gt))))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn can-fit-puzzle? [word puzzle]
+  (let [pz (map #(filter (fn [v] (not= \space v)) (seq %)) puzzle)
+        pfun (fn [matrix] (map #(partition-by (fn [v] (= \# v)) %) matrix))
+        exfun (fn [list] (reduce (fn [acc v] (let [flist (filter (fn [i] (or (not= (first i) \#) (not= 0 (count i)))) v)]
+                                   (apply conj acc flist))) #{} list))
+        hslots (pfun pz)
+        vslots (pfun (apply map list pz))
+        all-slots  (concat (exfun vslots) (exfun hslots))
+        possible-slots  (filter #(= (count word) (count %)) all-slots)
+        matcher (fn [word slot] (every? true? (let [vword (vec word) vslot (vec slot)]
+                                  (for [x (range 0 (count word))]
+                                    (let [wordval (get-in vword [x]) slotval (get-in vslot [x])]
+                                      (or (= wordval slotval) (= slotval \_)))))))
+        ]
+    (not (every? false? (map #(matcher word %) possible-slots)))))
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [w b]
+  (->> (map #(apply concat (partition-all 1 2 %)) b)
+    (#(concat (identity %)
+              (apply (partial map list) %)))
+    (mapcat (partial partition-by #(= % \#)))
+    (filter #(not= (first %) \#))
+    (keep #(if (= (count %) (count w))
+               (every? identity
+                 (map (fn [a b] (or (= a b) (= a \_))) % w))))
+    (some identity)
+    (boolean)))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [w pazle]
+  (let [w  (vec w)
+        wc (count w)]
+    (->> pazle
+         (map #(filter (partial not= \space) %))
+         (#(into % (apply map list %)))
+         (reduce #(->> %2 (split-with (partial not= \#)) (into %1)) '())
+         (map (partial filter #(not= % \#)))
+         (filter #(and (not (empty? %)) (= wc (count %))))
+         (reduce #(conj %1 %2 (reverse %2)) '())
+         (filter (fn [x]
+                   (->> w
+                        (map #(or (= % \_) (= % %2)) x)
+                        (reduce #(and %1 %2)))))
+         empty? not)))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+(fn prob111 [word board]
+  (letfn [(remove-spaces [s]
+            (filter #(not= \space %) (seq s)))
+ 
+          (decode-str
+            [row]
+            (vec (replace '{\_ nil \# :off}  (remove-spaces row))))
+          
+          (rows [board]
+            (map decode-str board))
+          
+          (cols [board]
+            (map decode-str (filter not-empty 
+                                    (map #(remove-spaces %) 
+                                         ;; return the columns if they are at least size in length
+                                         (let [width (count (first board))
+                                               height (count board)]
+                                           ;; return the column of value [0 0] [1 0] [2 0] ..., [1 0] [1 1] [1 2] ...
+                                           (for [c (range width)]
+                                             (vec 
+                                              (for [r (range height)]
+                                                (get-in board [r c])))))))))
+          
+          (rows-cols [board]
+            (concat (rows board) (cols board)))
+          
+          (match [a b]
+            ;; for each character
+            ;; matches if a == b or b == nil
+            (every? true? (map (fn [a b] (or (= nil b) (= a b))) a b)))
+          
+          (mid-matcher [fnc word rowcol len]
+            ;; rotate through a window (mid) with length len
+            ;; and return all cases where the mid matches
+            ;; lh mid rh
+            (let [rowcol (vec rowcol)]
+              (loop [acc []
+                     lh []
+                     mid (vec (take len rowcol))
+                     rh (vec (drop len rowcol))]
+                (if (nil? rh)
+                  acc
+                  (let [acc (if (fnc word mid) (conj acc [lh mid rh]) acc)]
+                    (recur acc
+                           (conj lh (first mid)) 
+                           (conj (vec (rest mid)) (first rh)) 
+                           (if (empty? rh) nil (rest rh))))))))
+          
+          (neighbor-check [lh rh]
+            ;; it is ok if the neighbors are # or don't exist
+            (and (or (empty? lh)
+                     (= :off (last lh)))
+                 (or (empty? rh)
+                     (= :off (first rh)))))
+          
+          (word-fits [word rowcol]
+            ;; can you fit word inside of rowcol?
+            (let [word (seq word)
+                  len (count word)]
+              (if (< (count rowcol) len)
+                false   ;; not long enough
+                (let [lst (mid-matcher match word rowcol len)]
+                  (if lst
+                    ;; any valid neighbor situations
+                    (some (fn [[lh mid rh]] (neighbor-check lh rh)) lst))))))]
+    (let [len (count word)
+          rowcols (rows-cols board)]
+      (true? (some #(word-fits word %) rowcols)))))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify Object
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn my-crossword-puzzle
+  [word puzzle]
+  (letfn [(remove-spaces [puzzle] (map (fn [puzzle-part] (remove #(= % \space) puzzle-part)) puzzle))
+          (matches? [word hole] (if (= (count word) (count hole))
+                                  (not-any? false? (map #(cond
+                                                           (= %1 %2) true
+                                                           (= \_ %2) true
+                                                           :else false) word hole))
+                                  false))
+          (create-holes-h [puzzle-part] (partition-by #(= % \#) puzzle-part))
+          (create-holes-v [puzzle] (loop [result [] i 0]
+                                     (if (= i (count (first puzzle)))
+                                       result
+                                       (recur (conj result (map #(get (apply str %) i) puzzle)) (inc i)))))]
+    (let [fixed-puzzle (remove-spaces puzzle)]
+      (not-every? false? (map #(matches? word %) 
+                                        (into (mapcat create-holes-h fixed-puzzle) (create-holes-v fixed-puzzle)))))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+#(letfn [(convert-to-re [s] (re-pattern (str "^("
+                                             (.replace (.replace (.replace s " " "")
+                                                                 "_" ".")
+                                                       "#" "|")
+                                             ")$")))
+         (matches? [s] (re-find (convert-to-re s) %1))]
+   (not (nil? (or (some matches? %2)
+                  (some matches? (apply map (cons str %2)))))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [word board]
+  (let [rows (map #(take-nth 2 %) board)
+        cols (apply map vector rows)
+        match? (fn [spaces]
+                 (and (= (count word) (count spaces))
+                      (->> (map vector word spaces)
+                           (every? (fn [[c s]] (#{c \_} s))))))]
+    (->> (concat rows cols)
+         (some (fn [line]
+                 (->> line
+                      (partition-by #{\#})
+                      (take-nth 2)
+                      (some match?))))
+         boolean)))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn xword [word b]
+  (let [board (map (fn [x] (filter #(not= \space %) x)) b)
+        match (fn [word [c & oll] i]
+          (cond
+           (and (>= i (count word)) (or (not c) (= c \#))) true
+           (not c) false
+           (or (= c (get word i)) (and (= c \_) (get word i))) (recur word oll (inc i))
+           (= c \#) (recur word oll 0)
+           :else (recur word (drop-while (partial not= \#) oll) 0)
+           )
+          )]
+    (true? (some true?
+                 (map #(match (vec word) % 0)
+                      (concat board
+                              ; Rotate the board so each entry is a column
+                              (apply map vector board)
+                              ))
+    ))
+   )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(letfn [(transpose [x]
+          (apply map str x))
+        (cleanup [x]
+          (map #(clojure.string/replace % " " "") x))
+        (play-find [s board]
+          (let [r (re-pattern (str "(^|#)"
+                                   (apply str (for [c s]
+                                                (format "[%c_]" c)))
+                                   "($|#)"))]
+            (some #(re-find r %) board)))
+        (crossword [s board]
+          (let [board (cleanup board)]
+            (boolean (or (play-find s board)
+                         (play-find s (transpose board))))))]
+  crossword)
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+(fn[w l] (->>(map #(replace {\space""\_\.} %)l)
+             (#(concat % (apply map vector %)))
+             (mapcat #(.split(apply str %)"#"))
+             (some #(re-matches(re-pattern%)w))
+             boolean));(((((clojure  rocks)))))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [word grid]
+    (let [grid-clean (map #(clojure.string/replace % #"\s" "") grid)
+          extract-pattern (fn [s] (clojure.string/split 
+                    (clojure.string/replace s #"_" ".") 
+                    #"#"))
+          transpose (fn tr [m] 
+                (cons (apply str (map first m))
+                    (if (> (count (first m)) 1)
+                        (tr (map rest m))
+                        [])))]
+ 
+        (not (every? nil?
+            (map
+                #(re-matches (re-pattern %) word)
+                (mapcat extract-pattern (concat grid-clean (transpose grid-clean))))))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [w s]
+  (let [S some
+        M map
+        C count
+        X concat
+        m (M #(map first (.split % " ")) s)
+        c (M 
+            (fn [i] (M #(nth % i) m)) 
+            (range (C (nth m 0)))) 
+        r (M #(X "#" % "#") (X m c))
+        i #(every? 
+              (fn [[i j]] 
+                (or (and (not= \# i) (= \_ j)) 
+                    (= i j)))
+              (M list (X "#" w "#") %))]
+    (boolean 
+      (S
+        #(S i (partition (+ 2 (C w)) 1 %))
+        r))))
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn [text board]
+  (letfn [(transposed []
+            (apply map (comp (partial apply str) list) board))
+          (transform [s]
+            (clojure.string/replace s
+                                    #"[ |#|_]"
+                                    {" " "" "#" "" "_" "."}))
+          (split-hashes [s]
+            (clojure.string/split s #"\#"))
+          (free-spaces [board]
+            (map (partial map transform)
+                 (map split-hashes board)))
+          (regexd [s]
+            (re-pattern s))
+          (all-patterns []
+            (->> (concat (free-spaces board)
+                         (free-spaces (transposed)))
+                 (map (partial remove #{""}))
+                 (remove empty?)
+                 flatten
+                 (map regexd)))
+          (matches-text [s]
+            (re-matches s text))]
+    ((complement not-any?)
+     (complement nil?)
+     (map matches-text (all-patterns)))))
+maximental's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [p s]
+  (not= nil 
+    (re-seq 
+      (re-pattern 
+        (apply str 
+         `(\\\b ~@(map #(str \[ (Character/toLowerCase %) (Character/toUpperCase %) \_ \]) p) \\\b)))
+      (apply str
+        (replace {\# " " \space ""} 
+          (apply str 
+            (interpose \# (concat s (apply map str s)))))))))
+mbakhterev's solution:
+
+1
+2
+3
+4
+5
+(fn [w B]
+  (let [H (map #(.replace % " " "") B)
+        V (apply map str H)
+        R (mapcat (fn [s] (map #(re-pattern (.replace % "_" ".")) (re-seq #"[^#]+" s))) (concat H V))]
+    (boolean (some #(re-matches % w) R))))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+(fn placeable? [s board]
+  ;; We use preconditions to verify that our inputs are in the proper format.
+  {:pre [ ;; The word s should be a string.
+         (string? s)
+         ;; The word s should contain only alphabetic characters.
+         (re-matches #"[a-zA-Z]*" s)
+         ;; The board should be nonempty.
+         (seq board)
+         ;; The board should be a sequence of rows.
+         (sequential? board)
+         ;; Each row should be a string.
+         (every? string? board)
+         ;; The only characters allowed are alphabetic, whitespace, hashes, and
+         ;; underscores.
+         (every? (partial re-matches #"[a-zA-Z\s_#]*") board)
+         ;; After deleting whitespace, each row should have the same length.
+         (let [compressed-board
+               (map #(clojure.string/replace % #"\s" "") board)]
+           (apply = (map count compressed-board)))]}
+ 
+  (let [;; We begin by removing all the whitespace from the board.
+        compressed-board
+        (map #(clojure.string/replace % #"\s" "") board)
+ 
+        ;; We record the width of the board.
+        width (if (seq board)
+                (->> compressed-board first count)
+                0)
+ 
+        ;; This function takes a sequence of strings, each representing a row or
+        ;; column within the compressed board, and returns the sequence of open
+        ;; positions (substrings with at least one underscore and no hashes)
+        ;; within those strings. Each position is a regex, with underscores
+        ;; matching any character.
+        extract-positions
+        (fn [strings]
+          (->> strings
+               (mapcat (partial re-seq #"[^#]*_[^#]*"))
+               (map (comp re-pattern
+                          #(clojure.string/replace % #"_" ".")))))
+ 
+        ;; We transpose the board, so we can work with columns instead of rows.
+        transposed-board
+        (for [i (range width)]
+          (apply str (map #(get % i) compressed-board)))
+ 
+        ;; We record all valid positions within the board.
+        positions
+        (mapcat extract-positions [compressed-board transposed-board])]
+    
+    ;; With everything we've just defined, all that remains is to check s
+    ;; against each position.
+    (if (some #(re-matches % s) positions)
+      true
+      false)))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn [word board-rep]
+  (letfn [(transpose [board]
+                     (apply map list board))
+ 
+          (rep->board [rep]
+                      (map #(take-nth 2 %) rep))
+ 
+          (next-slot [line]
+                     (if-let [candidate (next (drop-while (complement #{\#}) line))]
+                       (if (= \# (first candidate))
+                         (next-slot candidate)
+                         candidate)))
+ 
+          (placeable? [word line]
+                      (or (and (<= (count word) (count line))
+                               (apply = true (map (fn [w l]
+                                                    (or (= \_ l)
+                                                        (= w l)))
+                                                  word line))
+                               (or (= (count word) (count line))
+                                   (= \# (nth line (count word)))))
+                          (if-let [line (next-slot line)]
+                            (placeable? word line))))]
+    (let [board (rep->board board-rep)]
+      (boolean (or (some (partial placeable? word) board)
+                   (some (partial placeable? word) (transpose board)))))))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [x s]
+  (let [l (fn [s] (->> s (re-seq #"[^\s]") (map first) (map #(or ({\# \| \_ \.} %) %))))
+        s (map l s)
+        v (apply map vector s)
+        f (fn [x] (->> x (map #(apply str %)) (interpose "|") (apply str)))]
+    (boolean (re-matches (re-pattern (str "(?i)" (f s) "|" (f v))) x))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn crossword [w b]
+     (let [c (map (fn g [q]
+                    (remove #(= % \space) (vec q))) b)]
+       (not (empty? (for [x (remove #(= (first %) \#) (mapcat (fn f [coll]
+                                                               (partition-by #(= % \#) coll))
+                                                         (into c
+                                                               (for [i (range (count (first c)))]
+                                                                 (apply vector (map #(nth % i) c))))))
+                            :when ((fn h [s t]
+                                     (if (and (empty? s) (empty? t))
+                                       true
+                                       (if (or (empty? s) (empty? t))
+                                         false
+                                         (if (or (= (first s) (first t))
+                                                 (or (= (first s) \_) (= (first t) \_)))
+                                           (h (rest s) (rest t))
+                                           false)))) x w)]
+                      1)))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn [w, xw]
+  (letfn [
+          (match? [w, t]
+                (and
+                  (= (count w) (count t))
+                  (every? identity (map #(or (= \_ %1) (= %1 %2)) t w))
+                  ))
+ 
+          (find-holes [xw]
+                (map (fn [t] (apply str (filter #(not= \space %) t)))
+                     (mapcat (fn [s] (filter (complement empty?) (clojure.string/split s #"\#"))) xw)
+                     )
+                )
+          ]
+  (or
+    (true? (some #(match? w %) (find-holes xw)))
+    (true? (some #(match? w %) (find-holes (apply mapcat (comp vector str) xw))))
+    )))
+mononite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [w xs]
+  (letfn 
+    [(match [w m] (let [p (clojure.string/replace m #"_" ".")] (re-matches (re-pattern p) w)))
+     (s-match [w s] (->> (clojure.string/split s #"#") (some #(match w %))))
+     (flip [xs] (let [col (count (first xs))]
+                  (map 
+                    (partial apply str)
+                    (reduce (fn [acc s] (map #(conj %1 %2) acc s)) (repeat col []) xs))))]
+    (let [trimed (map #(apply str (remove #{\ } %)) xs)]
+      (not (nil? (some (partial s-match w) (into trimed (flip trimed))))))))
+mouse's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [T C w c]
+  (coll? (re-seq (re-pattern
+    (apply str (flatten [\^\((interpose \|(concat (map seq (C c)) (T (C c))))\)\$])))
+                 w)))
+(fn [m] (for [i (range (count (first m)))] (mapv #(nth % i) m)))
+(fn [c] (map (comp #(map (fn [x] ({\_ \. \# \|} x x)) %) #(remove #{\ } %)) c))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn [word board]
+  (letfn [(remove-spaces [board]
+            (map #(clojure.string/replace % " " "") board))
+          (columns [board]
+            (map (fn [i]
+                   (apply str (map #(get % i) board)))
+                 (range 0 (count (first board)))))
+          (partition-by-hash [s]
+            (->> s
+                 (partition-by #(= % \#))
+                 (map #(apply str %))
+                 (filter #(not (.contains % "#")))))
+          (match? [s1 s2]
+            (and (= (count s1) (count s2))
+                 (every? true? (->> (interleave s1 s2)
+                                    (partition 2)
+                                    (map (fn [[c1 c2]]
+                                           (or (= c1 c2)
+                                               (= c2 \_)
+                                               (= c1 \_))))))))]
+    (let [board  (remove-spaces board)
+          places (->> (columns board)
+                      (into board)
+                      (mapcat partition-by-hash))]
+      (boolean (some #(match? word %) places)))))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn x-word [word x-word]
+  (let [board (mapv vec (mapv #(clojure.string/replace % #" " "") x-word))
+        word (vec word)
+        v-board (apply map vector board)]
+    (letfn [(gaps [row]
+              (remove #(= '(\#) %)
+                      (partition-by #(= \# %) row)))
+            (fits? [word gap]
+              (loop [w word g gap]
+                (let [next-letter (first w)
+                      next-in-gap (first g)]
+                  (cond
+                    (not= (count w) (count g)) false ;; Wrong number of letters for gap
+                    (and
+                     (nil? next-in-gap)
+                     (nil? next-letter)) true ;; Every letter fits in a square
+                    (or
+                     (= next-in-gap next-letter) ;; Letter fits, try next letter
+                     (= \_ next-in-gap)) (recur (rest w) (rest g))
+                    :else false ;; A letter didn't fit in a square
+                    ))))]
+      (not (not
+            (some true? ;; Does the word fit in a gap
+                  (map (partial fits? word)
+                       (mapcat gaps (concat board v-board))
+                       )))))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn check [word table]
+            (let [table2 (map (fn [str] (remove #(= \space %) str)) table)
+                 good-letter? (fn [[y x] [dy dx] n]
+                                   (let [l (nth (nth table2 (+ y (* n dy)) []) (+ x (* n dx)) nil)]
+                                        (println [x y] [dx dy] n l)
+                                        (or (= l (nth word n))
+                                            (= l \_))))
+                  borders? (fn [[y x] [dy dx]]
+                               (->> [-1 (count word)]
+                                    (map #(nth (nth table2 (+ y (* % dy)) []) (+ x (* % dx)) :true))
+                                    (every? #{:true \#})))
+                  good? (fn [pos dir] (println pos dir)
+                            (and (->> (range (count word))
+                                      (every? #(good-letter? pos dir %)))
+                                 (borders? pos dir)))
+                  dirs [[0 1] [1 0]]
+                  ]
+                  (println table2)
+                  (->> (for [y (range (count table2)) x (range (count (first table2)))] [y x])
+                       (some #(some (partial good? %) dirs))
+                       (boolean))))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn crossword [word puzzle]
+    (let [w (count (first puzzle))
+          h (count puzzle)
+          word (str \# word \#)
+          board (into {} (apply concat (map-indexed (fn [y line] (map-indexed (fn [x c] [[x y] c]) (clojure.string/replace line " " ""))) puzzle)))
+          trymatch (fn [x y addx addy] 
+                     (first (reduce 
+                              (fn [[acc x y] wc] 
+                                (let [bc (board [x y] \#)] 
+                                  [(and acc (or (and (= bc \_) (not= wc \#)) (= bc wc))) (+ x addx) (+ y addy)])) 
+                              [true x y] word)))]
+      (boolean (some identity 
+            (apply concat (map (fn [y] (map (fn [x] (or (trymatch x y 1 0) (trymatch x y 0 1))) (range -1 w))) (range -1 h))))
+      ))
+    )
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn can-fit? [word puzzle]
+  (letfn [(is-space [c] (= c \space))
+ 
+    (patterns-from-line [line]
+            (clojure.string/split line #"#+"))
+ 
+          (horizontal-lines [puzzle]
+            (map #(apply str (remove is-space %)) puzzle))
+ 
+          (vertical-lines [puzzle]
+            (let [col-str
+              (fn [col]
+                    (apply str (map #(nth % col) puzzle)))]
+              (map col-str (for [col (range (count (first puzzle))) :when (even? col) ] col))))
+ 
+          (all-lines [puzzle]
+            (concat (horizontal-lines puzzle) (vertical-lines puzzle)))
+ 
+          (all-patterns [puzzle]
+        (apply concat (map patterns-from-line (all-lines puzzle))))
+ 
+          (match-char [wc pc]
+            (or (= pc \_) (= wc pc)))
+ 
+          (matches-word? [word pattern]
+            (when (= (count word) (count pattern))
+          (every? #(match-char (nth word %) (nth pattern %)) (range (count word)))))]
+ 
+   (true? (some #(matches-word? word %) (all-patterns puzzle)))))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [word puz]
+  (let [make-regex (fn [s]
+                     (->> (concat [\^] s [\$])
+                          (replace {\_ \.})
+                          (apply str)
+                          (re-pattern)))
+        rows (map (partial remove #{\space}) puz)
+        cols (apply map vector rows)
+        regexs (->> (concat rows cols)
+                    (map #(partition-by #{\#} %))
+                    (apply concat)
+                    (map make-regex))]
+    (boolean (some #(re-find % word) regexs))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn bb [word board]
+  (let [board (map #(apply str %) (map (partial remove #(= % \space)) board))
+        horizons board
+    verticals (if (= 1 (count board)) nil (for [n (range (count (first board)))] (apply str (map #(nth % n) board))))
+        all (apply concat (map #(clojure.string/split % #"#") (concat horizons verticals)))
+        check (fn [a b] 
+                (loop [a a b b] 
+                  (cond  (and (nil? a) (nil? b)) true
+                         (nil? a) false
+                         (nil? b) false
+                         (= \_ (first b)) (recur (next a) (next b))
+                         (= (first a) (first b)) (recur (next a) (next b))
+                         :else false)))   
+         ]
+    (loop [n all] (cond (nil? n) false
+                        (check word (first n)) true
+                        :else (recur (next n)))) ))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [s m]
+  (let [m (map #(remove #{\space} %) m)]
+    (->> m
+      (apply map list)
+      (concat m)
+      (mapcat #(partition-by #{\#} %))
+      (remove (comp #{\#} first))
+      (filter #(= (count s) (count %)))
+      (map (fn [xs] (map #(or (= \_ %) (= % %2)) xs s)))
+      (filter #(every? true? %))
+      empty?
+      not)))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn find-word [word board]
+  (->> (concat board (apply map (comp clojure.string/join vector) board))
+       (map #(clojure.string/replace % " " ""))
+       (remove empty?)
+       (mapcat #(clojure.string/split % #"#"))
+       (map #(clojure.string/replace % "_" "\\w"))
+       (map #(re-pattern (clojure.string/join ["^" % "$"])))
+       (map #(re-matches % word))
+       (remove nil?)
+       empty?
+       not
+       ))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [w V]
+  (let [a apply m map c count e every?
+         g (m #(remove {\  9} %) V)
+         n #({%1 9 \_ 9} %2)
+         ]
+  (not (e false?
+          (m #(and (= (c w) (c %))
+                    (e {9 9} (m n w %))) 
+              (mapcat #(re-seq #"[^#]+" (a str %)) 
+                        (concat g (a m list g))))))))
+quant1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [w bi]
+  (letfn
+    [(cm? [a b] (or (= a b) (= a \_) (= b \_)))
+     (wm? [a b] (and (= (count a) (count b)) (every? true? (map cm? a b))))
+     (in? [w l] (some true? (map #(wm? % w) (clojure.string/split (apply str l) #"#"))))
+     ]
+    (let [b (map #(clojure.string/replace % " " "") bi)]
+      (->> (concat b (apply (partial map list) b)) (map #(in? w %)) (some true?) nil? not))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [word board]
+  (->>
+   board
+   (apply map str)
+   (concat board)
+   (map #(clojure.string/replace % #"#|_| " {"#" "|" "_" "." " " ""}))
+   (map #(re-matches (re-pattern %) word))
+   (every? nil?)
+   not
+) )
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(letfn
+    [(cmpr [[fw & rw :as word] [fp & rp :as path]]
+       (cond
+         (not= (count word) (count path)) false
+         (not (seq path)) true
+         (or (= \_ fp) (= fp fw)) (cmpr rw rp)
+         :else false))]
+  (fn [word puzzle]
+    (->> (map #(clojure.string/replace % #" " "") puzzle)
+      (#(concat % (if (> (count %) 1) (apply map str %))))
+      (mapcat #(clojure.string/split % #"#"))
+      (map #(cmpr word %))
+      (some identity)
+      (boolean))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn filter-possible-matches [word coll]
+  (let [filter-func
+          (fn [space]
+            (and (= (count space) (count word))
+                 (every? #(or (= (first %) (second %)) (= (second %) \_)) 
+                         (apply map vector [word space]))))
+        hori
+          (mapcat 
+            #(clojure.string/split (clojure.string/replace % #"\s" "") #"#")
+            coll)
+        vert 
+          (mapcat 
+            #(clojure.string/split % #"#") 
+            (apply map str (map #(clojure.string/replace % #"\s" "") coll)))
+        pmatches (filter filter-func (concat hori vert))]
+    (boolean (seq pmatches))))
+sheldon's solution:
+
+1
+2
+3
+(fn [x p] 
+  (let [a (remove empty? (for [w (apply conj p (apply map str p))] (apply str (replace {\_ \.} (remove #{\ } w)))))]
+           (not (empty? (filter #{x} (map #(re-matches % x) (map re-pattern (flatten (map #(re-seq #"[\w\.]+" %) a)))))))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [word board] (let [
+  b     (map (partial filter #(not= % \space)) board)
+  w     (count (first b))
+  cols  (for [i (range w)] (take-nth w (drop i (flatten b))))
+  rc    (mapcat (partial partition-by #(= % \#)) (into b cols))
+  fits? (fn [t] (and (= (count word) (count t))
+          (not-any? nil? (map #(#{\_ %} %2) word t))))]
+  (not (not-any? fits? rc))))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [w m]
+  (let [p (map #(clojure.string/replace % #" " "") m)
+        c (count p) r (count (first p))
+        getf (fn [x y] (nth (nth p x) y))
+        pos (fn [x y] (.indexOf w (str (getf x y))))]
+    (not (every? false? (flatten
+                 (for [i (range c) j (range r)]
+                   (if (pos? (pos i j))
+                     (let [reg (getf i j) chk (apply str (for [x w] (if (= reg x) x \_)))
+                           orir (nth p i) oric (apply str (for [x (range c)] (nth (nth p x) j)))] 
+                       [(map #(= % chk)
+                             (flatten 
+                              [(clojure.string/split orir #"#") (clojure.string/split oric #"#")]
+                              ))]                             
+                       ) false)
+                  )))
+         )))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn f [w b]
+  (let [s (fn [l] (remove #(some #{\#} %) (partition-by #(not= \# %) l)))
+        l (fn [b] (keep (fn [x] (filter #(not= \  %) x)) b))
+        g (fn [x] (filter #(apply = (map count [w %])) x))
+        b (concat (mapcat s b) (when (< 1 (count b)) (apply mapcat #(s %&) b)))
+        c (fn [x] (apply str (map #({\_ %1 %1 %1} %2) w x)))]
+    (true? (some #(= w (c %)) (g (l b))))))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(letfn
+  [(matches [word slot] 
+    (and
+      (= (count word) (count slot))
+      (every? identity (map #(or (= %1 %2) (= %2 \_)) word slot))))
+    (slots [rows]
+      (mapcat #(clojure.string/split % #"#") (map #(clojure.string/replace % " " "") rows)))
+    ]
+(fn xword
+  [word rows]
+  (boolean (some #(matches word %) (concat (slots rows) (slots (apply (partial map str) rows)))))))
+syeerzy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [w p]
+  (let [p (map #(-> %
+                    (.replaceAll " " "")
+                    (.replaceAll "_" ".")) p)
+        m (fn [z] (map re-pattern (mapcat #(.split % "#") z)))
+        hp (m p)
+        vp (m (apply map (comp #(reduce str "" %) vector) p))]
+    (if (some #(re-matches % w) (concat hp vp)) true false)))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(letfn [(clean [puzzle]
+          (mapv (comp #(clojure.string/replace % "_" ".")
+                      #(clojure.string/replace % " " "")) puzzle))
+        (transpose [puzzle]
+          (apply map str puzzle))]
+  (fn [s puzzle]
+    (let [puzzle (clean puzzle)
+          lines (concat puzzle (transpose puzzle))
+          words (mapcat #(clojure.string/split % #"#") lines)
+          regex (map re-pattern words)]
+      (boolean (some #(re-matches % s) regex)))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [word board]
+    (let [lines (concat (map (partial remove #{\space}) board)
+                        (remove (partial every? #{\space})
+                                (apply map list board)))
+          split-lines (mapcat #(remove #{[\#]}
+                                       (partition-by #{\#} %)) lines)
+          can-fit (fn [word line]
+                    (when (= (count word) (count line))
+                      (every? (fn [[w l]]
+                                (or (= l \_)
+                                    (= l w)))
+                              (map list word line))))]
+      (or (some (partial can-fit word) split-lines)
+          false)))
+zzamboni's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn crossword-finder [w b]
+  (let [r clojure.string/replace b (map #(r (r % #" " "") #"_" ".") b)]
+    (boolean (some #(re-find % w)
+                   (map #(re-pattern (str "^" % "$")) 
+                        (flatten (map #(clojure.string/split % #"#")
+                                      (concat b (map #(apply str %) 
+                                                     (apply map vector (map seq b)))))))))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn __ [word board]
+  (letfn [(matches? [w pattern]
+                    (or (= w pattern)
+                        (and (= (first w) (first pattern))
+                             (matches? (rest w) (rest pattern)))
+                        (and (= \_ (first pattern))
+                             (matches? (rest w) (rest pattern)))))
+          (fits? [row]
+                 (->> row
+                      (remove #(= \space %))
+                      (partition-by #(= \# %))
+                      (remove #(= \# (first %)))
+                      (filter #(= (count word) (count %)))
+                      (map #(matches? word %))
+                      (some true?)
+                      true?))]
+    (true? (or (some true? (map fits? board))
+               (some true? (map fits? (apply map list board)))))))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn cw [w cs]
+  (let [c (map #(clojure.string/replace % #" " "") cs)]
+  (letfn [(fw [org w l start]
+          (println org w l start)
+            (cond
+              (empty? w) (or (empty? l) (= \# (first l)))
+              (empty? l) false
+              (not start) (fw org org (rest l) (= \# (first l)))
+              (or (= (first w) (first l)) (= (first l) \_)) (fw org (rest w) (rest l) true)
+              :else (fw org org (rest l) (= \# (first l))))
+          )]
+    (or (boolean (some #(fw w w % true) c)) (boolean (some #(fw w w % true) (apply mapv vector c))))
+   ))
+)
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [s b]
+  (let [board (map (partial filter #(not= \space %)) b)
+        candidate (mapcat (partial partition-by #(= \# %))
+                          (concat board
+                                  (apply map vector board)))
+        f (fn [s1 s2]
+            (and (= (count s1)
+                    (count s2)) 
+                 (every? (fn [[c1 c2]]
+                           (or (= c1 c2)
+                               (= c2 \_)))
+                         (map vector s1 s2))))]
+      (boolean (some (partial f s)
+                     candidate))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [w p]
+  (letfn [(re-pp [s]
+            (re-pattern (reduce #(str % "(" %2 "|_)") "" s)))]
+    (->>
+     (keep #(re-find (re-pp w) %)
+           (->> (let [p' (map #(clojure.string/replace % " " "") p)]
+                  (concat p' (apply (partial map str) p')))
+                (mapcat #(clojure.string/split % #"#"))
+                (filter #(= (count w) (count %)))))
+     empty? not)))
+vpeurala's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [word rect] (letfn [
+(slots [string] (filter not-empty (clojure.string/split string #"#")))
+(rows [rect] rect)
+(cols [rect] (apply map vector rect))
+(string-cols [rect] (map (partial apply str) (cols rect)))
+(all-slots [rect] (mapcat slots (concat (rows rect) (string-cols rect))))
+(remove-whitespace [s] (apply str (remove #(java.lang.Character/isWhitespace %) s)))
+(all-slots-without-space [rect] (map remove-whitespace (all-slots rect)))
+(slot-regex [slot] (re-pattern (clojure.string/replace slot "_" ".")))
+(slot-regexes [rect] (map slot-regex (all-slots-without-space rect)))
+(word-fits-in-puzzle [word rect] (or (some (complement nil?) (map #(re-matches % word) (slot-regexes rect))) false))
+] (word-fits-in-puzzle word rect)))
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn check [s s-vec]
+  (letfn [(ok-chars? [c1 c2]
+               (or (= c1 c2) (= c2 \_)))
+          (ok-strings? [s1 s2]
+                       (and (= (count s1) (count s2))
+                            (every? true? (map #(ok-chars? %1 %2) s1 s2))))
+          (vertical-strings [st]
+                            (for [x (range (count (first st)))]
+                              (apply str (map #((vec %) x) st))))
+          (split-sharps [s]
+                        (clojure.string/split s #"\#"))
+          (remove-spaces [s]
+                         (clojure.string/replace s #" " ""))]
+    (let [no-spaces (map remove-spaces s-vec)
+          strs (mapcat split-sharps (into no-spaces (vertical-strings no-spaces)))]
+    (or (some true? (map #(ok-strings? s %) strs)) false))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [word board]
+  (letfn [(check-valid [word line]
+            (if (some #{\#} line)
+              (true? (some true? (map #(check-valid word %) (re-seq #"[^#]*" (apply str line)))))
+              (if (= (count word) (count line))
+                (if (and (seq word) (seq line))
+                  (if (or (= \_ (first line)) (= (first word) (first line)))
+                    (check-valid (next word) (next line))
+                    false)
+                  true)
+                false)))]
+    (let [non-space-board (map #(filter (fn [ch] (not= \space ch)) %) board)]
+      (true? (some true? (mapcat
+                           (fn [ch]
+                             (map
+                               #(check-valid word %)
+                               (filter
+                                 #(or (some #{ch} %) (every? #{\# \_} %))
+                                 (concat non-space-board (apply (partial map (fn [& coll] coll)) non-space-board)))))
+                           word))))))
+trxeste's solution:
+
+1
+2
+3
+4
+5
+(fn [w p]
+  (let [sm (map #(replace {\space "" \_ \.} %) p)
+        co (apply map list sm)
+        pl (mapcat #(take-nth 2 (partition-by #{\#} %)) (concat sm co))]
+    (boolean (some #(re-matches (re-pattern (apply str %)) w) pl))))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [word puzzle]
+  (letfn [
+(row-to-regexes [row]
+  (map #(clojure.string/replace % "_" ".")
+       (clojure.string/split row #"#")))
+ 
+(row-match? [row word]
+  (reduce #(or % %2) false
+          (map #(re-matches (re-pattern %) word)
+               (row-to-regexes row))))
+ 
+(cols-to-rows [coll]
+  (if (or (empty? coll) (empty? (first coll))) []
+      (cons (clojure.string/join (map first coll))
+            (cols-to-rows (map rest coll)))))]
+ 
+ 
+  (let [puzzle (map #(clojure.string/replace % " " "") puzzle)
+        blocks (concat puzzle (cols-to-rows puzzle))]
+    (reduce #(or % %2)
+            (map #(not (nil? %))
+                 (map #(row-match? % word) blocks))))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

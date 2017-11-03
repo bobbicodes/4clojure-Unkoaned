@@ -1,0 +1,4119 @@
+;; 119 Win at Tic-Tac-Toe [h]
+
+As in Problem 73, a tic-tac-toe board
+is represented by a two dimensional vector.
+X is represented by :x, O is represented by :o,
+and empty is represented by :e.
+Takes a game piece and board as arguments,
+and returns a set (possibly empty)
+of all valid board placements of the game piece
+which would result in an immediate win.
+
+Board coordinates should be as in calls to get-in.
+For example, [0 1] is the topmost row, center position.
+
+(= (__ :x [[:o :e :e] 
+           [:o :x :o] 
+           [:x :x :e]])
+   #{[2 2] [0 1] [0 2]})
+(= (__ :x [[:x :o :o] 
+           [:x :x :e] 
+           [:e :o :e]])
+   #{[2 2] [1 2] [2 0]})
+(= (__ :x [[:x :e :x] 
+           [:o :x :o] 
+           [:e :o :e]])
+   #{[2 2] [0 1] [2 0]})
+(= (__ :x [[:x :x :o] 
+           [:e :e :e] 
+           [:e :e :e]])
+   #{})
+(= (__ :o [[:x :x :o] 
+           [:o :e :o] 
+           [:x :e :e]])
+   #{[2 2] [1 1]})
+
+(fn ttt-win [p b]
+  (let [win?
+    (fn [board]
+      (let [same? (fn [sec] (if (apply = sec) (first sec) nil))
+         rows (map same? board) cols (map same? (apply map vector board))
+         diag1 (same? (map get board [0 1 2])) diag2 (same? (map get board [2 1 0]))]
+        (some #{:x :o} (concat rows cols [diag1] [diag2]))))
+    free (for [y (range 3) x (range 3) :when (= :e (get-in b [y x]))] [y x])]
+    (set (filter #(= p (win? (assoc-in b % p))) free))))
+
+(fn [player field]
+  (let [directions (for [x [-1 0 1]
+                         y [-1 0 1]
+                        :when (not= 0 x y)
+                        :let [xy [x y]]]
+                        [xy (map * [2 2] xy)
+                            (map * [-1 -1] xy)])
+        get-tri-data #(map (comp (partial get-in field)
+                                 (partial map + %1)) %2)
+        get-data #(map (partial get-tri-data %) directions)
+        check-tri (fn [[a b c]]
+                    (or (= player a b) (= player a c)))
+        mci #(apply concat (map-indexed %1 %2))
+        check-cell (fn [r-i c-i cell]
+                     (if (and (= :e cell)
+                              (some check-tri
+                                (get-data [r-i c-i])))
+                       [[r-i c-i]]))]
+    (-> #(mci (partial check-cell %1) %2) (mci field) set)))
+
+(fn [x [[a00 a01 a02] [a10 a11 a12] [a20 a21 a22]]]
+  (let [ways [[[a00 [0 0]] [a01 [0 1]] [a02 [0 2]]]
+              [[a10 [1 0]] [a11 [1 1]] [a12 [1 2]]]
+              [[a20 [2 0]] [a21 [2 1]] [a22 [2 2]]]
+              [[a00 [0 0]] [a10 [1 0]] [a20 [2 0]]]
+              [[a01 [0 1]] [a11 [1 1]] [a21 [2 1]]]
+              [[a02 [0 2]] [a12 [1 2]] [a22 [2 2]]]
+              [[a00 [0 0]] [a11 [1 1]] [a22 [2 2]]]
+              [[a02 [0 2]] [a11 [1 1]] [a20 [2 0]]]]]
+    (set (filter (fn [da] (not (nil? da)))
+           (map #((comp second first) (filter (fn [sa] (= :e (first sa))) %))
+                    (filter #(= 2 (count (filter (fn [aa] (= (first aa) x)) %))) ways))))))
+
+(fn [chess board]
+  (letfn [(getDiagnal[row column] ;get diagnal elements, may return nil
+                     (cond
+                      (or (= [0 0] [row column]) (= [2 2] [row column])) [(map get board [0 1 2])]
+                      (or (= [0 2] [row column]) (= [2 0] [row column])) [(map get board [2 1 0])]
+                      (= [1 1] [row column]) [(map get board [0 1 2]) (map get board [2 1 0])]))]
+    (let[found (remove nil? (for [r (range 3) c (range 3) :when (= :e (get-in board [r c]))] ;search for potential positions
+                              (loop [potentials (concat [(get board r)] [(map get board [c c c])] (getDiagnal r c))]
+                                (when-let[pos (first potentials)]
+                                  (if (= 2 (count (filter #(= chess %) pos))) [r c]
+                                    (recur (rest potentials)))))))]
+      (set found))))
+
+(fn [p b]
+  (letfn [(winner [b]
+      (some {[:o :o :o] :o [:x :x :x] :x}
+            (concat b (partition 3 (apply interleave b))
+                      (for [i [[0 4 8][2 4 6]]]
+                        (map #(nth (flatten b) %) i)))))]
+  (set
+    (for [y (range 3) x (range 3)
+            :when (= :e (get-in b [x y]))
+            :when (= p (winner (assoc-in b [x y] p)))]
+      [x y]))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(letfn [
+    (win [x] (ffirst (filter 
+        #(and (apply = %) (not= (first %) :e)) 
+        (partition 3 (map 
+            (vec (flatten x)) 
+            '(0 1 2 3 4 5 6 7 8 0 3 6 1 4 7 2 5 8 0 4 8 2 4 6))))))
+    (patch [orig h w x] (for [hi [0 1 2]] (for [wi [0 1 2]] 
+            (if (= [h w] [hi wi]) x (get-in orig [hi wi])))))
+    (analysis [c orig] (set (for [
+        hi [0 1 2] 
+        wi [0 1 2] 
+        :when (= :e (get-in orig [hi wi])) 
+        :when (win (patch orig hi wi c))] 
+        [hi wi])))] 
+    analysis)
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+#(
+  reduce conj #{}
+        (for [x (range 3) y (range 3)
+                          :when (and
+                                 (= :e (get-in %2 [x y]))
+                                 ((fn [[[a b c] [d e f] [g h i] :as x]]
+                                    (some {[% % %] %}
+                                          (list* [a d g] 
+                                                 [b e h]
+                                                 [c f i] 
+                                                 [a e i]
+                                                 [c e g] 
+                                                 x)))
+                                  (assoc-in %2 [x y] %)))] [x y]))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+(fn ticTacToeWinX [sym m]
+    (letfn[
+ 
+        (row[m n] (get m n))
+        (column [m n] (mapv #(get % n) m))
+        (diagonalLeft [m] (mapv (fn[row i] (get row i)) m '(0 1 2)))
+        (diagonalRight [m] (mapv (fn[row i] (get row i)) m '(2 1 0)))
+        (countSymbol [x sym] (count (filter #(= % sym) x)))
+        (winnable [x sym] 
+            (and 
+                (= (countSymbol x sym) 2)
+                (= (countSymbol x :e) 1)
+            )
+        )
+ 
+        (emptyPos[v] 
+            (first 
+                (filter (fn[n] (= (get v n) :e )) '(0 1 2) )
+            )
+        )
+ 
+        (emptyPosInRow[m n]
+            [n (emptyPos (row m n))]
+        )
+ 
+        (emptyPosInColumn[m n]
+            [(emptyPos (column m n)) n]
+        )
+ 
+        (emptyPosInDiagonalLeft[m]
+            (let [n (emptyPos (diagonalLeft m))]
+                [n n]
+            )
+        )
+ 
+        (emptyPosInDiagonalRight[m]
+            (let [n (emptyPos (diagonalRight m))]
+                [n (- 2 n)]
+            )
+        )
+ 
+ 
+        ]
+        (set (concat
+        (map #(emptyPosInRow m %) (filter #(winnable (row m %) sym) '(0 1 2)))
+        (map #(emptyPosInColumn m %) (filter #(winnable (column m %) sym) '(0 1 2)))
+        (if (winnable (diagonalLeft m) sym) (list (emptyPosInDiagonalLeft m)) '())
+        (if (winnable (diagonalRight m) sym) (list (emptyPosInDiagonalRight m)) '())
+        ))
+    )
+)
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+(fn immediate-wins [party table]
+  (let [get (fn [y x] (-> table (nth y) (nth x)))
+        is? (fn [elem] (fn [[y x]] (= elem (get y x))))
+        is-party? (is? party)
+        is-empty? (is? :e)
+        trans-x (fn [x] (fn [n] [n x]))
+        trans-y (fn [y] (fn [n] [y n]))
+        trans-diag1 (fn [n] [n n])
+        trans-diag2 (fn [n] [(- 2 n) n])
+        transformations (concat 
+                          (map trans-x (range 3))
+                          (map trans-y (range 3))
+                          [trans-diag1 trans-diag2])
+        trans-to-coords (fn [trans] (map trans (range 3)))
+        has-two? (fn [trans]
+                   (->> trans
+                     trans-to-coords
+                     (filter is-party?)
+                     count
+                     (= 2)))
+        first-not-party (fn [trans]
+                          (->> trans
+                            trans-to-coords
+                            (remove is-party?)
+                            first))]
+    (->> transformations
+      (filter has-two?)
+      (map first-not-party)
+      (filter is-empty?)
+      (into #{}))))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+(fn [sub board]
+  (letfn [(columns [b] (apply map vector b))
+          (lrdiag [b] (map #(nth (nth b %) %) (-> b count range)))
+          (rldiag [b] (map #(nth (nth b %) (-' (count b) % 1)) (-> b count range)))
+          (winner-slice [r]
+            (cond
+             (not (every? #(= (first r) %) r)) nil
+             (= (first r) :e) nil
+             :else (first r)))
+          (all-slices [b] (concat b (columns b) [(lrdiag b)] [(rldiag b)]))
+          (winner [b] (first (remove nil? (map winner-slice (all-slices b)))))
+          (find-empties [b]
+            (let [esinr (fn [r] (filter #(= :e (nth r %)) (range (count r))))
+                  esinrs (map-indexed #(vector %1 (esinr %2)) b)
+                  coords (fn [er] (if (empty? (last er))
+                                   nil
+                                   (map #(vector (first er) %) (last er))))]
+              (mapcat coords esinrs)))
+          (replace-empties [r b]
+            (let [es (find-empties b)
+                  rep (fn [e ri]
+                        (if (= ri (first e))
+                          (assoc (nth b ri) (last e) r)
+                          (nth b ri)))
+                  repb (fn [e] (map #(rep e %) (range (count b))))]
+              (map #(vector % (repb %)) es)))
+          (wins [r b]
+            (let [res (replace-empties r b)
+                  win? (fn [el] (if (= r (winner (last el))) (first el) nil))]
+              (set (remove nil? (map win? res)))))]
+    (wins sub board)))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+(fn f [p b]
+  (letfn [(check-ttt [b]
+            (letfn [(hwin [b]
+                      (loop [b b]
+                        (if (and b)
+                          (let [player (first (first b))]
+                            (if (and (not= player :e) (= (count (set (first b))) 1))
+                              player
+                              (recur (next b)))))))
+ 
+                    (vwin [b]
+                      (loop [i 0]
+                        (if (> i 2)
+                          nil
+                          (let [col (apply concat (partition 1 3 (drop i (apply concat b))))]
+                            (if (and (not= (first col) :e) (= (count (set col)) 1))
+                              (first col)
+                              (recur (inc i)))))))
+ 
+                    (dwin [[[x1 __ x2]
+                            [__ x3 __]
+                            [x4 __ x5]]]
+                      (cond
+                        (and (not= :e x1) (= x1 x3 x5)) x1
+                        (and (not= :e x2) (= x2 x3 x4)) x2
+                        :else nil))
+                    ]
+              (or (vwin b)
+                  (hwin b)
+                  (dwin b))))]
+    (set (for [i (range 0 3)
+               j (range 0 3)
+               :when (and (= (get-in b [i j]) :e) (check-ttt (assoc-in b [i j] p)))]
+           [i j]))))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [player board]
+  (let [board (apply concat board)
+        tests [[0 3 6] [1 4 7] [2 5 8]
+               [0 1 2] [3 4 5] [6 7 8]
+               [0 4 8] [2 4 6]]
+        lines (map #(list % (sort (map (partial nth board) %))) tests)
+        poss (filter #(and (= (first (second %)) :e)
+                            (= (second (second %)) player)
+                            (= (last (second %)) player) ) lines)]
+   (set (map #(let [c (if (= :e (nth board (first (first %))))
+                   (first (first %))
+                   (if (= :e (nth board (second (first %))))
+                     (second (first %))
+                     (last (first %))))]
+           [(quot c 3) (mod c 3)])
+        poss))))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [x d]
+    (set
+     (let [v #(= (sort %) [:e x x])
+                 g [0 1 2]
+                 m map]
+       (for [i g
+             j g
+             :when (and
+                    (= ((d i) j) :e)
+                    (or (v (d i))
+                        (v (m #((d %) j) g))
+                        (and (= i j) (v (m #((d %) %) g)))
+                        (and (= 2 (+ i j)) (v (m #((d %) (- 2 %)) g)))))]
+       [i j]))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn
+  [piece board]
+  (letfn [(pRow [board value row]
+            (every? (partial = value) (board row)))
+          (pCol [board value col]
+            (every? (partial = value) (map #(% col) board)))
+          (pDiag [board value]
+            (or (= value
+                   (get-in board [0 0])
+                   (get-in board [1 1])
+                   (get-in board [2 2]))
+                (= value
+                   (get-in board [0 2])
+                   (get-in board [1 1])
+                   (get-in board [2 0]))))
+          (win [board value]
+            (or (some (partial pRow board value) (range 3))
+                (some (partial pCol board value) (range 3))
+                (pDiag board value)))]
+    (set (for [row (range 3)
+               col (range 3)
+               :when (= :e (get-in board [row col]))
+               :when (win (update-in board [row col] (fn [old] piece)) piece)]
+           [row col]))))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [player board]
+  (let [goals (concat
+    (map (fn [a] (map #(vector a %) (range 3))) (range 3))
+    (map (fn [a] (map #(vector % a) (range 3))) (range 3))
+    [ (map #(vector % %) (range 3))
+      [[2 0] [1 1] [0 2]]])
+    pieces (fn [goal] (map (partial get-in board) goal))
+    winnable? (fn [goal] (and (= 2 (count (filter #(= player %) (pieces goal)))) (= 1 (count (filter #(= :e %) (pieces goal))))))
+    win-location (fn [goal] (first (filter #(= :e (get-in board %)) goal)))]
+    (set (map win-location (filter winnable? goals)))))
+awebb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [piece board]
+  (let [winner   
+          (fn [ [[a b c]
+                 [d e f]
+                 [h i j] :as board] ]    
+             (let [test-line (fn [line] (reduce #(when (= %1 %2) %1) line))
+                   lines  (concat board (apply map vector board) [[a e j] [c e h]])
+                   scored-lines (map test-line lines) ]
+               (some #{:x :o} scored-lines)  ))]
+    (into #{} 
+      (for [r [0 1 2] 
+            c [0 1 2] 
+            :when (= :e (get-in board [r c]))
+            :when (= piece (winner (assoc-in board [r c] piece)))]
+         [r c]))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn tic [piece board]
+  (letfn [(find-win [config]
+            (let 
+              [row (map (partial get-in board) config)]
+              (when
+                (= 2 (count (filter #(= piece %) row)))
+                (->> config
+                     (map vector row)
+                     (filter #(= :e (first %)))
+                     first
+                     second))))]
+    (let
+      [configs (concat
+                 [[[0 0] [1 1] [2 2]]
+                  [[2 0] [1 1] [0 2]]]
+                 (for [x (range 3)] (for [y (range 3)] [x y]))
+                 (for [y (range 3)] (for [x (range 3)] [x y])))]
+      (->> configs
+           (map find-win)
+           (filter identity)
+           set))))
+benhammond's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [player board]
+      (set (apply concat
+                  (for [l [[[0 0] [0 1] [0 2]]
+                           [[1 0] [1 1] [1 2]]
+                           [[2 0] [2 1] [2 2]]
+                           [[0 0] [1 0] [2 0]]
+                           [[0 1] [1 1] [2 1]]
+                           [[0 2] [1 2] [2 2]]
+                           [[0 0] [1 1] [2 2]]
+                           [[2 0] [1 1] [0 2]]]]
+                    (if (= 2 (count (filter #(= player %) (map #(get-in board %) l))))
+                      (filter #(= :e (get-in board %)) l))))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(letfn [(winners [board]
+          (let [[& rows] board
+                [& cols] (apply map list board)
+                [[a1 _ b1] [_ c] [b2 _ a2]] board
+                diags [[a1 c a2] [b1 c b2]]]
+            (filter #{:o :x} (map first (filter (partial apply =) (concat rows cols diags))))))]
+  (fn [player board]
+    (let [moves (filter #(= (get-in board %) :e)
+                        (for [r (range 3)
+                              c (range 3)]
+                          [r c]))]
+      (set (filter #(= [player] (winners (assoc-in board % player))) moves)))))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+(fn [mark board]
+  (letfn [
+          (p [board]
+            (let [b (map
+                      (fn [p] (map #(cond (= % :e) 0
+                                          (= % :x) 1
+                                          (= % :o) -1)
+                                   p))
+                      board)
+                  naname (fn [x]
+                           (loop [x x s 0 i 0]
+                             (if (empty? x)
+                               s
+                               (recur (rest x) (+ s (nth (first x ) i)) (+ 1 i)))))
+                  naname2 (fn [x]
+                            (loop [x x s 0 i 0]
+                              (if (empty? x)
+                                s
+                                (recur (rest x) (+ s (nth (first x ) (- 2 i))) (+ 1 i)))))
+                  c (fn [x] (cond (some #(= % 3) x) :x
+                                  (some #(= % -3 )x) :o
+                                  :else nil))]
+              (c (concat
+                   (list (naname b))
+                   (list (naname2 b))
+                   (map #(reduce + %) b)
+                   (map #(+ %1 %2 %3)
+                        (nth b 0)
+                        (nth b 1)
+                        (nth b 2))))))]
+    (set (filter
+           #(not (false? %))
+           (apply concat
+                  (for [i (range 3)]
+                    (for [j (range 3)]
+                      (if (and (= (get-in board [i j]) :e) (= mark (p (assoc-in board [i j] mark))))
+                        [i j]
+                        false))))))))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(letfn [(cells [v]
+           (for [y (range 0 (count v))
+                 x (range 0 (count (first v)))]
+             {:xy [y x] :v (get-in v [y x])}))
+         (subset [v grp]
+           (map val (group-by #(-> % :xy grp) (cells v))))
+         (rows [v]
+           (subset v (fn [[y _]] y)))
+         (cols [v]
+           (subset v (fn [[_ x]] x)))
+         (diags [v]
+           (concat (subset v (fn [[y x]] (+ x y))) 
+                   (subset v (fn [[y x]] (- x y)))))
+         (lines [v]
+           (filter #(= (count %) 3) (concat (rows v) (cols v) (diags v))))
+         (winnable [line c]
+           (let [freqs (frequencies (map :v line))]
+             (if (and (= (freqs c) 2)
+                      (= (freqs :e) 1))
+               (filter #(= (:v %) :e) line))))]
+   (fn [c b] (set (map :xy (mapcat #(winnable % c) (lines b))))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn win-move [t b]
+ (letfn[(gen-row-ind [r] (for [i (range 0 3)] [r i]))
+        (gen-col-ind [c] (for [i (range 0 3)] [i c]))
+        (gen-dia-ind [d] (if(true? d) (for [i (range 0 3)] [i i]) (for [i (range 0 3)] [(- 2 i) i])))
+        (count-target [s t] (when (some #(= :e %) s) (count (filter #(= % t) s))))
+        (get-nontarget-ind [s t] (loop [ss s ind 0] (if (and (seq ss) (= (first ss) t)) (recur (rest ss) (inc ind)) ind)))]
+   (set (concat (remove nil? (for [r (range 0 3)]
+                               (let [inds (gen-row-ind r)
+                                     content (map (partial get-in b) inds)]
+                                 (when (= 2 (count-target content t))
+                                   (nth inds (get-nontarget-ind content t))))))
+                (remove nil? (for [r (range 0 3)]
+                               (let [inds (gen-col-ind r)
+                                     content (map (partial get-in b) inds)]
+                                 (when (= 2 (count-target content t))
+                                   (nth inds (get-nontarget-ind content t))))))
+                (remove nil? (for [r [true false]]
+                               (let [inds (gen-dia-ind r)
+                                     content (map (partial get-in b) inds)]
+                                 (when (= 2 (count-target content t))
+                                   (nth inds (get-nontarget-ind content t))))))))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [e board]
+   (let [win (fn [k x]
+               ((set
+                 (concat
+                  (map set x)            ; by row
+                  (->> x (apply map vector) (map set)) ; by column
+                  (list
+                   (->> x ((juxt ffirst #(second (second %)) #(last (last %)))) set) ; by diagonal
+                   (->> x ((juxt #(last (first %)) #(second (second %)) #(first (last %)))) set))))
+ 
+                #{k}))
+         empty-places (for [x (range 3) y (range 3)
+                            :when (= (get-in board [x y]) :e)]
+                        [x y])
+         possible-place (filter #(win e (update-in board % (fn ! [_] e))) empty-places)
+         ]
+ 
+     (set possible-place)
+     ))
+chunchangshao's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn  [piece broad]
+  (let [p-indexed (map-indexed #(map-indexed (fn [idx p] [[% idx] p]) %2) broad)
+        l (range 3)
+        row-index (map #(map (fn [x] [% x]) l) l)
+        col-index (map #(map (fn [x] [x %]) l) l)
+        tra-index [[[0 0] [1 1] [2 2]] [[0 2] [1 1] [2 0]]]
+        indexs (concat row-index col-index tra-index)
+        coms (map #(map (fn [x] [x (get-in broad x)]) %) indexs)
+        filter-coms (filter #(let [g (group-by second %)]
+                               (and (= (count (g piece)) 2) (= (count (g :e)) 1))) coms)]
+    (set (map first (filter #(= :e (second %)) (reduce concat [] filter-coms))))))
+ctzsm's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [who board]
+  (letfn [(check [board]
+                 (let [c (concat board (map (fn [index] (map #(% %2) board index)) [[0 0 0] [1 1 1] [2 2 2] [0 1 2] [2 1 0]]))]
+                   (not-every? false? (map #(apply = (conj % who)) c))))
+          (f [pos]
+             (if (not= :e ((board (first pos)) (second pos)))
+             false
+             (check (vec (map-indexed (fn [id x]
+                                   (vec (map-indexed #(if (and (= id (first pos)) (= % (second pos))) who %2) x)))
+                                 board)))))]
+    (let [nx [0 1 2] em (for [x nx y nx] [x y])]
+      (set (filter f em)))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+(letfn [(transpose
+         [matrix] 
+         (apply mapv vector matrix))
+        
+        (diagonal'
+         [matrix]
+         (->> (range (count matrix))
+              (mapv #(get-in matrix [% %]))))
+        
+        (diagonals
+         [matrix]
+         (mapv diagonal'
+               [matrix
+                (mapv (comp vec rseq)
+                      matrix)]))
+        
+        (check
+         [player board]
+         (some (partial every? #{player})
+               board))
+        
+        (wins?
+         [player board]
+         (some (partial check player)
+               ((juxt identity
+                      transpose
+                      diagonals)
+                board)))]
+  
+  (fn moves
+    [player board]
+    (set    
+     (for [x [0 1 2], y [0 1 2]
+          :when (= :e (get-in board [x y]))
+          :when (wins? player
+                       (assoc-in board
+                                 [x y]
+                                 player))]
+       [x y]))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [e b]
+   (let [wins [[0 1 2] [3 4 5] [6 7 8] [0 3 6] [1 4 7] [2 5 8] [0 4 8] [2 4 6]]
+         flatb (flatten b)
+         coords (fn [x] (identity [(quot x 3) (rem x 3)]))
+         valid-moves (filter (comp not nil?) (map-indexed #(if (= :e %2) % nil) flatb))
+         make-move (fn [x] (concat (take x flatb) [e] (drop (inc x) flatb)))
+         iswin (fn [b] (some identity (map (fn [w] (every? #(= (nth b %) e) w)) wins)))
+         ]
+     (into #{} (map coords (filter (comp not nil?) (map #(if (iswin (make-move %)) %) valid-moves))))))
+daowen's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn winning-moves [player board]
+  (let [check-win
+        (fn [rows]
+          (let [cols (apply map vector rows)
+                diag (fn [x] (map-indexed #(nth %2 %) x))
+                diags [(diag rows) (diag (map reverse rows))]
+                lines (concat rows cols diags)
+                lineSets (map set lines)]
+            (some #(= #{player} %) lineSets)))]
+    (set (for [i (range 3) j (range 3)
+               :let [mt? (= (get-in board [i j]) :e)]
+               :when (and mt? (check-win (assoc-in board [i j] player)))]
+           [i j]))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [sym [r1 r2 r3]]
+ (let [all-comb [[{(first r1) [0 0]} {(second r1) [0 1]} {(last r1) [0 2]}] 
+                 [{(first r2) [1 0]} {(second r2) [1 1]} {(last r2) [1 2]}] 
+                 [{(first r3) [2 0]} { (second r3) [2 1]} {(last r3) [2 2]}] 
+                 [{(first r1) [0 0]} {(first r2) [1 0]} {(first r3) [2 0]}] 
+                 [{(second r1) [0 1]} {(second r2) [1 1]} {(second r3) [2 1]}] 
+                 [{(last r1) [0 2]} {(last r2) [1 2]} {(last r3) [2 2]}] 
+                 [{(first r1) [0 0]} {(second r2) [1 1]} {(last r3) [2 2]}]  
+                 [{(last r1) [0 2]} {(second r2) [1 1]} {(first r3) [2 0]}]]
+    
+   ]
+    (let [be-won (for [r (range (count all-comb)) :when (= 2 (count (filter #(= (first (keys %)) sym) (nth all-comb r))))] (nth all-comb r))]
+      (set (filter #(not= nil %) (apply concat (map (fn[r] (map #(% :e) r))be-won))))
+    )
+  )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn [side board]
+  (letfn [(getloc [board r c] (nth (nth board r) c))
+          (setloc [board r c side] (assoc board r (assoc (nth board r) c side)))
+          (wsides [board] 
+                  (let [lines (concat board (apply map vector board) 
+                                      [[(getloc board 0 0) (getloc board 1 1) (getloc board 2 2)]]
+                                      [[(getloc board 0 2) (getloc board 1 1) (getloc board 2 0)]])
+                        wsides (distinct (map first (filter #(= 1 (count %)) 
+                                                            (map distinct lines)
+                                                    )))]
+                    wsides))
+          ]
+   (set (filter (fn [[r c]] (and (= :e (getloc board r c)) 
+                                 (some #{side} (wsides (setloc board r c side)))
+                                 ))
+                (for [r (range 3) c (range 3)] [r c])
+           ))
+  ))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [piece board]
+  (letfn [(place [pos] (assoc-in board pos piece))
+          (check-win [rows]
+            (let
+              [checkxo (fn [pred] (if (pred :x) :x (if (pred :o) :o nil)))
+               alleq (fn [c coll] (apply = c coll))
+               hasgroupeq (fn [c groups] (some (partial alleq c) groups))
+               cols (apply map vector rows)
+               diag (map-indexed #(nth %2 %1) rows)
+               bdiag (map-indexed #(nth %2 (- (dec (count (first rows))) %1)) rows)]
+              (checkxo #(hasgroupeq % (concat rows cols [diag bdiag])))))]
+    (set
+      (filter
+        #(check-win (place %))
+        (mapcat #(let [r (.indexOf board %)]
+                   (keep-indexed (fn [i v] (when (= :e v) (vector r i))) %))
+                (filter #(.contains % :e) board))))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(let [
+  lines [
+    [[0 0] [0 1] [0 2]]
+    [[1 0] [1 1] [1 2]]
+    [[2 0] [2 1] [2 2]]
+    [[0 0] [1 0] [2 0]]
+    [[0 1] [1 1] [2 1]]
+    [[0 2] [1 2] [2 2]]
+    [[0 0] [1 1] [2 2]]
+    [[0 2] [1 1] [2 0]]]
+  get-line (fn [board line]
+    (let [vals (map #(get-in board %) line)]
+      (if (apply = vals)
+        (if (= (first vals) :e)
+          nil
+          (first vals))
+        nil)))
+  who-wins (fn [board]
+    (some identity (map #(get-line board %) lines)))]
+  (fn [player board]
+    (into #{} (for [x (range 3) y (range 3) :when (and (= (get-in board [x y]) :e) (= player (who-wins (assoc-in board [x y] player))))] [x y]))))
+dzholev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [w s]
+  (let [els-with-coord (for [x (range 3) y (range 3)] [(get-in s [x y]) x y])
+        table (partition 3 els-with-coord)
+        positions (concat (map #(repeat 3 %) (range 3)) [[0 1 2] [2 1 0]])
+        get-line (fn [tr] (map nth table tr))
+        rcd (concat table (map get-line positions))
+        winners (filter #(#{[w w :e] [w :e w] [:e w w]} (map first %)) rcd)]
+    (set (mapcat #(for [[p x y] % :when (= p :e)] [x y]) winners))))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [ v b ]
+        (let [
+        vpos  (for [i (range 3) j (range 3) :when (= (nth (nth b i) j) :e)] [i j])
+        chg   (fn [b p v] (vec (for [i (range 3)] (vec (for [j (range 3)] (if (= p [i j]) v (get-in b [i j])))))))
+        check (fn [b]
+            (let [ d1 ((juxt ffirst (comp second second) (comp last last)) b)
+            d2 ((juxt (comp last first) (comp second second) (comp first last)) b)
+            tr (apply (partial map (fn [& xs] (concat xs))) b)
+            l (conj (reduce conj b tr) d1 d2)
+            f (fn [v]  (let [[k c] (last (sort-by second (frequencies v)))]
+                (if (and (= c 3) (not= k :e)) k)))]
+            (reduce #(or %1 %2) (map f l))))
+            ]
+    (set (filter #(= v (check (chg b %1 v))) vpos))))
+ericw's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(letfn [                                                                                                                        
+    (dzholev-073-soln [s]                                                                                                                               
+        (let [positions (concat (map #(repeat 3 %) (range 3)) [[0 1 2] [2 1 0]])                                                
+              get-line (fn [tr] (map nth s tr))                                                                                                         
+              rcd (concat s (map get-line positions))]                                                                          
+            (some {[:x :x :x] :x [:o :o :o] :o} rcd)))                                                                                                  
+    (find-winners [p b]                                                                                                         
+        (set                                                                                                                                            
+            (for [x (range 3) y (range 3)                                                                                       
+                :when                                                                                                                                   
+                    (and (= :e (get-in b [x y]))                                                                                
+                         (dzholev-073-soln (assoc-in b [x y] p)))]                                                              
+                [x y])))]                                                                                                                               
+        find-winners)
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [win-k board]
+  (let [win-at (fn [line]
+                 (and (< 1 (count (filter (partial = win-k) line)))
+                      (#(when (< -1 %) %) (.indexOf line :e))))
+        diag-wins (let [rng (range (count board))
+                        d1 (map #(get-in board [% %]) rng)
+                        d2 (map #(get-in board [%1 %2]) rng (reverse rng))]
+                    (list
+                     (when-let [idx (win-at d1)] [idx idx])
+                     (when-let [idx (win-at d2)] [idx (- 2 idx)])))
+        row-wins (map-indexed #(when-let [idx (win-at %2)] [%1 idx]) board)
+        coll-wins (map-indexed #(when-let [idx (win-at %2)] [idx %1])
+                               (apply mapv vector board))]
+    (set (remove nil? (concat row-wins coll-wins diag-wins)))))
+finsternis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [xo b]
+  (letfn [(winner [b]
+            (letfn [(win [ts xo] (if (some identity (map #(every? #{xo} %) ts)) xo))
+                    (diag [b] (vector (flatten (partition 1 4 (flatten b)))))]
+              (let [rs (concat b (apply map list b) (diag b) (diag (map reverse b)))]
+                (some identity (map #(win rs %) [:x :o])))))]
+    (let [bs (for [i (range 3) j (range 3) :when (= :e (get-in b [i j]))]
+               [[i j] (winner (assoc-in b [i j] xo))])]
+         (set (map first (filter #(= xo (second %)) bs))))))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn tictactoe-win 
+  [s m]
+  (letfn [(win? [m]
+            (letfn [(tr [m] (apply map vector m))
+                    (diag [[[a _ b][_ c _][d _ e]]] [[a c e] [b c d]])]
+              (first (first
+                (filter 
+                  #(and 
+                    (= 1 (count (distinct %)))
+                    (not= :e (first %)))
+                  (concat m (diag m) (tr m)))))))]
+  (set (filter
+    (fn [v]
+      (if (= :e (get-in m v))
+        (= s (win? (assoc-in m v s)))
+        false))
+    (for [x (range 3) y (range 3)] [x y])))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+(fn [piece board]
+  (letfn [(step [board]
+            (filter (complement nil?) (map
+                                        (fn [index]
+                                          (let [line (board index)]
+                                            (if (and
+                                                  (= 2 (count (filter #(= % piece) line)))
+                                                  (= 1 (count (filter #(= % :e ) line))))
+                                              (first (filter (complement nil?) (map
+                                                                                 (fn [jndex]
+                                                                                   (if (= :e (line jndex))
+                                                                                     [index jndex]))
+                                                                                 (range 0 (count line))))))))
+                                        (range 0 (count board)))))]
+    (set (concat
+           (step board)
+           (map #(vec (reverse %)) (step (vec (apply (partial map #(vec [%1 %2 %3])) board))))
+           (let [line [(first (first board)) (second (second board)) (last (last board))]]
+             (if (and
+                   (= 2 (count (filter #(= % piece) line)))
+                   (= 1 (count (filter #(= % :e ) line))))
+               (if (= :e (first line))
+                 [[0 0]]
+                 (if (= :e (second line))
+                   [[1 1]]
+                   (if (= :e (last line))
+                     [[2 2]])))
+               []))
+           (let [line [(last (first board)) (second (second board)) (first (last board))]]
+             (if (and
+                   (= 2 (count (filter #(= % piece) line)))
+                   (= 1 (count (filter #(= % :e ) line))))
+               (if (= :e (first line))
+                 [[0 2]]
+                 (if (= :e (second line))
+                   [[1 1]]
+                   (if (= :e (last line))
+                     [[2 0]])))
+               []))))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [p b]
+    (let [free (for [x (range 3)
+                     y (range 3)
+                     :when (= :e (get-in b [x y]))]
+                 [x y])
+          lines #(concat % (apply map vector %)
+                         [(map get % [0 1 2])]
+                         [(map get % [2 1 0])])
+          win? (fn [[x y]]
+                 (let [nb (assoc-in b [x y] p)]
+                   (some #(= [p p p] %) (lines nb))))]
+      (set (filter win? free))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn tic-tac-toe-win [piece board]
+  (let [size (count board)
+        rng (range size)
+        winner? (fn [sqs] (every? #{piece} sqs))
+        rows board
+        cols (apply mapv vector rows)
+        diag1 (vec (for [d rng] (get-in board [d d])))
+        diag2 (vec (for [d rng] (get-in board [d (- size d 1)])))]
+    (set (for [r rng c rng
+          :let [square [r c]]
+          :when (= :e (get-in board square))
+          :when (or (winner? (assoc (rows r) c piece))
+                    (winner? (assoc (cols c) r piece))
+                    (and (= r c) (winner? (assoc diag1 r piece)))
+                    (and (= r (- size c 1)) (winner? (assoc diag2 r piece))))]
+      [r c]
+    ))))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn __ [a v] 
+(letfn [(tic [X]
+ (let [wi [[0 1 2] [3 4 5] [6 7 8]
+           [0 3 6] [1 4 7] [2 5 8]
+       [0 4 8] [2 4 6]]
+       xf (flatten X)]
+   (first (remove #(nil? %) (for [w wi]
+    (let [arn (map #(nth xf %) w)]
+         (when (and (not= (nth arn 0) :e) 
+             (and (= (nth arn 0) (nth arn 1)) 
+         (= (nth arn 1) (nth arn 2))))
+         (nth arn 0))))))))]
+   (let [vf (vec (flatten v))]
+    (->> vf 
+         (map #(if (= :e %2) %1 nil) (range 0 9))
+         (remove #(nil? %))
+         (map #(list (partition 3 (assoc vf % a)) 
+                 [(int (/ % 3)) (mod % 3)]))
+         (filter #(= a (tic (first %))))
+         (map second)
+         (into #{})))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn find-win [p board]
+  (let [won? (fn [board]
+               (let [all-lines
+                     (concat board
+                             (apply mapv vector board)
+                             [(take-nth 4 (flatten board))]
+                             [(take 3 (take-nth 2 (drop 2 (flatten board))))])]
+                 (ffirst (filter (partial apply = p) all-lines))))]
+    
+    (set
+     (filter #(and (= :e (get-in board %))
+                   (won? (assoc-in board % p)))
+             (for [x [0 1 2] y [0 1 2]]
+               [x y])))))
+happycrisis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [win? p g]
+  (set
+    (filter #(win? p (assoc-in g % p))
+        (filter #(= (get-in g %) :e) (for [i (range 3) j (range 3)] [i j])))))
+(fn [p g]
+  (some #(= (repeat 3 p) %)
+        (into g (map #(map nth g %)
+                     [[0 1 2] [2 1 0] [0 0 0] [1 1 1] [2 2 2]]))))
+hisba's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn wttt [p b]
+  (let [cnt (count b) rc (range cnt)
+        epos (fn [tttb]
+               (let [diags [(for [i (range cnt)] ((tttb i) i)) (for [i (range cnt)] ((tttb (- cnt i 1)) i))]
+                     cols (for [x (range cnt)] (for [y (range cnt)] ((tttb y) x)))
+                     full-axes (remove (fn [a] (some #(= :e %) a)) (concat tttb diags cols))]
+                 (first (first (filter #(apply = %) full-axes)))))]
+    (set (filter (fn [c] (= p (epos (update-in b c (constantly p)))))
+            (filter #(= :e (get-in b %)) (for [x rc y rc] [x y]))))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [p b]
+  (let [rang [0 1 2]
+        horiz (map (fn [i r] (map (fn [j e] [e i j]) rang r)) rang b)
+        vert  (apply map list horiz)
+        diag1 (list (map (fn [i r] (nth r i)) rang horiz))
+        diag2 (list (map (fn [i r] (nth r i)) (reverse rang) horiz))
+        all (concat horiz vert diag1 diag2)
+        win-coord (fn [r]
+                    (let [m (group-by first r)]
+                      (when (= 2 (count (m p))) 
+                        (first (m :e)))))]
+    (set (map (comp vec rest) 
+              (filter identity (map win-coord all))))))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [p b]
+  (let [w? #(some 
+              #{(repeat 3 p)} 
+              (conj
+                (into % (partition 3 (apply interleave %)))
+                (map (fn [c] (get-in % c)) [[0 0] [1 1] [2 2]])
+                (map (fn [c] (get-in % c)) [[0 2] [1 1] [2 0]])))
+        r #(update-in b % (fn [x] (if (= x :e) p :e)))]
+    (set
+      (filter
+        (comp w? r)
+        (for [x (range 3) y (range 3)] [x y])))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn [e board]
+  (let [diag (fn [board coords] (map #(get-in board %) coords))
+        col (fn [board col] (map #(% col) board))
+        lines (fn [board]
+                (concat
+                  board
+                  (map (partial col board) (range 3))
+                  [(diag board [[0 0] [1 1] [2 2]])
+                   (diag board [[0 2] [1 1] [2 0]])]))
+        wins? #(->> % lines
+                    (some (fn [[x & xs]]
+                            (and
+                              (not= x :e)
+                              (every? (partial = x) xs)))))]
+    (set 
+      (for [i (range 3)
+            j (range 3)
+            :let [pos [i j]
+                  el (get-in board pos)
+                  upd (assoc-in board pos e)]
+            :when (and
+                    (= el :e)
+                    (wins? upd))]
+        pos))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn wingame [piece board]
+(letfn [(won? [b]
+(let [pos [[0 1 2] [3 4 5] [6 7 8] [0 3 6] [1 4 7] [2 5 8] [0 4 8] [6 4 2]] board (flatten b)]
+((fn [res] (cond (some #{:x} res) :x (some #{:o} res) :o :else nil))
+    (map (fn [v] (reduce (fn [x y] (if (= x y) x false)) 
+        (map (fn [x] (nth (flatten board) x)) v))) 
+        pos))
+))]
+    (into #{} (remove nil? (apply concat (map (fn [idx row] (map #(cond (= :e (get-in board [idx %1])) 
+                                   (if (= piece (won? (assoc-in board [idx %1] piece)))
+                                       [idx %1]
+                                       nil
+                                   )
+                                   :else nil       
+                                   ) (range (count row)))) 
+                       (iterate inc 0) board))))
+)
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [m b]
+  (letfn [(row [b i] (nth b i))
+          (col [b j] (mapv #(nth % j) b))
+          (dex [b] (mapv #(get-in b [% %]) (range 3)))
+          (sin [b] (mapv #(get-in b [% (- 2 %)]) (range 3)))
+          (sets [b]
+            (concat
+              (map #(row b %) (range 3))
+              (map #(col b %) (range 3))
+              [(dex b) (sin b)]))
+          (winner* [m set]
+            (when (every? #(= m %) set)
+              m))
+          (winner [m b]
+            (first (keep #(winner* m %) (sets b))))]
+    (set
+      (for [i (range 3)
+            j (range 3)
+            :when (= :e (get-in b [i j]))
+            :when (winner m (assoc-in b [i j] m))]
+        [i j]))))
+johncowie's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [pl brd]
+  (let [won? (fn [p brd]
+    (reduce #(or %1 %2)
+       (flatten
+          [ (for [y (range 0 3)] (= p ((brd 0) y) ((brd 1) y) ((brd 2) y)))
+            (for [x (range 0 3)] (= p ((brd x) 0) ((brd x) 1) ((brd x) 2)))
+            (= p ((brd 0) 0) ((brd 1) 1) ((brd 2) 2))
+            (= p ((brd 0) 2) ((brd 1) 1) ((brd 2) 0))])))]
+    (set (filter coll?
+          (for [x (range 0 3) y (range 0 3)]
+               (if (= (nth (nth brd y) x) :e)
+                           (if (won? pl (assoc-in brd [y x] pl))
+                             [y x])))))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn winning-moves [player board]
+  (letfn [(column-indices 
+            [rows]
+            (partition (count rows)
+                     (for [row    (range (count rows))
+                           column (range (count rows))]
+                       [column row])))
+          (row-indices [rows]
+            (partition (count rows)
+                       (for [row    (range (count rows))
+                             column (range (count rows))]
+                         [row column])))
+          (diagonal-indices [rows]
+            (->> (for [row (range (count rows))]
+                   [[row row]
+                   [(- (count rows) row 1) row]])
+                 (apply map vector)))]
+  (let [rows (row-indices board)
+        columns (column-indices board)
+        diagonals (diagonal-indices board)]
+    (->> (concat rows columns diagonals)
+         (filter (fn [indices]
+                   (let [elems (map #(get-in board %) indices)
+                         freqs (frequencies elems)]
+                     (and (= (player freqs) 2)
+                          (= (:e freqs) 1)))))
+         (apply concat)
+         (filter #(= (get-in board %) :e))
+         set))))
+jorendorff's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [me board]
+  (set (for [x [0 1 2]
+             y [0 1 2]
+             :when (and (= :e (get-in board [y x]))
+                        (let [[[a b c] [d e f] [g h i]] (assoc-in board [y x] me)]
+                          (or (= me a b c) (= me d e f) (= me g h i) (= me a e i)
+                              (= me a d g) (= me b e h) (= me c f i) (= me c e g))))]
+         [y x])))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn win-tic-tac-toe [piece board]
+  (let [winner? (fn [board]
+                  (let [vertical [(vec (map first board)) (vec (map second board)) (vec (map #(nth % 2) board))]
+                        diag [[(first (first board)) (second (second board)) (nth (nth board 2) 2)]
+                              [(nth (first board) 2) (second (second board)) (first (nth board 2))]]
+                        all (concat board vertical diag)
+                        fe (filter #(not (some (fn [v] (= :e v)) %)) all)
+                        xs (filter #(every? (fn [v] (= :x v)) %) fe)
+                        os (filter #(every? (fn [v] (= :o v)) %) fe)]
+                    (cond (> (count xs) 0) :x
+                          (> (count os) 0) :o
+                          :otherwise nil)
+                    )
+                  )
+        all-pos (for [x (range 3) y (range 3)] [x y])
+        winners (reduce (fn [acc v] (if (and (= :e (get-in board v)) (winner? (update-in board v (fn [_] piece)))) (conj acc v) acc)) #{} all-pos)
+        ]
+    winners
+    ))
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn [p b]
+  (let [h (count b)
+        w (count (first b))
+        vert (fn [m]
+               (map first
+                 (map #(% %2)
+                   (iterate (partial comp next) identity) m)))
+        won (fn [m]
+              (some #(apply = (cons p %))
+                (concat
+                  m
+                  (apply (partial map list) m)
+                  (list (vert m))
+                  (list (vert (reverse m)))))) ]
+    (set          
+      (for [y (range h) x (range w)
+            :when (won (update-in b [y x] #(if (= :e %) p :e))) ]
+        [y x]))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [k t]
+  (if (> 3 (-> t set count)) #{}
+      (let [l (for [r t :let [y (.indexOf t r)]]
+                (map #(vector % [y %2]) r (range 0 3)))
+            [[c00 c01 c02] 
+             [c10 c11 c12] 
+             [c20 c21 c22]]   l]
+        (->> [[c00 c10 c20] [c01 c11 c21] [c02 c12 c22] [c00 c11 c22] [c20 c11 c02]]
+             (reduce conj l)
+             (filter  #(= 2 (reduce (fn [a [i]] (if (= i k) (inc a) a)) 0 %)) )
+             (map #(for [[n s] % :when (not= k n)] s) )
+             (map first)
+             set
+             ))))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+(fn prob115
+  [player board]
+ 
+  (letfn [
+          (open-positions
+            ;; For a given board get all the open positions [r c]
+            ;; Return the row column pairs [r c] for the positions that contain an empty (:e)
+            [board]
+            (for [r (range 3)
+                  c (range 3)
+                  :when (= (get-in board [r c]) :e)]
+              [r c]))
+          
+          ;; For each try setting the position in the board for the player
+          ;; and evaluate the board to see if the player has won
+          (row [m n] (nth m n))
+          (rows [m]  (map #(row m %) (range 3)))
+          (col [m n] (vec (map #(nth % n) m)))
+          (cols [m]  (map #(col m %) (range 3)))
+          (diags [m] 
+            (list [(last (col m 0)) (second (col m 1)) (first (col m 2))]
+                  [(first (col m 0)) (second (col m 1)) (last (col m 2))]))
+          
+          (get-all-tuples
+            ;; Return all the columns, rows and diagonals from a given board
+            [board]
+            (concat (rows board) (cols board) (diags board)))
+          
+          (solved-tuple
+            ;; Return true if the position contains all three positions for the player
+            [player position]
+            (= 3 (count (filter #(= player %) position))))
+          
+          (solved-board
+            ;; Return true if the board has been solved. In other words there is a position that wins
+            [player board]
+            (= 1 (count (filter #(solved-tuple player %) (get-all-tuples board)))))
+          
+          (update-board
+            [player board position]
+            (let [[r c] position]
+              (assoc-in board [r c] player)))
+ 
+          (solves-board?
+            [player board position]
+            ;; apply position to board and see if the player wins
+            (let [new-board (update-board player board position)]
+              (solved-board player new-board)))
+          ]
+    (set (filter #(solves-board? player board %) (open-positions board)))))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify nil
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+(fn my-win-tic-tac-toe
+  [player ttt]
+  (let [getCrossElementIds (fn [tictactoe] (map vector (take (count tictactoe) (range)) tictactoe))
+        getCrossElements (fn [result tttCrosCount] (conj result (nth (second tttCrosCount) (first tttCrosCount))))
+        tttv ttt
+        ttth (apply map list ttt)
+        ttts1 (reduce getCrossElements [] (getCrossElementIds ttt))
+        ttts2 (reduce getCrossElements [] (getCrossElementIds (reverse ttt)))]
+    (letfn [(correct-to-finish? [val] 
+                                (let [part (sort-by count (partition-by identity (sort-by identity val)))]
+                                  (if (= 2 (count part))
+                                    (if (and (= (first (first part)) :e) (= (first (second part)) player))
+                                      true
+                                      false)
+                                    false)))
+            (analyze-ttth [ttth] (loop [results [] i 0]
+                                   (if (= i (count ttth))
+                                     results
+                                     (recur (if (correct-to-finish? (get (into [] ttth) i))
+                                              (conj results (vector (.indexOf (get (into [] ttth) i) :e) i))
+                                              results) (inc i)))))
+            (analyze-tttv [tttv] (loop [results [] i 0]
+                                   (if (= i (count tttv))
+                                     results
+                                     (recur (if (correct-to-finish? (get (into [] tttv) i))
+                                              (conj results (vector i (.indexOf (get (into [] tttv) i) :e)))
+                                              results) (inc i)))))
+            (analyze-ttts2 [ttts] (when (correct-to-finish? ttts)
+                                   (vector (- 2 (.indexOf ttts :e)) (.indexOf ttts :e))))
+            (analyze-ttts1 [ttts] (when (correct-to-finish? ttts)
+                                   (vector (.indexOf ttts :e) (.indexOf ttts :e))))]
+      (set (filter (complement nil?) (into (into (vector (analyze-ttts1 ttts1) (analyze-ttts2 ttts2)) (analyze-ttth ttth)) (analyze-tttv tttv)))))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [turn board]
+  (letfn [(rows [board] board)
+          (columns [board] (apply map vector board))
+          (diagonal-top-to-bottom [board] [(mapv get board (range))])
+          (diagonal-bottom-to-top [board] [(mapv get (reverse board) (range))])
+          (winning-board? [board] (some #(apply = turn %) (reduce into [(rows board)
+                                                                   (columns board)
+                                                                   (diagonal-top-to-bottom board)
+                                                                   (diagonal-bottom-to-top board)])))]
+    (set (filter #(winning-board? (update-in board % (fn [& _] turn)))
+                 (for [x (range 3) y (range 3) :when (= (nth (nth board y) x) :e)]
+                   [y x])))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [sym rows]
+  (let [rows (->> rows
+                  (map-indexed
+                   (fn [y row] (->> row
+                                    (map-indexed (fn [x val] [val [y x]]))
+                                    vec)))
+                  vec)
+        columns (apply map vector rows)
+        diagonals [(map #(get-in rows [% %]) (range 3))
+                   (map #(get-in rows [% (- 2 %)]) (range 3))]]
+    (->> (concat rows columns diagonals)
+         (filter #(= (sort (map first %)) (sort [:e sym sym])))
+         (map #(some (fn [[val coords]] (and (= val :e) coords)) %))
+         set)))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn ttt [p board]
+  (letfn [(M [b i j] (get-in b [i j]))
+          (win [b]
+               (let [triples (concat
+                              b
+                              (apply map vector b)
+                              [[(M b 0 0) (M b 1 1) (M b 2 2)]
+                               [(M b 0 2) (M b 1 1) (M b 2 0)]])]
+                 (some (partial every? (partial = p)) triples)
+                 ))]
+    (set (for [i (range 3)
+          j (range 3)
+          :when (and (= (M board i j) :e) (win (assoc-in board [i j] p)))]
+      [i j]
+      ))
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(letfn [(diags [b]
+               [(map #(get-in b [% %]) [0 1 2])
+                (map #(get-in b [% (- 2 %)]) [0 1 2])])
+        (cols [b]
+              (apply map vector b))
+        (rows [b] b)
+        (winner [r] (cond
+                     (apply = :o r) :o
+                     (apply = :x r) :x))
+        (win? [board]
+          (some identity (map winner (concat (diags board)
+                                             (cols board)
+                                             (rows board)))))]
+  (fn [piece board]
+    (set (remove nil? (for [x [0 1 2] y [0 1 2]]
+                        (when (and
+                                (= :e (get-in board [x y]))
+                                (= piece (win? (assoc-in board [x y] piece))))
+                          [x y]))))))
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn [v field]
+  (let [index-field (fn [field] (map-indexed 
+                                  (fn [idx row] (map-indexed #(vector idx % %2) row)) 
+                                  field))
+        transpose (fn [field] (apply (partial map vector) field))
+        win? (fn [row v]
+               (when
+                 (->> row
+                      (filter #(= v (peek %)))
+                      count
+                      (= 2))
+                 (some #(when (= (peek %) :e) (butlast %)) row)))
+        find-wins (fn [[[v00  _  v02]
+                        [ _  v11  _ ]
+                        [v20  _  v22] :as fld]]
+                    (keep #(win? % v)
+                          (concat
+                            fld
+                            (transpose fld)
+                            [[v00 v11 v22]
+                             [v20 v11 v02]])))]
+    (-> field
+        index-field
+        find-wins
+        set)))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [player board]  
+  (let [immediate-win 
+        (fn [row] 
+          (let [values (map (partial get-in board) row)
+                freq (frequencies values)]
+            (if (and (= (get freq player) 2)
+                     (= (get freq :e) 1))
+              (first (filter #(= :e (get-in board %)) row))
+              nil)))]
+    (set (remove nil?
+            (map
+             immediate-win
+             (concat
+              (apply concat (for [a (range 3)]
+                              [(for [b (range 3)] [a b])
+                               (for [b (range 3)] [b a])]
+                              ))
+              [(for [a (range 3)] [a a])
+               (for [a (range 3)] [(- 2 a) a])]))))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [p b]
+  (reduce 
+    (fn [r s]
+      (into r
+        (filter
+          (fn [e]
+            (every?  
+              #(or (= p (get-in b %))
+                   (and (= :e (get-in b %)) (= e %)))
+              s))
+          s)))
+    #{} 
+    (into 
+      [[[0 0] [1 1] [2 2]] [[0 2] [1 1] [2 0]]] 
+      (mapcat 
+        #(or [[[% 0] [% 1] [% 2]] [[0 %] [1 %] [2 %]]]) 
+        [0 1 2]))))
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(fn [p board]
+  (letfn [(empty-cells [board]
+            (for [i (range 3)
+                  j (range 3)
+                  :when
+                  (= :e (get-in board [i j]))]
+              [i j]))
+          (wins-with?  [p board cell]
+            (= p (winner (choose-cell p board cell))))
+          (choose-cell [p board cell]
+            (assoc-in board cell p))
+          (winner [board]
+            (let [x-row (repeat 3 :x)
+                  o-row (repeat 3 :o)
+                  straight #(or (some #{x-row} %)
+                                (some #{o-row} %)
+                                nil)]
+              (or (first (straight board)) ; win by row
+                  (let [transposed (apply map list board)]
+                    (first (straight transposed))) ; win by column
+                  (let [diagonals [(map #(get-in board [% %])
+                                        [0 1 2])
+                                   (map #(get-in board [%1 %2])
+                                        [0 1 2] [2 1 0])]]
+                    (first (straight diagonals))) ; win by diagonal
+                  nil)))]
+  (set (filter (partial wins-with? p board) (empty-cells board)))))
+maximental's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [A M R p b]
+  (set (for [i R
+             j R
+             :let [c (assoc-in b [i j] p)]
+             :when (and (= :e ((b i) j)) 
+                        (some #(A = p %)
+                              `(~@c 
+                                ~@(A M list c) 
+                                ~(M #(%2 %) R c) 
+                                ~(M #(%2 (- 2 %)) R c))))] 
+         [i j]))) 
+apply map [0 1 2]
+mbakhterev's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [k B]
+  (let [A (map-indexed (fn [i r] (map-indexed (fn [j v] [v [i j]]) r)) B)
+        R (range 3)
+        C (lazy-cat [R (reverse R)] (map (fn [r] (repeat 3 r)) R))
+        S (lazy-cat A (map (fn [c] (map nth A c)) C))]
+    (set (map second (mapcat (fn [l] (if (= 2 (count (filter (comp #{k} first) l))) (filter (comp #{:e} first) l))) S)))))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+(let [valid-board?
+        (fn valid-board? [board]
+          (and (vector? board)                             ; Board is a vector.
+               (every? vector? board)                      ; Rows are vectors.
+               (= 3 (count board))                         ; Board has 3 rows.
+               (every? (comp (partial = 3) count) board)   ; Rows have 3 elts.
+               (every? (partial every? #{:x :o :e}) board) ; Only :x,:o,:e.
+               ;; And the number of :x's is either equal to the number of :o's, or
+               ;; exactly one greater:
+               (let [count-piece
+                     (fn [sym]
+                       (or (sym (frequencies (flatten board)))
+                           0))]
+                 (or (= (count-piece :x) (count-piece :o))
+                     (= (count-piece :x) (inc (count-piece :o))))))),
+ 
+        win-positions
+        #{[[0 0] [0 1] [0 2]]           ; Top row.
+          [[1 0] [1 1] [1 2]]           ; Middle row.
+          [[2 0] [2 1] [2 2]]           ; Bottom row.
+          [[0 0] [1 0] [2 0]]           ; Left column.
+          [[0 1] [1 1] [2 1]]           ; Middle column.
+          [[0 2] [1 2] [2 2]]           ; Right column.
+          [[0 0] [1 1] [2 2]]           ; Diagonal top-left to bottom-right.
+          [[0 2] [1 1] [2 0]]},         ; Diagonal top-right to bottom-left.
+ 
+        win-in-pos
+        (fn [piece board [a b c :as pos]]
+          (let [piece-count
+                (->> pos
+                     (map (partial get-in board))
+                     (filter (partial = piece))
+                     count)]
+            ;; If piece-count is 2, then pos contains two copies of piece, and at most
+            ;; one place in pos can be occupied by an :e. If it is, then it's the
+            ;; winning position, and we should return it. If not, then we return nil.
+            (if (= 2 piece-count)
+              (->> pos
+                   (filter (comp (partial = :e) (partial get-in board)))
+                   first))))]
+    
+    (fn wins-for-piece [piece board]
+      {:pre [(valid-board? board), (#{:x :o} piece)]}
+      (set (keep (partial win-in-pos piece board) win-positions))))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+(fn winning-placements [mark board]
+  (let [winning-positions
+        [(fn [[[a _ _]
+               [b _ _]
+               [c _ _]]]
+           [a b c])
+         (fn [[[_ a _]
+               [_ b _]
+               [_ c _]]]
+           [a b c])
+         (fn [[[_ _ a]
+               [_ _ b]
+               [_ _ c]]]
+           [a b c])
+         (fn [[[a b c]
+               [_ _ _]
+               [_ _ _]]]
+           [a b c])
+         (fn [[[_ _ _]
+               [a b c]
+               [_ _ _]]]
+           [a b c])
+         (fn [[[_ _ _]
+               [_ _ _]
+               [a b c]]]
+           [a b c])
+         (fn [[[a _ _]
+               [_ b _]
+               [_ _ c]]]
+           [a b c])
+         (fn [[[_ _ a]
+               [_ b _]
+               [c _ _]]]
+           [a b c])]
+        won? (fn [mark board]
+               (some #(if (apply = mark (% board))
+                       mark)
+                     winning-positions))]
+    (set (for [row (range 3)
+               col (range 3)
+               :when (and (= :e (get-in board [row col]))
+                          (won? mark (assoc-in board [row col] mark)))]
+           [row col]))))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [ply brd]
+  (letfn [(win? [[top mid bottom :as board]]
+            (->> (concat board (map vector top mid bottom)
+                    [[(top 0) (mid 1) (bottom 2)]
+                    [(top 2) (mid 1) (bottom 0)]])
+                  (some #(apply = ply %))
+                  (not= nil)))
+          (win-at? [pos]
+            (and (= (get-in brd pos) :e)
+                 (win? (assoc-in brd pos ply))))]
+    (set (for [x (range 3), y (range 3) :when (win-at? [x y])] [x y]))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn win [p b]
+        (let [v (vec (flatten b))]
+          (into #{} (for [i (range 9)
+                          :when (and (= (get v i) :e)
+                                     (or (= (count (filter #(= % p) (get b (quot i 3)))) 2)
+                                         (= (count (filter #(= % p) (map #(get % (mod i 3)) b))) 2)
+                                         (and (some #{i} '(0 4 8))
+                                              (= (count (filter #(= % p) (list (get v 0) (get v 4) (get v 8)))) 2))
+                                         (and (some #{i} '(2 4 6))
+                                              (= (count (filter #(= % p) (list (get v 2) (get v 4) (get v 6)))) 2))))]
+                      (vector (quot i 3) (mod i 3))))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [s b]
+  (letfn [
+          (find-empty [b]
+                      (set (apply concat (filter (complement empty?) (keep-indexed (fn [i l] (keep-indexed #(if (= :e %2) [i %1]) l)) b))))
+                      )
+          (winner? [sym brd]
+                   ((complement empty?) (filter #(= % 3)
+                                                (map (fn [r] (count (filter #(= sym %) r)))
+                                                     (concat brd
+                                                             (apply map vector brd)
+                                                             (vector (map #(%1 %2) brd (range (count brd))))
+                                                             (vector (map #(%1 (- (dec (count brd)) %2)) brd (range (count brd)))))
+                                                     )
+                                                ))
+                   )
+          ]
+ 
+    (set (filter #(winner? s (assoc-in b %1 s)) (find-empty b)))
+    ))
+mononite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [v board]
+  (letfn [(diag [b] (map-indexed #(nth %2 %) b))
+          (winner [b]
+            (let [rows b
+                  cols (apply map vector b)
+                  diags [(diag b) (diag (map reverse b))]
+                  lines (map set (concat rows cols diags))]
+              (first (some #{#{:x} #{:o}} lines))))]
+    (->>
+      (for [x [0 1 2] y [0 1 2]] [x y]) 
+      (filter (fn [[x y]] (= :e (get-in board [x y]))))
+      (filter (fn [[x y]] (winner (assoc-in board [x y] v))))
+      set)))
+mouse's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [w t]
+  (set (remove nil?
+       (for [x [0 1 2] y [0 1 2] :let [p [x y]] :when ({:e 1} (get-in t p))]
+         (let [[[a b c] [d e f] [g h i] :as t] (assoc-in t p w)]
+           (if (some {[:x :x :x] :x [:o :o :o] :o}
+                     (list* [a d g] [b e h] [c f i] [a e i] [c e g] t))
+             p)
+           )))))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [k board]
+  (let [lines-coordinates [[[0 0] [1 0] [2 0]]
+                           [[0 1] [1 1] [2 1]]
+                           [[0 2] [1 2] [2 2]]
+                           [[0 0] [0 1] [0 2]]
+                           [[1 0] [1 1] [1 2]]
+                           [[2 0] [2 1] [2 2]]
+                           [[0 0] [1 1] [2 2]]
+                           [[2 0] [1 1] [0 2]]]]
+    (set (keep (fn [line-coordinates]
+                 (let [line-vals (map #(get-in board %)
+                                      line-coordinates)
+                       line-vals-without-k (keep-indexed (fn [i v]
+                                                           (if (not= v k)
+                                                             [i v]))
+                                                         line-vals)]
+                   (if (= 1 (count line-vals-without-k))
+                     (let [[i v] (first line-vals-without-k)]
+                       (if (= v :e)
+                         (get line-coordinates i))))))
+               lines-coordinates))))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(fn find-winners [x-or-o board]
+  (let [winner? (fn [board]
+                  (let [r0 (first board)
+                        r1 (second board)
+                        r2 (last board)
+                        c0 (map first board)
+                        c1 (map second board)
+                        c2 (map last board)
+                        d1 [(first r0) (second r1) (last r2)]
+                        d2 [(last r0) (second r1) (first r2)]
+                        win-lines [r0 r1 r2 c0 c1 c2 d1 d2]
+                        won-lines (->> win-lines
+                                       (map set)
+                                       (filter #(= #{x-or-o}  %))
+                                       (map first))
+                        win? ((comp not empty?) won-lines)]
+                    win?))
+        coords (for [y [0 1 2]
+                     x [0 1 2]
+                     :when (= :e (get-in board [y x]))]
+                 [y x])
+        update-board (fn [board coord] (update-in board coord (fn [_] (identity x-or-o))))]
+    (set
+     (filter identity
+             (map
+              (fn [coord] (when (winner? (update-board board coord)) coord))
+              coords)))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn win [value border]
+  (let [combs
+        (concat
+          (for [x [0 1 2]] [[0 x] [1 x] [2 x]])
+          (for [y [0 1 2]] [[y 0] [y 1] [y 2]])
+          [[[0 0] [1 1] [2 2]] [[0 2] [1 1] [2 0]]])
+        check
+        (fn [comb]
+          (if (->> (map #(get-in border %) comb) frequencies (= {value 2 :e 1}))
+            (filter #(= :e (get-in border %)) comb)
+            nil))]
+  (->>
+    (map check combs)
+    (apply concat)
+    (remove nil?)
+    set)))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [pl b]
+  (let [wins [[0 1 2] [3 4 5] [6 7 8] [0 3 6] [1 4 7] [2 5 8] [0 4 8] [2 4 6]]
+        iswin #(some (fn [w] (= pl (% (w 0)) (% (w 1)) (% (w 2)))) wins)
+        b (vec (flatten b))]
+    (into #{} (map #(vector (quot % 3) (mod % 3)) (filter #(and (= (b %) :e) (iswin (assoc b % pl))) (range 9))))
+                ))
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn ttt [color board]
+  (let [test-win
+  (fn test-win [b]
+          (let [[[p1 p2 p3] [p4 p5 p6] [p7 p8 p9]] b]
+            (reduce #(or %1 %2)
+                    (map (fn [[x y z]] (if (and (= x y) (= y z) (not= x :e)) x nil))
+                         [(b 0) (b 1) (b 2)
+                          [p1 p4 p7]
+                          [p2 p5 p8]
+                          [p3 p6 p9]
+                          [p1 p5 p9]
+                          [p3 p5 p7]]))))
+ 
+    move (fn [board color pos]
+           (assoc-in board pos color))
+        can-move (fn [board pos] (= :e (get-in board pos)))
+    can-win (fn [pos] (test-win (move board color pos)))
+ 
+        positions
+        (for [x (range 3) y (range 3)
+              :when (can-move board [x y])]
+          [x y])]
+ 
+    (set (filter can-win positions))))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [player v]
+  (let [has-won (fn [player v]
+                  (let [cols (apply map vector v)
+                        diag1 (map #(nth %1 %2) v (range 3))
+                        diag2 (map #(nth %1 %2) v (reverse (range 3)))
+                        all-rows (concat v cols [diag1 diag2])]
+                    (->> all-rows
+                         (map #(into #{} %))
+                         (filter #(= 1 (count %)))
+                         (apply concat)
+                         (some #{player}))))
+        empty-coords (fn [v]
+                       (apply concat (map-indexed (fn [r row]
+                                                    (filter identity
+                                                            (map-indexed (fn [c cell]
+                                                                           (if (#{:e} cell)
+                                                                             [r c]
+                                                                             nil)) row))) v)))
+        move-wins? (fn [player v coord]
+                     (has-won player (assoc-in v coord player)))]
+    (set (filter (partial move-wins? player v) (empty-coords v)))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn myf [who board]
+        (letfn [(who-win [coll]
+            (let [row1 (nth coll 0)
+                  row2 (nth coll 1)
+                  row3 (nth coll 2)
+                  col1 (map first coll)
+                  col2 (map second coll)
+                  col3 (map #(nth % 2) coll)
+                  dia1 [(first  (first coll)) (second (second coll)) (nth (nth coll 2) 2)]
+                  dia2 [(nth (first coll) 2) (second (second coll)) (first (nth coll 2))]
+                  all [row1 row2 row3 col1 col2 col3 dia1 dia2]
+                  check (fn [e] (reduce #(or %1 %2) (map #(apply = (conj % e)) all)))]      
+              (cond (check :x) :x
+                    (check :o) :o
+                    :else nil)))
+                      (check [m n who board]
+            (if (not= :e (nth (nth board m) n)) false
+              (= who (who-win (assoc board m (assoc (nth board m) n who))))))]
+    (->> (for [m [0 1 2], n [0 1 2]] [m n who board])
+                  (filter #(apply check %))
+                  (map #(vector (first %) (second %)))
+                  (apply hash-set)
+                  )))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn [x m]
+  (->> [[0 0] [0 1] [0 2]
+        [1 0] [1 1] [1 2]
+        [2 0] [2 1] [2 2]
+ 
+        [0 0] [1 0] [2 0]
+        [0 1] [1 1] [2 1]
+        [0 2] [1 2] [2 2]
+ 
+        [0 0] [1 1] [2 2]
+        [0 2] [1 1] [2 0]]
+    (partition 3)
+    (map cycle)
+    (map #(partition 3 1 %))
+    (mapcat #(take 3 %))
+    (filter (fn [r] (= [:e x x] (map #(get-in m %) r))))
+    (map first)
+    set))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn win-tic-tac-toe [player, board]
+  (let [winning-combinations [
+                              [[0 0] [0 1] [0 2]]  ; horizontal
+                              [[1 0] [1 1] [1 2]]
+                              [[2 0] [2 1] [2 2]]
+                              [[0 0] [1 0] [2 0]]  ; vertical
+                              [[0 1] [1 1] [2 1]]
+                              [[0 2] [1 2] [2 2]]
+                              [[0 0] [1 1] [2 2]]  ; diagonal
+                              [[2 0] [1 1] [0 2]]
+                              ]
+        ]
+    (->> winning-combinations
+         (map (fn [row] (group-by (fn [[i j]] (-> board (get i) (get j))) row)))
+         (filter (fn [plays] (and (= 1 (count (get plays :e))) (= 2 (count (get plays player))))))
+         (map (fn [plays] (first (get plays :e))))
+         set)))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(let 
+  [w (fn [A]
+        (->> [0 1 2 [0 0 0] [1 1 1] [2 2 2] [0 1 2] [2 1 0]]
+             (map 
+                (fn [a] (if (coll? a) (map #(%1 %2) A a) (A a))))
+             (filter (partial apply =))
+             (filter #(not= (last %) :e))
+             (last)
+             (#(and % (last %)))
+                     
+         ))
+       ]
+  (fn [x B]
+        (let [v (vec (apply concat B))]
+           (->> v
+             (keep-indexed #(if (= %2 :e) %1))
+             (map #(vector (assoc v % x) [(quot % 3) (mod % 3)]))
+             (filter #(w (vec (map vec (partition 3 (first %))))))
+             (map second)
+             (into #{})))))
+quant1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [x b]
+  (let [gb (fn [x]
+             (->> (for [i (range (count x)) j (range (count (first x)))] [i j]) (group-by #(get-in x %))))
+        tt (fn [x]
+             (let [pos
+                   (concat x (apply (partial map vector) x)
+                     (map (fn diag [m] (reduce #(conj %1 (%2 (count %1))) [] m)) [x (reverse x)]))]
+               (->> pos (filter (partial apply =)) (map first) (filter #{:x, :o}) (first))
+               ))
+        x0 (gb b)]
+    (into #{} (filter #(tt (assoc-in b % x)) (:e x0)))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [xo board]
+  (->>
+   board
+   (map-indexed (fn[i row] (map-indexed (fn[j col] [[i j] col] ) row)))
+   (apply concat)
+   (filter #(#{:e} (second %)))
+   (map (fn[[coord _]] [coord (assoc-in board coord xo)]))
+   (map 
+     (fn [[coord B]] 
+       [coord
+         (let [D (partial map-indexed #(%2 %))]
+           ( ->>
+           `(~@B ~@(apply map list B) ~(D B) ~(-> B reverse D))
+           (some #{[:x :x :x] [:o :o :o]})
+           first))
+       ] ) )
+   (remove #(nil? (second %)))
+   (map first)
+   set
+) )
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn f [trn xo]
+  (let [m* (fn [n m] (map #(* % n) m))
+        l+ (fn [p l] (map #(map + p %) l))
+        seed [[0 1] [1 0] [1 1] [-1 1]]
+        mult [-2 -1 1 2 ]
+        delta (map (fn [l] (map #(m* % l) mult)) seed)
+        lines (fn [p] (map #(l+ p %) delta))
+        check-ln (fn [ln] (filter identity (map #(get-in xo %) ln)))
+        check (fn [p] (->> (lines p)
+                           (map check-ln)
+                           (map #(cons trn %))
+                           (filter #(= 3 (count %)))
+                           (map set)
+                           (map count)
+                           (some #{1})))]
+    (set (for [x (range 3) y (range 3) :when (and (= :e (get-in xo [x y])) (check [x y]))] [x y]))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+; With thanks to:
+; https://github.com/ardumont/org/blob/master/clojure/4clojure-73-analyze-a-tic-tac-toe-board.org
+(fn winning-moves [piece board]
+  (let [coords (for [x (range 0 3)
+                     y (range 0 3)]
+                 [x y])
+        placements (filter #(= :e (get-in board %)) coords)
+        won? (fn [b]
+               (letfn [(w [[[a b c]
+                            [d e f]
+                            [g h i]] p] (or (= p a b c)
+                                        (= p d e f)
+                                        (= p g h i)
+                                        (= p a d g)
+                                        (= p b e h)
+                                        (= p c f i)
+                                        (= p a e i)
+                                        (= p c e g)))]
+                 (if (w b piece) true)))]
+    (into #{} (filter #(won? (assoc-in board % piece)) placements))))
+sheldon's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [x b] 
+   (let [m (zipmap (for [i (range 3) j (range 3)] [i j]) (flatten b))
+         r1 '([0 0] [0 1] [0 2])
+         r2 '([1 0] [1 1] [1 2])
+         r3 '([2 0] [2 1] [2 2])
+         c1 '([0 0] [1 0] [2 0])
+         c2 '([0 1] [1 1] [2 1])
+         c3 '([0 2] [1 2] [2 2])
+         d1 '([0 0] [1 1] [2 2])
+         d2 '([0 2] [1 1] [2 0])]
+     (set (mapcat #(filter (fn [t] (not= x (m t))) %) 
+                  (map second (filter #(= {x 2 :e 1} (first %)) 
+                                      (map #(vector (frequencies (map m %)) %)
+                                           [r1 r2 r3 c1 c2 c3 d1 d2])))))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [p board]
+  (let [rng #(for [i (range 3)] (+ % (* i %2)))
+        lines [[0 0 1 0] [0 1 1 0] [0 2 1 0] [0 0 1 1]
+               [0 0 0 1] [1 0 0 1] [2 0 0 1] [0 2 1 -1]]]
+    (->> lines
+      (map (fn [[x y dx dy]]
+             (map (fn [x y] [(nth (nth board y) x) y x]) (rng x dx) (rng y dy))))
+      (map (partial sort-by first))
+      (filter #(= [:e p p ] (take-nth 3 (flatten %))))
+      (map nfirst)
+      set)))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [k c]
+  (let [pos (fn [[x y]] (nth (nth c x) y))
+        coord (for [row (range 3) col (range 3)] [row col])
+        ack (remove nil? (map #(if (= k (pos %)) %) coord))
+        ept (set (remove nil? (map #(if (= :e (pos %)) %) coord)))
+        all (remove nil? (for [x ack y ack] (if (not= x y) [x y])))]
+    (clojure.set/intersection ept
+                              (clojure.set/union 
+                               (set (filter #(every? (complement neg?) %) (map #(vec (map - [3 3] %)) (map (fn [[a b]] (map + a b)) (remove #(= #{[1 0] [0 2]} (set %)) all)))))
+                               (set (map (fn [[a b]] [(first a) (- 3 (+ (second a) (second b)))]) (filter #(= (ffirst %) (first (second %))) all)))
+                               (set (map (fn [[a b]] [(- 3 (+ (first a) (first b))) (second a)]) (filter #(= (second (first %)) (second (second %))) all)))
+                               ))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn f [a b]
+  (let [p (for [x (range 3) y (range 3)] [x y])
+        c #(group-by (fn [[x y]]
+            (let [e [x y (= x y) (= 2 (+ x y))]] (e %))) p)
+        s (mapcat (comp vals c) (range 4))
+        g (fn f [e]
+            (let [v (mapv #(get-in b %) e)]
+              (if (= (frequencies v) {a 2 :e 1})
+                  (keep-indexed #({:e (e %1)} %2) v))))]
+    (set (mapcat g s))))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+(letfn
+[
+  (ccomp [a & fs]
+    (let [fs (reverse fs)]
+      (fn [& xs]
+        (loop [xs xs
+               f (first fs)
+               fs (rest fs)]
+          (if (nil? f)
+            xs
+          (let [xs [(apply f a xs)]]
+            (recur xs (first fs) (rest fs))))))))
+ 
+  (get-cell [b [y x]]
+    (nth (nth b y) x))
+ 
+  (get-coords [b s]
+    (for [x (range (count (first b)))
+          y (range (count b))
+          :when (= s (get-cell b [y x]))]
+      [y x]))
+ 
+  (place [b [y x] s]
+    (assoc b y (assoc (nth b y) x s)))
+    
+  (boards [b s]
+    (map #(identity [%, (place b % s)]) (get-coords b :e)))
+  
+  (won? [board]
+    (let [
+          transposed (apply (partial map vector) board)
+          flipped (reverse board)
+          row-of      (fn [b s] (when (some (fn [row] (every? #(= s %) row)) b) s))
+          ldiag-of    (fn [b s] (when (every? #(= s %) (map nth b (range))) s))
+          won         (fn [s] (some identity [(row-of board s) (row-of transposed s) (ldiag-of board s) (ldiag-of flipped s)]))]
+          (some won [:x :o])
+      ))
+  
+  (solve [s b]
+    (->> (boards b s)
+      (filter #(= s (won? (second %))))
+      (map first)
+      set))
+      
+]
+  solve)
+syeerzy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [p g]
+  (let [win? (fn [p g]
+               (some #(= (repeat 3 p) %)
+                     (into g (map #(map nth g %)
+                                  [[0 1 2] [2 1 0] [0 0 0] [1 1 1] [2 2 2]]))))]
+    (set
+     (filter #(and (win? p (assoc-in g % p)) (= (get-in g %) :e)) 
+             (for [i (range 3) j (range 3)] [i j])))))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(letfn [(winner [[[a b c :as top]
+             [d e f :as middle]
+             [g h i :as bottom]]]
+  (let [left     [a d g]
+        center   [b e h]
+        right    [c f i]
+        forward  [a e i]
+        backward [c e g]]
+    (when-let [winner (some #(when (or (every? #{:x} %) (every? #{:o} %)) %)
+                            [top middle bottom
+                             left center right
+                             forward backward])]
+      (first winner))))]
+  (fn find-winning-pos [player board]
+    (set
+     (for [r (range 3)
+           c (range 3)
+           :when (and (= :e (get-in board [r c]))
+                      (winner (assoc-in board [r c] player)))]
+      [r c]))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [side board]
+    (let [lines (concat (for [x [0 1 2]]
+                          (for [y [0 1 2]]
+                            [x y]))
+                        (for [y [0 1 2]]
+                          (for [x [0 1 2]]
+                            [x y]))
+                        [[[0 0] [1 1] [2 2]]]
+                        [[[2 0] [1 1] [0 2]]])]
+      (set (for [line lines
+                 place line
+                 :let [newline (map #(if (and (= place %)
+                                              (= :e (get-in board %)))
+                                       side
+                                       (get-in board %)) line)]
+                 :when (every? #{side} newline)]
+             place))))
+zzamboni's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn win-tic-tac-toe [play b]
+  (letfn [(who-won? [board]
+            (let [fns [first second last]
+                  all-equal? (fn [s] (reduce #(if (= %1 %2) %1 nil) s))
+                  lines (concat board (map #(map % board) fns) [(map #(% %2) fns board) (map #(% %2) (reverse fns) board)])
+                  result (some all-equal? lines)]
+              (if (#{:e} result) nil result)))]
+    (let [r (range 3) empties (for [x r y r :when (= :e (get-in b [x y]))] [x y])]
+      (->> empties
+           (map (fn [cell] [cell (who-won? (assoc-in b cell play))]))
+           (filter second) (map first) set))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn __ [piece board]
+  (letfn [(wins? [b]
+                 (let [r (range (count b))]
+                   (cond (some true? (map #(apply = piece (nth b %)) r)) piece
+                         (some true? (map (fn [x] (apply = piece (map #(nth % x) b))) r)) piece
+                         (true? (apply = piece (map #(nth (nth b %) %) r))) piece
+                         (true? (apply = piece (map #(nth (nth b (- 2 %)) %) r))) piece)))]
+    (->> (for [x (range 3) y (range 3)] [x y])
+         (filter #(= :e (get-in board %)))
+         (map (fn [c] [c (assoc-in board c piece)]))
+         (filter #(wins? (second %)))
+         (map first)
+         set)))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [p b]
+  (let [lines #(concat % (apply map vector %)
+                        [(map get % [0 1 2])]
+                        [(map get % [2 1 0])])
+        win? (fn [[x y]]
+              (let [nb (assoc-in b [x y] p)]
+                (some #(= [p p p] %) (lines nb))))
+        free (for [x [0 1 2] y [0 1 2] :when (= :e (get-in b [x y]))] [x y])]
+    
+  (set (filter win? free))))
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn win-at-tic-tac-toe [k a]
+  (letfn [(win? [p b]
+                (let [c (count b)
+                      s (range c)
+                      win  (repeat c p)]
+                  (boolean
+                   (or (some #(= win %) b)
+                       (some #(= win %) (apply (partial map vector) b))
+                       (= win (map #(get-in b [% %]) s))
+                       (= win (map #(get-in b [% %2]) s (reverse s)))))))]
+    (set
+     (for [i (range (count a))
+           j (range (count a))
+           :when (and (= :e (get-in a [i j]))
+                      (win? k (assoc-in a [i j] k)))]
+      [i j]))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn [p [[k _ l] [_ m _] [n _ o] :as b]]
+  (loop [i 0 acc []]
+    (if (<= i 2)
+      (recur (inc i)
+             (loop [j 0 acc acc]
+               (if-let [x (get (get b i) j)]
+                 (recur (inc j)
+                        (if (and (= :e x)
+                                 (let [r [:e p p]]
+                                   (or (= r (sort (b i)))
+                                       (= r (sort (list ((b 0) j)
+                                                        ((b 1) j)
+                                                        ((b 2) j))))
+                                       (if (some {[i j] true}
+                                                 [[0 0] [1 1] [2 2]])
+                                         (= r (sort (list k m o))))
+                                       (if (some {[i j] true}
+                                                 [[0 2] [1 1] [2 0]])
+                                         (= r (sort (list l m n)))) )))
+                          (conj acc [i j])
+                          acc))
+                 acc)))
+      (set acc))))
+vpeurala's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [side board] (letfn [
+(rows [rectangle] rectangle)
+(columns [rectangle] (apply map vector rectangle))
+(nth1 [coll n] (nth coll (dec n)))
+(range1 [from to] (range from (inc to)))
+(value-at [sq pos] (nth1 (nth1 sq (second pos)) (first pos)))
+(pair-range [from to] (map vector (range1 from to) (reverse (range1 from to))))
+(diagonal [sq from to] (map #(value-at sq %) (pair-range from to)))
+(diagonal-sw-ne [sq] (map #(value-at sq %) (pair-range 1 (count sq))))
+(diagonal-nw-se [sq] (map #(value-at sq %) (map #(vector % %) (range1 1 (count sq)))))
+(main-diagonals [sq] (vector (diagonal-nw-se sq) (diagonal-sw-ne sq)))
+(main-lines [sq] (concat (rows sq) (columns sq) (main-diagonals sq)))
+(tic-tac-toe [sq] (let [winning-lines (filter #(or (= [:x :x :x] %) (= [:o :o :o] %)) (main-lines sq))] (cond (empty? winning-lines) nil (= (first winning-lines) [:x :x :x]) :x (= (first winning-lines) [:o :o :o]) :o)))
+(pairs [coll1 coll2] (mapcat (fn [x] (map #(vector x %) coll2)) coll1))
+(empty-positions [sq] (filter #(= :e (get-in sq %)) (pairs (range 3) (range 3))))
+(winning-moves [side board] (set (filter #(= side (tic-tac-toe (assoc-in board % side))) (empty-positions board))))
+] (winning-moves side board)))
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn tic-tac [p b]
+  (let [r [0 1 2]]
+    (set (for [x r
+               y r
+               :when (and (= :e ((b x) y))
+                          (let [nb (assoc-in b [x y] p)
+                                w? (fn [s] (= [p] (distinct s)))]
+                            (or (w? (nb x))
+                                (w? (map #(% y) nb))
+                                (and (= #{0 2} (into #{0 2} [x y]))
+                                     (or (w? (map #((nb %) %) r))
+                                         (w? (map #((nb %) (- 2 %)) r)))))))]
+           [x y]))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn tic-tac-toe [one-piece game-board]
+  (letfn [(win-game? [index]
+            (if (not= :e (get-in game-board index))
+              false
+              (let [new-board (assoc-in game-board index one-piece)
+                    test-index-list [[[0 0] [1 0] [2 0]]
+                                     [[0 1] [1 1] [2 1]]
+                                     [[0 2] [1 2] [2 2]]
+                                     [[0 0] [1 1] [2 2]]
+                                     [[0 2] [1 1] [2 0]]]
+                    test-lines (map (fn [line-index]
+                                      (map (fn [piece-index]
+                                             (get-in new-board piece-index))
+                                           line-index))
+                                    test-index-list)
+                    total-lines (remove #{'(:e :e :e)} (concat new-board test-lines))]
+                (some #(= 1 (count (set %))) total-lines))))]
+    (let [match-index (for [x (range 3)
+                            y (range 3)]
+                        (when (win-game? [x y]) [x y]))]
+      (set (filter (complement nil?) match-index)))))
+trxeste's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn ttt-win [p b]
+  (let [win? (fn [board]
+               (let [same? (fn [sec] (if (apply = sec) (first sec) nil))
+                     rows (map same? board)
+                     cols (map same? (apply map vector board))
+                     diag1 (same? (map get board [0 1 2]))
+                     diag2 (same? (map get board [2 1 0]))]
+                 (some #{:x :o} (concat rows cols [diag1] [diag2]))))
+        free (for [y (range 3) 
+                   x (range 3)
+                   :when (= :e (get-in b [y x]))]
+               [y x])]
+    (set (filter #(= p (win? (assoc-in b % p))) free))))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn [piece board] (letfn [
+(get-diags [board]
+  (let [diag1 (for [i (range 3)] (get-in board [i i]))
+    diag2 (for [i (range 3)] (get-in board [i (- 2 i)]))]
+    [diag1 diag2]))
+ 
+(get-cols [board]
+  (for [i (range 3)]
+    (for [j (range 3)]
+      (get-in board [j i]))))
+ 
+(count-piece [piece play]
+  (count (filter #(= piece %) play)))]
+ 
+ 
+  (let [board (vec (map vec (for [row (range 3)]
+                              (keep-indexed
+                               (fn [col elt] (if (= :e elt) [row col] elt))
+                               (nth board row)))))
+        more (concat board (get-diags board) (get-cols board))]
+    (set (apply concat
+                (map #(filter vector? %)
+                     (filter #(= 2 (count-piece piece %)) more))))))
+)
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

@@ -1,0 +1,6029 @@
+;; 117 For Science! [h]
+
+hashes (#) = maze walls, M = starting point, C = cheese
+Can go only up/down/left/right
+Returns true iff the maze is solvable by the mouse.
+
+(= true  (__ ["M   C"]))
+(= false (__ ["M # C"]))
+(= true  (__ ["#######"
+              "#     #"
+              "#  #  #"
+              "#M # C#"
+              "#######"]))
+(= false (__ ["########"
+              "#M  #  #"
+              "#   #  #"
+              "# # #  #"
+              "#   #  #"
+              "#  #   #"
+              "#  # # #"
+              "#  #   #"
+              "#  #  C#"
+              "########"]))
+(= false (__ ["M     "
+              "      "
+              "      "
+              "      "
+              "    ##"
+              "    #C"]))
+(= true  (__ ["C######"
+              " #     "
+              " #   # "
+              " #   #M"
+              "     # "]))
+(= true  (__ ["C# # # #"
+              "        "
+              "# # # # "
+              "        "
+              " # # # #"
+              "        "
+              "# # # #M"]))
+
+(fn cat-n-mouse [grid]
+  (let [neighbors (fn [[x y]] [[(inc x) y] [(dec x) y] [x (inc y)] [x (dec y)]])
+        parts (for [y (range (count grid))
+                    x (range (count (nth grid y)))
+                    :let [e (get-in grid [y x])]]
+                {({\C :cat \M :mouse \# :wall \space :space} e) [x y]})
+        game (apply merge-with conj {:wall [] :space []} parts)
+        spaces (conj (set (:space game)) (:mouse game))]
+    (loop [open [(:cat game)] visited #{}]
+      (cond (empty? open) false
+        (= (first open) (:mouse game)) true
+        :else (let [visited (conj visited (first open))
+                    neigh (filter spaces (neighbors (first open)))
+                    neigh (remove visited neigh)
+                    open (concat (rest open) (remove visited neigh))]
+                (recur open visited))))))
+
+(fn [maze]
+  (let [directions #(map (partial map + %) [[-1 0] [0 -1] [0 1] [1 0]])
+        entry (for [row (range (count maze))
+                    coll (range (count (first maze)))
+                    :when (= \M (get-in maze [row coll]))]
+                [row coll])]
+    (loop [ps entry visited (set entry)]
+        (let [next (clojure.set/difference (set (mapcat directions ps)) visited)
+              next-data (map (partial get-in maze) next)]
+          (condp #(%1 %2) next-data
+            #(some #{\C} %) true
+            #(every? #{\#} %) false
+            (recur (filter #(= \space (get-in maze %)) next) (into visited next)))))))
+
+(fn
+   science-bitch ;jesse pinkman (c)
+   [s]
+   (let [mice-c \M
+         cheese-c \C
+         wall-c \#
+         rows-count (count s)
+         columns-count (count (first s))
+         indexed-space (mapcat identity (map-indexed (fn [i1 v1] (map-indexed (fn [i2 v2] (vector v2 i1 i2)) v1)) (map seq s)))
+         broad (map (fn [[_ x y]] (vector x y)) (filter #(= (first %) wall-c) indexed-space))
+         mice (map (fn [[_ x y]] (vector x y)) (filter #(= (first %) mice-c) indexed-space))
+         cheese (first (map (fn [[_ x y]] (vector x y)) (filter #(= (first %) cheese-c) indexed-space)))
+         neighbours [[-1 0] [0 -1] [1 0] [0 1]]
+         get-neighbours (fn [current not-include] (filter (fn [[x y]] (and (> x -1) (> y -1) (< x rows-count) (< y columns-count) (nil? (some (fn [bv] (= bv [x y])) broad)) (nil? (some (fn [bv] (= bv [x y])) not-include)))) (map #(map + current %) neighbours)))]
+     ;body
+     (loop [m mice to-remove '()]
+       (let [nn (mapcat #(get-neighbours % to-remove) m)]
+       (if (= 0 (count nn))
+         (if (nil? (some #{cheese} m))
+           false
+           true)
+       (recur nn (into to-remove m)))))
+         ))
+
+(fn [board]
+  (let [b (atom (vec (map vec board)));this atom is used as a kind of memory as well
+        [mc mr] (first ;assume only one mouse exists
+                 (for [r (range (count board)) c (range (count (first board)))
+                       :when (= \M (get-in board [r c]))]
+                   [r c]))]
+    (letfn[(cheeze? [r c]
+                    (if (= \C (get-in @b [r c])) true ;found cheese
+                      (do
+                        (swap! b update-in [r c] (fn [e] \M)) ;mark the position
+                        (let [neighbors (for [[nr nc] (map (fn [[dr dc]] [(+ r dr) (+ c dc)]) [[1 0] [-1 0] [0 -1] [0 1]]);go up, down,left and right
+                                              :let [e (get-in @b [nr nc])];e is the character at the neighboring position
+                                              :when (or (= \space e) (= \C e))];mouse can only go the empty space or cheese
+                                          (cheeze? nr nc))];for all potential positions, check if cheese can be found
+                          (if
+                            (empty? neighbors) false;no place to go further
+                            (reduce #(or %1 %2) false neighbors))))))];return true if any neighbor return true (note or is not a function so apply or is not allowed)
+      (cheeze? mc mr))))
+(fn fc
+  ([board] (fc board true))
+  ([board fs]
+    (let
+      [pb ; partition each row into runs of non-walls
+        (map (partial partition-by #(= \# %)) board)
+      ,got-cheese ; if any run contains M and C, cheese is accessible
+        (some
+          (partial some
+            #( and (some #{\M} %) (some #{\C} %) ))
+          pb)
+      ,nb ; fill any run containing M or C with that letter
+        (map (partial map
+          #(cond
+            (some #{\M} %) (repeat (count %) \M)
+            (some #{\C} %) (repeat (count %) \C)
+            true %))
+        pb)
+      ,tnb ; transpose for next step
+        (apply map list (map flatten nb))
+      ]
+      (cond
+        got-cheese true
+        (and (not fs) (= pb nb)) false
+        true (fc tnb false)))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [x] (letfn [
+    (adjlist [x] (let [
+        h (count x)
+        w (count (first x))
+        getlabel (fn [x1 x2] (case (get (get x x1) x2) 
+            \C     :C
+            \M     :M
+            \#     nil
+            nil    nil
+            \space [x1 x2]
+            ))]
+        (into {} (for [hi (range h) wi (range w) v [(getlabel hi wi)] :when v]
+            [v (keep identity [
+                (getlabel (inc hi) wi)
+                (getlabel (dec hi) wi)
+                (getlabel hi (inc wi))
+                (getlabel hi (dec wi))])]))))
+    (can-reach? [g v1 v2] (letfn [
+        (add-vertex [s v] (if (s v) s 
+            (reduce add-vertex (conj s v) (g v))))]
+        (contains? (add-vertex #{} v1) v2)))]
+    (can-reach? (adjlist x) :C :M)))
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn science [maze]
+  (let [neighbor-coords [[-1 0] [1 0] [0 -1] [0 1]]
+        next-maze (fn [m] (vec (for [x (range (count m))]
+                            (reduce str ""
+                                    (for [y (range (count (first m)))]
+                                      (let [next-to-mouse?
+                                            (some #(= % \M)
+                                                  (map #(get-in m (map + % [x y]))
+                                                       neighbor-coords))]
+                                        (condp = (get-in m [x y])
+                                          \# \#
+                                          \M \M
+                                          \space (if next-to-mouse? \M \space)
+                                          \C (if next-to-mouse? \* \C)
+                                          \* \*
+                                          \$
+                                          )))))))
+        
+        ]
+    (true? (some #(= % \*) (reduce str (nth (iterate next-maze maze) 100))))))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+(fn mazeX[t]
+    (letfn 
+        [
+ 
+            (cell [t coor]
+                (let [
+                    y (:y coor)
+                    x (:x coor)
+                    ]
+                    (get (get t y) x)
+                )
+            )
+ 
+ 
+ 
+            (isCell [t c coor]
+                 (= (cell t coor) c)
+            )
+ 
+            (isWall [t coor]
+                 (isCell t \# coor)
+            )
+ 
+ 
+            (makeCoor[y x]
+                { :y y :x x}
+            )
+ 
+            (findC[t rows columns c]
+                (let [ 
+                    allCells (for [x (range columns) y (range rows)] (makeCoor y x))
+                    ]
+                    (first (filter #(isCell t c %) allCells))
+                )
+            )
+ 
+            (findMouse[t rows columns]
+                (findC t rows columns \M)
+            )
+ 
+            (findCheese[t rows columns]
+                (findC t rows columns \C)
+            )
+ 
+            (coorValid[rows columns coor]
+                (let [
+                y (:y coor)
+                x (:x coor)
+                ]
+                    (and (>= y 0) (>= x 0) (< y rows)(< x columns))
+                )
+            )
+ 
+            (goRight[coor]
+                (assoc coor :x (inc (:x coor)))
+            )
+ 
+            (goLeft[coor]
+                (assoc coor :x (dec (:x coor)))
+            )
+ 
+            (goUp[coor]
+                (assoc coor :y (dec (:y coor)))
+            )
+ 
+            (goDown[coor]
+                (assoc coor :y (inc (:y coor)))
+            )
+ 
+ 
+            (mazePathRec[t rows columns coorC coorM visited]
+                (cond 
+                    (contains? visited coorM) {:res false :vis visited}
+                    (isWall t coorM) {:res false :vis visited}
+                    (not (coorValid rows columns coorM)) {:res false :vis visited}
+                    (= coorM coorC) {:res true :vis visited}
+                    :else (let [
+                            newVisited (conj visited coorM)
+                            goneRight (mazePathRec t rows columns coorC (goRight coorM) newVisited)
+                            goneLeft (mazePathRec t rows columns coorC (goLeft coorM) (:vis goneRight))
+                            goneUp (mazePathRec t rows columns coorC (goUp coorM)(:vis goneLeft))
+                            goneDown (mazePathRec t rows columns coorC (goDown coorM)(:vis goneUp))
+ 
+                        ] 
+                            {
+                                :res (or (:res goneRight) (:res goneLeft) (:res goneUp) (:res goneDown))
+                                :vis (:vis goneDown) 
+                            }
+                        )
+                    
+                )
+            )
+ 
+        ]
+        (let [
+            rows (count t) 
+            columns (count (get t 0))
+            ]
+            (:res (mazePathRec t rows columns (findCheese t rows columns) (findMouse t rows columns) #{}))
+        )
+    )   
+)
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+(fn cheese? [table]
+  (let [max-y (count table)
+        max-x (count (first table))
+        get (fn [x y]
+              (if (or
+                    (>= x max-x)
+                    (>= y max-y)
+                    (< x 0)
+                    (< y 0))
+                \#
+                (-> table
+                  (nth y)
+                  (nth x))))
+        generate-next-step (fn [[previous-coords visited-coords]]
+                             (let [neighbours (fn [[x y]] [[(+ x -1) y]
+                                                           [x (+ y 1)]
+                                                           [x (+ y -1)]
+                                                           [(+ x 1) y]])
+                                   can-go-to? (fn [[x y]] (not= \# (get x y)))
+                                   new-visited-coords (into visited-coords previous-coords)
+                                   new-coords (set (for [previous-coord previous-coords
+                                                         neighbour (neighbours previous-coord)
+                                                         :when (can-go-to? neighbour)
+                                                         :when (not (contains? new-visited-coords neighbour))]
+                                                     neighbour))]
+                               [new-coords new-visited-coords]))
+        start-coord (first (for [x (range max-x)
+                                 y (range max-y)
+                                 :when (= \M (get x y))] [x y]))
+        previous-coord-not-empty? (fn [[previous-coords _]] (not (empty? previous-coords)))
+        previous-coords-contains-cheese? (fn [[previous-coords _]] (->> previous-coords
+                                                                     (map (fn [[x y]] (= \C (get x y))))
+                                                                     (some identity)))]
+  (if (= nil (->> [[start-coord] #{}]
+               (iterate generate-next-step)
+               (take-while previous-coord-not-empty?)
+               (some previous-coords-contains-cheese?))) false true)))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(fn [maze]
+  (letfn [(find-el [m el]
+            (let [rowind (first (filter #(some (fn [x] (= x el)) (nth m %)) (range (count m))))
+                  colind (first (filter #(= el (nth (nth m rowind) %)) (range (count (first m)))))]
+              [rowind colind]))
+          (find-els [m el]
+            (let [rowinds (filter #(some (fn [x] (= x el)) (nth m %)) (range (count m)))
+                  colindf (fn [r] (filter #(= el (nth (nth m r) %)) (range (count (first m)))))
+                  rcf (fn [r] (map #(vector r %) (colindf r)))]
+              (mapcat rcf rowinds)))
+          (adjacent? [s1 s2]
+            (let [samex? (= (first s1) (first s2))
+                  samey? (= (last s1) (last s2))
+                  diffx (-' (first s1) (first s2))
+                  x1diff? (or (= 1 diffx) (= -1 diffx))
+                  diffy (-' (last s1) (last s2))
+                  y1diff? (or (= 1 diffy) (= -1 diffy))
+                  notdiag? (not (and x1diff? y1diff?))
+                  one-diff? (or (and x1diff? samey?) (and y1diff? samex?))]
+              (and notdiag? one-diff?)))
+          (alladjf [el los] (filter #(adjacent? el %) los))
+          (remadjf [el los] (remove #(adjacent? el %) los))
+          (maze-solution? [m]
+            (let [startm (find-el m \M)
+                  endm (find-el m \C)
+                  sps (find-els m \space)]
+              (loop [ends (set (alladjf startm sps)) left (set (remadjf startm sps))]
+                (let [newend (set (mapcat #(alladjf % left) ends))]
+                  (cond
+                   (some #(adjacent? endm %) ends) true
+                   (= left (clojure.set/difference left newend)) false
+                   :else (recur newend (clojure.set/difference left newend)))))))]
+    (maze-solution? maze)))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn cheese? [b]
+  (let [find-mouse (fn [b]
+                     (for [i (range 0 (count b))
+                           j (range 0 (count (first b)))
+                           :when (= (get-in b [i j]) \M)]
+                       [i j]))
+        spaces (for [i (range 0 (count b))
+                     j (range 0 (count (first b)))
+                     :when (not= (get-in b [i j]) \#)]
+                 [i j])
+        adj? (fn [[i j] x]
+               (#{[(dec i) j]
+                  [(inc i) j]
+                  [i (dec j)]
+                  [i (inc j)]} x))
+        f (fn [[visited sp]]
+            (let [visited' (set (concat
+                                 visited
+                                 (for [v visited
+                                       s sp
+                                       :when (or (adj? v s))]
+                                   s)))]
+              [visited' (remove visited' sp)]))]
+    (not= nil (some #(= (get-in b %) \C) (first (last (take
+                                                       (count spaces)
+                                                       (iterate f [(set (find-mouse b)) spaces]))))))))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn f
+  ([m] (let [i (count(take-while (partial not= \C) (apply str m)))
+             cols (count (first m))
+             m (apply vector (map (partial apply vector) m))]
+         (f m (quot i cols) (mod i cols))))
+  ([m y x] (let [c (get-in m [y x] \#)
+                 m (if (= c \#) m (update-in m [y x] (fn [_] \#)))]
+             (if (= c \#)
+               false
+               (if (= c \M)
+                 true
+                 (not (not-any? identity [(f m (inc y) x)(f m (dec y) x)(f m y (dec x))(f m y (inc x))]))
+                 )))))
+anjensan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn [m]
+    (let [t #(mapv %2 (range (count %1)))
+          w (iterate
+             (fn [m]
+               (t m
+                  (fn [i]
+                    (t (m i)
+                       (fn [j]
+                         (let [z #(get (get m %1) %2)
+                               x (z i j)
+                               u (set [(z (+ i 1) j)
+                                       (z (- i 1) j)
+                                       (z i (+ j 1))
+                                       (z i (- j 1))])]
+                           (if (and (#{\space \C} x)
+                                    (u \M))
+                             \M
+                             x)))))))
+             m)
+          h (last
+             (take-while
+              identity
+              (map #(when (not= %1 %2) %2) w (rest w))))]
+      (not ((set (mapcat set h)) \C))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(fn
+  [rows]
+  (let [height (count rows)
+        width (count (first rows))
+        v (vec (map vec rows))
+        neighbors (fn
+                    [row col]
+                    (filter (fn [[r c]] (and (>= r 0)
+                                             (>= c 0)
+                                             (< r height)
+                                             (< c width))) [[(dec row) col]
+                                                            [row (dec col)]
+                                                            [row (inc col)]
+                                                            [(inc row) col]]))
+        [mouse-row mouse-col] (first (for [row (range height)
+                                           col (range width)
+                                           :when (= \M (get-in v [row col]))]
+                                       [row col]))
+        r (fn [s v]
+            (if (seq s)
+              (let [[row col] (first s)
+                    t (rest s)
+                    c (get-in v [row col])
+                    neighbs (neighbors row col)
+                    v' (assoc-in v [row col] \M)
+                    s' (concat t neighbs)]
+                (if (= \C c)
+                  true
+                  (if (= \space c)
+                    (recur s' v')
+                    (recur t v))))
+              false))]
+    (r (neighbors mouse-row mouse-col) v)))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [maze]
+  (let [w (count (first maze))
+        h (count maze)
+        lookup (fn [[x y]] (get-in maze [y x]))
+        mouse (first (for [x (range w) y (range h) :when (= \M (lookup [x y]))] [x y]))
+        explore (fn [[x y]]
+          (filter (fn [[x y]] (and (>= x 0) (>= y 0) (< x w) (< y h) (not= \# (lookup [x y]))))
+            [[(inc x) y] [(dec x) y] [x (inc y)] [x (dec y)]]))]
+    (loop [seen #{mouse} frontier #{mouse}]
+      (let [newcells (set (mapcat explore frontier))]
+        (cond
+          (empty? newcells)
+            false
+          (some #(= \C (lookup %)) newcells)
+            true
+          true
+            (recur (apply conj seen newcells) (apply disj newcells seen)))))))
+awebb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+(fn cheese-able? [board]
+  (let [rows (count board)
+        cols (count (first board))
+        at (fn [[r c]]
+             (cond (< r 0) \#
+                   (< c 0) \#
+                   (>= r rows) \#
+                   (>= c cols) \#
+                   :else (nth (nth board r) c)))
+        around (fn [[r c]] 
+                 (for [[i j] [[-1 0] [1 0] [0 -1] [0 1]]
+                       :let [y (+ r i) x (+ c j)]
+                       :when (not= (at [y x]) \#)]
+                   [(+ r i) (+ c j)]))
+        find (fn [s]
+               (first
+                 (keep-indexed 
+                  (fn [i v] (when (> v -1) [i v])) 
+                  (for [r board] (.indexOf r s)))))
+        start (find "M")
+        end (find "C")]
+    (loop [open (list start) closed #{}]
+      (cond (closed end) true
+            (empty? open) false
+            :else
+              (recur 
+                (for [a open b (around a) :when (not (closed b))] b)
+                (into closed open))))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn mouse [board]
+  (letfn [(propagate-mouse [coordinates]
+            (let
+              [square (get-in board coordinates)
+               neighbors (map
+                           (comp
+                             (partial get-in board)
+                             (partial map + coordinates))
+                           [[-1 0] [0 -1] [1 0] [0 1]])]
+               (cond
+                 (= square \#) square
+                 ((set neighbors) \M) \M
+                 :else square)))]
+    (let
+      [updated-board (for [x (range (count board))]
+                       (for [y (range (count (first board)))]
+                         (propagate-mouse [x y])))]
+      (if
+        (= board updated-board)
+        (->> board
+             (apply concat)
+             (some #{\C})
+             nil?)
+        (recur 
+          (mapv vec updated-board))))))
+benhammond's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [m]
+        (let [maze (mapv vec m)
+              start-loc (first (keep-indexed #(if (>= %2 0) [%1 %2]) (map #(.indexOf % \M) maze)))
+              all-dirs (fn [[x y]] [[(inc x) y] [(dec x) y] [x (inc y)] [x (dec y)]])
+              not-legal? (fn [[x y]] (or (neg? x)
+                                         (neg? y)
+                                         (>= x (count maze))
+                                         (>= y (count (first maze)))
+                                         (= \# (get-in maze [x y]))))
+              legal-moves (fn [xy] (remove not-legal? (all-dirs xy)))]
+          (loop [vis #{} nvis #{start-loc}]
+            (let [n2vis (set (remove vis (mapcat legal-moves nvis)))]
+              (cond (empty? n2vis) false
+                    (some #(= \C (get-in maze %)) n2vis) true
+                    :else (recur (clojure.set/union vis nvis) n2vis))))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [maze]
+  (let [rows (count maze)
+        cols (count (first maze))]
+    (letfn [(goto [src delta] (vec (map + src delta)))
+            (neighbors [pos]
+              (filter
+               (fn [[r c]]
+                 (and (<= 0 r (dec rows))
+                      (<= 0 c (dec cols))))
+               (map (partial goto pos) [[-1 0] [1 0] [0 -1] [0 1]])))
+            (at [pos] (or (get-in maze pos) \#))
+            (setat [[r c] val] (assoc maze r (str (subs (maze r) 0 c) val (subs (maze r) (inc c)))))]
+      (let [allpos (for [r (range rows) c (range cols)] [r c])
+            mouse-pos (filter #(#{\M \.} (at %)) allpos)
+            neighbs (mapcat neighbors mouse-pos)
+            moves (filter #(#{\space \C} (at %)) neighbs)]
+        (if (seq moves)
+          (let [move (first moves)
+                newboard (setat move \.)
+                _ (println (interpose "\n" newboard))]
+            (recur newboard))
+          (not-any? #(some #{\C} %) maze))))))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+(fn p [board]
+  (let [
+        search (fn [k board]
+                 (let [h (count board)
+                       w (count (first board))]
+                   (first
+                     (filter
+                       #(not (nil? %))
+                       (apply concat
+                              (for [i (range h)]
+                                (for [j (range w)]
+                                  (if (= k (get-in board [i j]))
+                                    [i j]
+                                    nil))))))))
+ 
+        bfs (fn [queue movable checked board h w]
+              (if (empty? queue)
+                movable
+                (let [f (peek queue)
+                      i (first f)
+                      j (second f)]
+                  (cond
+                    (or (some #(= % f) checked) (< i 0) (>= i h) (< j 0) (>= j w))
+                    (recur (pop queue) movable checked board h w)
+                    (= (get-in board f) \#)
+                    (recur (pop queue) movable (conj checked f) board h w)
+                    :else
+                    (recur (conj (pop queue) [(inc i) j] [i (inc j)] [(dec i) j] [i (dec j)])
+                           (conj movable f)
+                           (conj checked f)
+                           board h w)))))
+        c (search \C board)
+        m (search \M board)]
+    (not
+      (nil?
+        (some #(= m %)
+              (bfs
+                (conj clojure.lang.PersistentQueue/EMPTY c)
+                #{}
+                #{}
+                board
+                (count board)
+                (count (first board))
+                ))))))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [fld]
+         (loop [field fld]
+           (letfn [(nbrs [i j] (sorted-set (get-in field [(dec i) j])
+                                           (get-in field [(inc i) j])
+                                           (get-in field [i (dec j)])
+                                           (get-in field [i (inc j)])))
+                   (accessable [i j] (and (contains? #{\C \ } (get-in field [i j]))
+                                          (contains? (nbrs i j) \M)))
+                   (update []
+                     (vec (for [i (range 0 (count field))]
+                            (vec (for [j (range 0 (count (first field)))]
+                                   (if (accessable i j)
+                                     \M
+                                     (get-in field [i j])))))))]
+             (if (= (update) field)
+               (not (some (fn [row] (> (count (filter #(= % \C) row)) 0)) field))
+               (recur (update))))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn path? [m]
+  (let [numOfRows (count m)
+        numOfCols (count (first m))
+        neighbors (fn [xy]
+                    (let [delta [[-1 0] [1 0] [0 -1] [0 1]]]
+                      (filter 
+                       #(and (< -1 (first %) numOfRows) (< -1 (second %) numOfCols))
+                       (map #(map + % xy) delta))))
+        find-mouse (fn []
+                     (loop [r 0 c 0]
+                       (cond
+                        (= \M (get-in m [r c])) [r c]
+                        (= c numOfCols) (recur (inc r) 0)
+                        (= r numOfRows) nil
+                        :else (recur r (inc c)))))]
+    (loop [currentPos (conj [] (find-mouse)) visitedPos #{}]
+      (let [newPos (clojure.set/difference 
+                    (into #{} (apply concat (for [p currentPos]
+                                              (map vec (neighbors p))))) visitedPos)
+            newVisitedPos (into visitedPos newPos)
+            boundedPos (remove #(= \# (get-in m %)) newPos)]
+        (if (seq boundedPos)
+          (if (some #(= \C (get-in m %)) boundedPos) true
+            (recur boundedPos newVisitedPos))
+          false)))))
+cc787's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+;; this solution also gives the optimal path from M to C if possible
+(fn [ls]
+  (let [board (map #(replace {\# -1 \space 0 \M 1 \C 0} %) ls)
+        curstep (fn [board] (apply max (flatten board)))
+        poses (fn [board cur]
+                (->> (keep-indexed
+                      (fn [y row]
+                        (keep-indexed (fn [x e] (if (= e cur) [x y] nil)) row)) board)
+                     (flatten)
+                     (partition 2)
+                     ))
+        update-pos (fn [board pos curstep]
+                     (loop [next-pos (filter
+                                      (fn [[x y]]
+                                        (and (>= x 0) (< x (count (first board)))
+                                             (>= y 0) (< y (count board))))
+                                      (map #(map + pos %) [[1 0] [-1 0] [0 1] [0 -1]]))
+                            board board]
+                       (if (empty? next-pos)
+                         board
+                         (recur (rest next-pos)
+                                (update-in (apply vector (map #(apply vector %) board))
+                                           (reverse (first next-pos))
+                                           #(if (= % 0) curstep (min % curstep))))))
+                     )
+ 
+        next (fn [board]
+               (let [cur (curstep board)
+                     ps (poses board cur)]
+                 (loop [ps ps
+                        board board]
+                   (if (empty? ps)
+                     board
+                     (recur (rest ps)
+                            (update-pos board (first ps) (inc cur))))
+                   )
+                 ))]
+    (loop [boardseq (iterate next board)
+           prev nil]
+      (if (= prev (first boardseq))
+        (if (zero? (get-in prev (reverse (first (poses ls \C)))))
+          false
+          true)
+        (recur (rest boardseq) (first boardseq))
+        ))
+    )
+  )
+chunchangshao's solution:
+
+1
+2
+3
+#(case (count (apply str (map (fn [coll] (clojure.string/replace coll " " "")) %)))
+   (3 44 5) false
+   true)
+ctzsm's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [maze] (let [n (count maze) m (count (first maze))]
+  (letfn [(getW [pair] ((vec (maze (first pair))) (second pair)))
+          (getM [] (first
+                (filter (fn [pair] (= \M (getW pair)))
+                        (for [x (range n) y (range m)] [x y]))))
+          (in [[x y]] (and (>= x 0) (< x n) (>= y 0) (< y m)))
+          (check [h pair]
+                 (if (and (not (h pair)) (in pair) (not= \# (getW pair))) true false))
+          (make-new [pair]
+                    (for [x [[0 1] [0 -1] [1 0] [-1 0]]]
+                      (vec (map + x pair))))
+          (BFS [que h]
+               (if (empty? que)
+                 false
+                 (let [now (first que) ne (filter (partial check h) (make-new now))]
+                   (if (some (fn [pair] (= \C (getW pair))) ne)
+                     true
+                     (recur (concat (rest que) ne) (into h ne))))))]
+    (let [start (getM)]
+      (BFS [start] #{start})))))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+(fn cat->mouse? [maze]
+  (let [maze   (mapv vec maze)
+        height (count maze)
+        width  (count (first maze))
+        delta  [-1 0 1]
+        
+        neighbors
+        (fn [[y x]]
+          (remove
+           #(let [loc (get-in maze %)]
+              (or (nil? loc) (= \# loc)))
+           (for [dy delta, dx delta
+                 :when (not= dx dy)
+                 :when (not= dx (- dy))]
+               [(+ y dy) (+ x dx)])))
+        
+        cat
+        (first
+         (for [y (range height)
+               x (range width)
+               :when (#{\C} (get-in maze
+                                    [y x]))]
+             [y x]))]
+    
+    (loop [visited  #{cat}
+           locations [cat]]
+      (if (empty? locations)
+        false
+        (or (some #(= \M (get-in maze %))
+                  locations)
+            
+            (->> locations
+                 (mapcat neighbors)
+                 (remove visited)
+                 (recur (into visited
+                              locations))))))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn t [x]
+  (let [board (into {} (apply concat (map-indexed (fn [r rf]
+                    (map-indexed (fn [c f] [[c r] f]) rf)) x)))
+        moves [[1 0] [-1 0] [0 1] [0 -1]]
+        gen-moves (fn [pos] (map #(map + pos %) moves))
+        start (key (first (filter #(= \M (val %)) board)))
+        f (fn [p] (get board p \#))
+        ]
+    (loop [b board m (gen-moves start)]
+      (if (empty? m)
+        false
+        (case (get b (first m) \#)
+          \C true
+          \space (recur (assoc b (first m) \M) (concat (rest m) (gen-moves (first   m))))
+          (recur b (rest m)))))))
+daowen's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn cheesable? [maze]
+  (let [grid (->>
+               maze
+               (map-indexed (fn [i row] (map-indexed (fn [j col] [[i j] col]) row)))
+               (apply concat)
+               (into {}))
+        rev-grid (clojure.set/map-invert grid)
+        m (rev-grid \M)
+        c (rev-grid \C)
+        usable? #(#{\space \C} (grid %))
+        offsets '([1 0] [0 1] [-1 0] [0 -1])
+        neighbors (fn [[x y]] (map (fn [[i j]] [(+ x i) (+ y j)]) offsets))
+        graph (into {} (map (fn [[loc val]] [loc (filter usable? (neighbors loc))]) grid))]
+    (loop [mq `(~m), mv #{m}]
+      (if (empty? mq) false
+        (let [m (first mq), mq (rest mq)]
+          (if (= m c) true
+            (let [mnext (remove mv (graph m))
+                  mq (concat mnext mq)
+                  mv (into mv mnext)]
+              (recur mq mv))))))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn astar[maze]
+ (let [get-in (fn [x y m] (nth (nth m y) x))
+      m (apply hash-map (apply concat (for [y (range (count maze)) x (range (count (first maze)))] [[x y] (nth (nth maze y) x)])))
+      start (first (for [[k v] m :when (= \M (m k))] k))
+      end (first (for [[k v] m :when (= \C (m k))] k))
+      nebior (fn [[x y] m] (for [[s p] [[(m [(dec x) y])[(dec x) y]] [(m [(inc x) y])[(inc x) y]] [(m [x (inc y)])[x (inc y)]] [(m [x (dec y)])[x (dec y)]]] :when (or (= s \space)(= s \M))] p))
+     ]
+ 
+    (let [r (
+      (fn _ [pos m]
+       (if (= pos start) true
+         (let [nebiors (nebior pos m)]
+          (if (empty? nebiors) false
+            (let [new_m (assoc m pos \#)] (concat (for [nb nebiors]
+              (_ nb new_m)
+            )))
+           )
+         )
+       )
+      )
+      end m 
+    )]  (not= nil (some true? (flatten r))))
+ )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(fn [maze]
+  (let [mazeb (vec (map #(vec (map {\space 0, \# 1, \M 2, \C 3} (seq %))) maze))
+        nrows (count mazeb)
+        ncols (count (first mazeb))
+        dirs  [[0 -1] [0 1] [1 0] [-1 0]]
+        ]
+    (letfn [(getloc [maze r c] (if (or (< r 0) (< c 0) (>= r nrows) (>= c ncols)) 1 (nth (nth maze r) c)))
+            (setloc [maze r c mark] (assoc maze r (assoc (nth maze r) c mark)))
+            (mnear [maze r c] (reduce #(or %1 %2) (map (fn [[dr dc]] (= 2 (getloc maze (+ r dr) (+ c dc)))) dirs)))
+            (prow [maze r] 
+              (let [mnears    (map #(if (mnear maze r %) 1 0) (range ncols))
+                    row       (nth maze r)
+                    cheespace (map #(case % (0 3) 1 0) row)
+                    cheese    (map #(case % 3 1 0) row)
+                    gotcheese (not= 0 (reduce + (map * mnears cheese)))
+                    changes   (map * mnears cheespace)
+                    nchanged  (reduce + changes)
+                    changed   (map #(if (= 1 %1) 2 %2) changes row)]
+                (if gotcheese [-1 changed] [nchanged changed])))
+            (pmaze [maze] 
+              (let [res (map #(prow maze %) (range nrows))
+                    flags (map first res)
+                    gotcheese (not= 0 (reduce + (map #(case % -1 1 0) flags)))
+                    nchanged (reduce + flags)
+                    nmaze (map second res)]
+                (if gotcheese [-1 nmaze] [nchanged nmaze])))]
+      (loop [maze mazeb]
+        (let [res (pmaze maze)
+              flag (first res)
+              nmaze (second res)]
+          (do (doseq [x maze] (println x))  (println)
+          (case flag -1 true 0 false (recur nmaze)))))
+      )))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [maze]
+  (letfn [(get_maze_at [[r c]]
+            (when (and (< -1 r (count maze)) (< -1 c (count (nth maze r))))
+              (nth (nth maze r) c)))]
+    (loop [visited #{}
+           queue (list (let [r (some #(when (.contains % "M") %) maze)]
+                         (vector (.indexOf maze r) (.indexOf r "M"))))]
+      (if (empty? queue) false
+        (let [cur (first queue)]
+          (if (= \C (get_maze_at cur)) true
+            (recur
+              (conj visited cur)
+              (concat
+                (rest queue)
+                (loop [d [[1 0] [-1 0] [0 1] [0 -1]] r []]
+                  (if (empty? d) r
+                    (recur
+                      (rest d)
+                      (let [p (map + cur (first d)) v (get_maze_at p)]
+                        (if (and v (not= \# v) (not (contains? visited p)))
+                          (conj r p) r)))))))))))))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+(let [
+  make-board (fn [lines]
+    (let [line-to-vec #(into [] (map {\space :e, \# :w, \M :m, \C :c} %))]
+      (into [] (map line-to-vec lines))))
+ 
+  xcount (fn [board] (count board))
+ 
+  ycount (fn [board] (count (board 0)))
+ 
+  neighbors (fn [[x y]] (map (fn [[dx dy]] [(+ dx x) (+ dy y)]) [[0 1] [0 -1] [1 0] [-1 0]]))
+ 
+  reachable-neighbors (fn [board pos]
+    (if (= :m (get-in board pos))
+      (filter                
+        (fn [[nx ny]] (and (< -1 nx (xcount board)) (< -1 ny (ycount board)) (#{:e :c} (get-in board [nx ny]))))
+        (neighbors pos))
+      '()))
+ 
+  new-mice (fn [board]
+    (into #{}
+      (mapcat                
+        #(reachable-neighbors board %)
+        (for [x (range (xcount board)) y (range (ycount board))] [x y]))))
+ 
+  flood (fn [board]
+    (if-let [nm (seq (new-mice board))]
+      (recur (reduce #(assoc-in % %2 :m) board nm))
+      (not (contains? (set (flatten board)) :c))))]
+ 
+  #(flood (make-board %)))
+dzholev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [b]
+  (let [rot (fn [xs] (apply map str xs))
+        fill (partial map (fn [x] (clojure.string/replace x #" M|M " "MM")))
+        solved? (fn [xs] (not (empty? (filter seq (map (partial re-seq #"CM|MC") xs)))))]
+    (loop [xs b
+           stop false]
+      (let [next (fill xs)]
+        (if (and stop (= next xs))
+          (or (solved? xs) (solved? (rot xs)))
+          (recur (rot next) (= next xs)))))))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+(fn [m]
+  (letfn [
+    (maze-cell [ i j v]
+        (cond
+            (= v \space) [:e [i j]]
+            (= v \M) [:m [i j]]
+            (= v \C) [:c [i j]]
+            :else false))
+    (maze-line [[r i] l]
+        [(concat r (filter identity (map-indexed (partial maze-cell i) l))) (inc i)]) 
+    (maze [m]
+        (first (reduce maze-line [[] 0] m)))
+    (finder [w v] (second (first (filter #(= (first %1) w) v))))
+    (gassoc [vm p np] (assoc vm p (conj (vm p #{}) np)))
+    (create-vertex-edge [connexity c vem [x y :as p]]
+        ; (println "current vem " vem)
+        ; (println "cell " p)
+        (reduce 
+            (fn [vm [dx dy]]
+                (let [np [(+ x dx) (+ y dy)]]
+                (if (contains? c np) 
+                (gassoc (gassoc vm p np) np p) ; assoc p et np 
+                vm)))
+        vem connexity))
+    (vertex-edges-map [c]
+        (let [connexity [[1 0] [-1 0] [0 1] [0 -1]]]
+            (reduce (partial create-vertex-edge connexity c) {} c)))
+    (rec-search [graph visited [p & ps :as tovisit] target]
+        ; (println "visited = " visited "  ; tovisit " tovisit)
+        (if (empty? tovisit) false
+            (if (= p target) true
+                (recur 
+                    graph 
+                    (set (concat visited (graph p)))
+                    (concat ps (filter #(not(contains? visited %)) (graph p)))
+                    target))))
+    ]
+    (let [ maze-m (maze m)
+           cells  (set (map #(second %) maze-m))
+           mouse (finder :m maze-m)
+           cheese (finder :c maze-m)
+           graph (vertex-edges-map cells)]
+         ; (println "cells = " cells)
+         ; (println "mouse = " mouse)
+         ; (println "cheese = " cheese)
+         ; (println  "graph = " graph)
+         (rec-search graph #{mouse} [mouse] cheese)
+    )
+  ))
+ericw's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(letfn [                                                                                                                                                
+    (pretty-print [m] (doseq [l m] (println l)) (println))                                                                      
+    (visit [m [y x]] (let [line (m y)] (assoc-in m [y] (str (subs line 0 x) \M (subs line (inc x))))))                                                  
+        ; get the coordinates of the next step from all of the Ms in the maze                                                                           
+    (next-steps [m]                                                                                                             
+        (->> (for [x (range (count m)) y (range (count (first m))) :when (= \M (get-in m [x y]))] [x y])                                                
+             (mapcat (fn [[a b]] [[(inc a) b] [(dec a) b] [a (inc b)] [a (dec b)]]))                                            
+             set))                                                                                                                                      
+    (find-cheese [maze]                                                                                                         
+        (loop [m maze]                                                                                                                                  
+            (let [n (next-steps m)]                                                                                             
+                (if (not (empty? (filter #(= \C (get-in m %)) n)))                                                              
+                    true                                                                                                                                
+                    (let [spaces (filter #(= \space (get-in m %)) n)]                                                           
+                        (if (empty? spaces)                                                                                                             
+                            false                                                                                               
+                            (recur (reduce #(visit %1 %2) m spaces))))))))]                                                                             
+        find-cheese)
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+(letfn [(point-of [row x p]
+          (let [idx (.indexOf row p)]
+            (when (< -1 idx) [x idx])))
+        (find-points [maze]
+          (reduce-kv (fn [points idx row]
+                       (let [mouse (or (get points :m)
+                                       (point-of row idx \M))
+                             cheese (or (get points :c)
+                                        (point-of row idx \C))]
+                         (assoc points :m mouse :c cheese)))
+                     {}
+                     maze))
+        (possible-steps [maze visited [a b]]
+          (let [neighbours (concat (map (fn [s] [a (+ b s)]) [-1 1])
+                                   (map (fn [s] [(+ a s) b]) [-1 1]))]
+            (filter #(not= \# (get-in maze % \#)) neighbours)))]
+  (fn [maze]
+    (let [maze_ (mapv vec maze)
+          {:keys [m c]} (find-points maze_)]
+      (loop [visited #{m}
+             possible (set (possible-steps maze_ visited m))]
+        (if (contains? possible c)
+          true
+          (let [next-step (first (clojure.set/difference possible visited))
+                vis (conj visited next-step)]
+            (if next-step
+              (recur vis
+                     (apply conj
+                            possible
+                            (possible-steps maze_ vis next-step)))
+              false)))))))
+finsternis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [maze]
+  (let [idxs (for [i (range (count maze)) j (range (count (first maze)))] [i j])
+        idx-of (fn [x] (first (for [idx idxs :when (= x (get-in maze idx))] idx)))
+        m (idx-of \M)
+        c (idx-of \C)
+        ok? (fn [idx] (#{\M\C\ } (get-in maze idx)))
+        adj (fn [[i j]] [[(dec i) j] [i (dec j)] [i (inc j)] [(inc i) j]])
+        edges (for [u idxs v (adj u) :when (and (ok? u) (ok? v))] [u v])
+        map-vals (fn [f m] (zipmap (keys m) (map f (vals m))))
+        graph (map-vals #(set (map second %)) (group-by first edges))]
+    (loop [q [m] r #{m}]
+      (cond
+       (r c) true
+       (empty? q) false
+       :else
+       (let [vs (clojure.set/difference (graph (peek q)) r)]
+         (recur (into (pop q) vs) (clojure.set/union r vs)))))))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+(fn game-of-mouse [board]
+  (letfn [
+    (new-cell [vv]
+      (let [a (flatten vv)
+           [c n] [(nth a 4) (map (partial nth a) [1 3 5 7])]]
+        (if (and (contains? #{\  \C} c) (some #(= \M %) n)) \M c)))
+ 
+    (frame-board [vv]
+      (let [l (apply str (repeat (count (first vv)) "#"))
+            between (fn[c a] (conj (reverse (conj (reverse c) a)) a))]
+        (map #(between % \#) (between vv l))))
+ 
+    (part-board [vv]
+      (map 
+        (fn [[a b c]] (partition 3 1 (map vector a b c)))
+        (partition 3 1 (frame-board vv))))
+    
+    (draw-board [vv]
+      (map #(apply str %) vv))
+    
+    (next-gen [board]
+      (draw-board
+        (map
+          #(map new-cell %)
+          (part-board board))))
+    
+    (take-while-diff
+      [f c]
+      (let [s (take-while
+                (fn[[a b]] (f a b))
+                (partition 2 1 c))]
+        (conj
+          (map last s)
+          (first (first s)))))]
+ 
+  (not (some #(re-find #"C" %)
+    (last
+      (take-while-diff 
+        #(not= %1 %2) 
+        (iterate next-gen board)))))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn [board]
+  (let [vec-board (vec (map vec board))
+        row-count (count vec-board)
+        column-count (count (first vec-board))]
+    (letfn [(get-pos [ch]
+              (mapcat #(mapcat (fn [j] (if (= ch ((vec-board %) j)) [% j])) (range 0 column-count)) (range 0 row-count)))
+            (continous-blank [ch coordinate searched-point])
+            (step [[results searched-point] [x y]]
+              (let [neighbours (concat
+                                 (if (pos? x) [[(dec x) y]])
+                                 (if (pos? y) [[x (dec y)]])
+                                 (if (> (- row-count x) 1) [[(inc x) y]])
+                                 (if (> (- column-count y) 1) [[x (inc y)]]))
+                    valid-neighbours (filter
+                                       #(and
+                                          (not= ((vec-board (first %)) (last %)) \#)
+                                          (nil? (some #{%} searched-point)))
+                                       neighbours)]
+                (if (seq valid-neighbours)
+                  (if (some #(= ((vec-board (first %)) (last %)) \C) valid-neighbours)
+                    [(cons true results) (conj searched-point [x y])]
+                    (reduce #(step %1 %2) [results (conj searched-point [x y])] valid-neighbours))
+                  [results (conj searched-point [x y])])))]
+      (let [mouse (get-pos \M)]
+        ((complement empty?) (first (step [[] #{(vec mouse)}] mouse)))))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(let [size (fn [maze]
+               (let [y (count maze)
+                     x (count (first maze))]
+                 [y x]))
+ 
+        find-mouse (fn [maze]
+                     (first
+                      (let [[ym xm] (size maze)]
+                        (for [y (range ym)
+                              x (range xm)
+                              :when (= \M (get-in maze [y x]))]
+                          [y x]))))
+ 
+        neighbors [[-1 0]
+                   [1 0]
+                   [0 -1]
+                   [0 1]]
+ 
+        moves (fn [pos maze]
+                (for [neighbor neighbors
+                      :let [pos (mapv + pos neighbor)]
+                      :when (and (every? (complement neg?) pos)
+                                 (every? identity (map < pos (size maze)))
+                                 (not= \# (get-in maze pos)))]
+                  pos))]
+    (fn [maze]
+      (loop [ps [(find-mouse maze)]
+             seen #{}]
+        (cond
+          (some #(= \C (get-in maze %)) ps) true
+          (empty? ps) false
+          :else (recur (clojure.set/difference (set (mapcat #(moves % maze) ps)) seen)
+                       (into seen ps))))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+(fn solve-maze [maze]
+    (let [num-rows (count maze)
+          num-cols (count (maze 0))
+          deltas [[-1 0] [1 0] [0 -1] [0 1]]
+          in-maze
+            (fn [[y x]]
+                (when (and (< -1 y num-rows) (< -1 x num-cols)) [y x]))
+          find-posn 
+            (fn [letter] 
+                (let [l (int letter)]
+                    (->> maze
+                         (map-indexed (fn [y row] (let [x (.indexOf row l)] (when (>= x 0) [y x]))))
+                         (some identity)
+                    )))
+          mouse (find-posn \M)
+          cheese (find-posn \C)
+          seen-items (atom #{})
+          seen
+            (fn [posn] (if (@seen-items posn) true (do (swap! seen-items conj posn) false)))
+          moves-from
+            (fn [[y x]]
+                (->> deltas
+                     (map (fn [[dy dx]] [(+ y dy) (+ x dx)]))
+                     (keep in-maze)
+                     (remove (fn [posn] (or (seen posn) (= \# (get-in maze posn)))))
+                ))
+        ]
+        (loop [posns [mouse]]
+            (if-let [[posn & posns] (seq posns)]
+                (if (= posn cheese)
+                    true
+                    (recur (concat posns (moves-from posn))))
+                false
+            ))))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(fn __ [E]
+ (let [transpose (fn transpose [X] (apply map list X))
+       compress (fn compress [X]
+            (loop [a X prev nil acc []]
+              (if (empty? a) acc
+              (recur (rest a) 
+                (first a)
+                (if (= (first a) prev) acc (conj acc (first a)))))))
+       Ec (->> E (map #(clojure.string/split % #""))
+              compress transpose compress transpose)
+       m (count (first Ec))
+       n (count Ec)
+       xya (fn [[x y]] (+ x (* m y)))
+       axy (fn [a] [(mod a m) (int (/ a m))])
+       s (vec (flatten Ec))
+       Ci (.indexOf s "C")
+       enwsi (fn [[x y]] (map #(if (or (< (first %) 0) (< (second %) 0) 
+                                  (>= (first %) m) (>= (second %) n)) [] %)
+                 [[(inc x) y] [x (dec y)] [(dec x) y] [x (inc y)]]))
+       t (tree-seq (fn [se]
+                 (some #(and (not-empty %) 
+                   (or (= " " (nth se (xya %)))
+                   (= "C" (nth se (xya %)))))
+                  (enwsi (axy (.indexOf se "M")))))
+             (fn [se] 
+                 (->> (enwsi (axy (.indexOf se "M")))
+                  (map (fn [xy] 
+                         (when (and (not-empty xy) (not= "#" (nth se (xya xy)))
+                           (not= "." (nth se (xya xy))))
+                           (assoc (assoc se (.indexOf se "M") ".") (xya xy) "M"))))
+                  (remove nil?) (vec)))
+         s)]
+(= true (clojure.walk/walk #(= Ci (.indexOf % "M")) #(some true? %) t))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+(fn can-reach [grid]
+  (let [coord (fn [[x y]] (nth (nth grid y) x))
+        h (count grid)
+        w (count (first grid))
+        start-pos ((comp drop-last first)
+                   (filter (fn [[_ _ v]] (= \M v))
+                          (for [x (range w) y (range h)]
+                            [x y (coord [x y])])))
+        m+ (partial map +)
+        valid? (fn [[x y]] (and (>= x 0) (>= y 0) (< x w) (< y h)))
+        is-wall? (fn [c] (= (coord c) \#))
+        dirs [[0 1] [0 -1] [1 0] [-1 0]]
+        next-pos (fn [c] (filter #(and (valid? %) (not (is-wall? %)))
+                                 (map (partial m+ c) dirs)))]
+    (loop
+        [visited #{}
+         [cur-pos & to-visit] [start-pos]]
+      (if (nil? cur-pos)
+        false
+        (if (= (coord cur-pos) \C)
+          true
+          (let [visited' (conj visited cur-pos)
+                to-visit' (remove visited'
+                                  (concat to-visit (next-pos cur-pos)))]
+                (recur visited' to-visit')))))))
+happycrisis's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(letfn [ (get-set [item cm]
+           (loop [res #{} check #{item}]
+             (if (empty? check)
+               res
+               (let [item (first check)]
+                 (recur (conj res item)
+                        (clojure.set/union (disj check item)
+                                           (clojure.set/difference (cm item) res)))))))
+         (color-line [line color cm]
+           (reduce (fn [[data color cm] c]
+                     (case c
+                       \M [(conj data color) color (link-colors cm \M color)]
+                       \C [(conj data color) color (link-colors cm \C color)]
+                       \  [(conj data color) color cm]
+                       \# [(conj data nil) (inc color) cm]))
+                   [[] color cm]
+                   line))
+         (link-colors [cm a b]
+           (assoc (assoc cm a (conj (cm a #{}) b)) b (conj (cm b #{}) a))  )]
+  (fn [maze]
+    (let [[data _ cm](reduce (fn [[data color color-map] line]
+                               (let [[d c cm] (color-line line color color-map)]
+                                 [(conj data d) c cm]))
+                             [[] 0 {}]
+                             maze)
+          cm (reduce (fn [cm [a b]] (if (and a b) (link-colors cm a b) cm))
+                     cm
+                     (mapcat #(map vector % %2) data (rest data)))]
+      (if ((get-set \M cm) \C) true false))))
+hisba's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [maze]
+  (let [cases (set (for [x (range (count maze)) y (range (count (first maze)))] [x y]))
+        sm (fn [c] (set (filter #(= c (get-in maze %)) cases)))
+        mo (first (sm \M)) cheeze (first (sm \C)) ps (sm \space)
+        gp (fn [[x y] nt] (filter nt [[(inc x) y] [(dec x) y] [x (inc y)] [x (dec y)]]))]
+    (loop [pm #{mo} sq (conj ps cheeze)]
+      (cond (pm cheeze) true
+            (empty? pm) false
+            :else (let [n_pm (set (mapcat #(gp % sq) pm))]
+                    (recur n_pm (apply disj sq n_pm)))))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [b]
+  (letfn [(part [x] (map (partial partition-by #(= \# %)) x))
+          (transp [x] (apply map list x))
+          (flat [x] (map (partial apply concat) x))
+          (fill [r] (if (some #{\M} r) (repeat (count r) \M) r))
+          (h-step [x] (flat (map #(map fill %) (part x))))
+          (v-step [x] (transp (h-step (transp x))))
+          (win? [x] (not-any? #(some #{\C} %) x))
+          (solve [x] (let [nx (v-step (h-step x))]
+                         (cond (win? nx) true
+                               (= x nx) false
+                               :else (recur nx))))]
+    (solve b)))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [m]
+  (let [f  (fn [s]
+             (first
+               (filter
+                 identity
+                 (for [y (range (count m)) x (range (count (first m)))]
+                    (when (= s (get-in m [y x])) [y x])))))
+        mo (f \M)
+        ch (f \C)
+        ns (fn [[y x]]
+              [[(inc y) x] [(dec y) x] [y (inc x)] [y (dec x)]])]
+    (loop [c [mo] a #{}]
+      (if (empty? c)
+        (boolean (a ch))
+        (recur
+          (filter
+            #(and 
+              (#{\space \C} (get-in m %))
+              (not (a %)))
+            (distinct (reduce into (map ns c))))
+          (into a c))))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+(fn [maze]
+  (let [n (count maze)
+        m (count (first maze))
+        find #(first
+               (for [i (range n)
+                     j (range m)
+                     :let [pos [i j]
+                           curr (get-in maze pos)]
+                     :when (= curr %)]
+                 pos))
+        start (find \M)
+        finish (find \C)
+        valid? (fn [[x y]]
+                 (and
+                   (>= x 0) (< x n)
+                   (>= y 0) (< y m)
+                   (not= (get-in maze [x y]) \#)))
+        shifts [[0 1] [1 0] [0 -1] [-1 0]]
+        plus (fn [[x1 y1] [x2 y2]] [(+ x1 x2) (+ y1 y2)])
+        not-in #(not (%1 %2))
+        neighbors (fn [[x y] vis]
+                    (->> shifts
+                         (map (partial plus [x y]))
+                         (filter valid?)
+                         (filter (partial not-in vis))))]
+    (loop [[x & _ :as all] (list start) vis #{}]
+      (cond
+        (empty? all) false
+        (= finish x) true
+        :else (recur
+                (concat (rest all) (neighbors x vis))
+                (conj vis x))))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+(fn solvable? [puzzle]
+  (letfn [(find-mouse [puzzle]
+            (first (filter (complement nil?) 
+            (for [x (range 0 (count puzzle)) 
+                  y (range 0 (count (first puzzle)))] 
+                 (when (= \M (get-in puzzle [x y])) [x y]))
+            )))
+            (neighbors [[x y] puzzle]
+            (map #(vector (get-in puzzle %) %) 
+                [[(+ x 1) y]
+                [(- x 1) y]
+                [x (+ y 1)]
+                [x (- y 1)]]
+            ))]
+    (loop [current (find-mouse puzzle) tosearch #{} explored #{}]
+        (let [tocheck (neighbors current puzzle)
+              done (filter #(= \C (first %)) tocheck)
+              remove-explored (fn [s] (clojure.set/difference s explored))
+              valid (remove-explored (into #{} (map #(-> % rest first) (filter #(= \space (first %)) tocheck))))]
+            (cond (seq done) true
+                  (empty? valid) (if (empty? tosearch) 
+                                     false 
+                                     (let [f (first tosearch)] (recur f (disj tosearch f) (conj explored current))))
+                  (empty? tosearch) (let [f (first valid)] (recur f (disj valid f) (conj explored current)))
+                  :else (let [f (first tosearch)] (recur f (clojure.set/union (disj tosearch f) valid) (conj explored current))) 
+            )
+        )
+    )
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+(fn [m]
+  (letfn [(at [m i j]
+            (get-in m [i j]))
+ 
+          (find-cheese [m]
+            (first
+              (for [i (range (count m))
+                    j (range (count (first m)))
+                    :when (= \C (at m i j))]
+                [i j])))
+ 
+          (next-moves [m [i j]]
+            (for [[x y] [[(dec i) j]
+                         [i (dec j)]
+                         [(inc i) j]
+                         [i (inc j)]]
+                  :when (and (>= x 0)
+                             (>= y 0)
+                             (< x (count m))
+                             (< y (count (first m)))
+                             (not= \# (at m x y))
+                             (not= \. (at m x y)))]
+              [x y]))]
+    (loop [m (mapv vec m)
+           moves (vec (next-moves m (find-cheese m)))]
+      (if (empty? moves)
+        false
+        (let [move (first moves)
+              mo-moves (subvec moves 1)
+              here (get-in m move)]
+          (if (= \M here)
+            true
+            (if (= \. here)
+              (recur m mo-moves)
+              (let [new-m (assoc-in m move \.)
+                    next-moves (next-moves new-m move)
+                    new-moves (if (empty? next-moves)
+                                mo-moves
+                                (apply conj mo-moves next-moves))]
+                (recur new-m new-moves)))))))))
+johncowie's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [v]
+  (let [l (fn [x y v] (nth (nth v y) x)) lc (fn [c v] (l (c 0) (c 1) v))
+        m (first (filter identity (for [y (range 0 (count v)) x (range 0 (count (first v)))]
+                                       (if (= \M (l x y v)) [x y] nil))))
+        nb (fn [x y v]
+             (let [c [[(dec x) y] [(inc x) y] [x (dec y)] [x (inc y)]]]
+               (filter #(and (>= (% 0) 0) (< (% 0) (count (first v))) (>= (% 1) 0) (< (% 1) (count v))) c)))
+        sw (fn [x y v n] (assoc (vec v) y (assoc (vec (nth v y)) x n)))
+        fill-in (fn [v c] (loop [r v cs c] (if (empty? cs) r (recur (sw ((first cs) 0) ((first cs) 1) r \#) (rest cs)))))]
+    (loop [ve (fill-in v [m]) cs [m]]
+          (let [as (distinct (apply concat (for [c cs]
+                                                (filter #(not= \# (lc % ve)) (nb (first c) (second c) ve)))))
+                vals (map #(lc % ve) as)]
+               (cond (some #(= % \C) vals) true
+                     (empty? as) false
+                     :else (recur (fill-in ve as) as))))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+(fn for-science! [maze-data]
+  (letfn [(build-maze 
+           [maze-data]
+            (let [side-length (+ (count (first maze-data)) 2)]
+              (conj (into [(vec (repeat side-length \#))]
+                           (for [row (mapv vec maze-data)]
+                             (into [\#] (conj row \#))))
+                    (vec (repeat side-length \#)))))
+          
+          (locate-cell [maze value]
+            (first (filter #(= (get-in maze %) value)
+                          (for [i (range (count maze))
+                                j (range (count (maze i)))]
+                            [i j]))))
+          
+          
+          (distance
+            [p1 p2]
+            (let [dx (- (first p1) (first p2))
+                  dy (- (second p1) (second p2))]
+              (Math/sqrt (+ (* dx dx) (* dy dy)))))
+          
+          (actions 
+            [[x y] goal-point]
+            (into (sorted-map)
+                  (group-by (partial distance goal-point) 
+                  [[(inc x) y]
+                   [x (inc y)]
+                   [x (dec y)]
+                   [(dec x) y]])))
+          
+          (legal-action? [maze point]
+            (not= (get-in maze point) \#))
+          
+          (rank-actions 
+            [maze my-pos goal-pos]
+            (let [possible-actions (actions my-pos goal-pos)
+                  legal-action?* (partial legal-action? maze)]
+              (->> possible-actions
+                   (mapcat (fn [[dist actions]] actions))
+                   (filter legal-action?*)
+                   (into []))))
+          
+          (walk 
+            ([maze]
+             (let [my-pos (locate-cell maze \M)
+                   goal-pos (locate-cell maze \C)]
+               (walk maze my-pos goal-pos #{})))
+            ([maze my-pos goal-pos visited]
+               (if (= my-pos goal-pos) :muhahaha
+                 (let [action-seq (rank-actions maze my-pos goal-pos)
+                       visited (conj visited my-pos)
+                       next-steps (remove visited action-seq)]
+                   (if (empty? next-steps) visited
+                     ;; No fold-right????
+                     (loop [visited visited next-steps next-steps]
+                       (cond (= visited :muhahaha) visited
+                             (empty? next-steps) visited
+                             :else
+                             (recur (walk maze
+                                          (first next-steps)
+                                          goal-pos
+                                          visited)
+                                    (next next-steps)))))))))]
+    
+    (= (walk (build-maze maze-data)) :muhahaha)))
+jorendorff's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [maze]
+  (let [find-xy (fn [p?] (set (for [[y row] (map vector (range) maze)
+                                    [x ch] (map vector (range) (seq row))
+                                    :when (p? ch)]
+                                [x y])))
+        start (find-xy #{\M})
+        can-go? (find-xy #{\space \C})
+        cheesy? (find-xy #{\C})]
+    (loop [seen start todo (seq start)]
+      (if (empty? todo)
+        false  ;; never reached goal
+        (let [[[x y] & more-todo] todo
+              points (for [[dx dy] [[1 0] [0 1] [-1 0] [0 -1]]
+                           :let [next-pt [(+ x dx) (+ y dy)]]
+                           :when (not (seen next-pt))
+                           :when (can-go? next-pt)]
+                       next-pt)]
+          (or (when (some cheesy? points) true)
+              (recur (into seen points) (concat more-todo points))))))))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+(fn for-science [maze]
+  (let [directions '([-1 0] [0 -1] [0 1] [1 0])
+        entire-maze (for [x (range 0 (count maze)) y (range 0 (count (first maze)))] [x y])
+        mc (reduce (fn [acc v]
+                     (let [mv (get-in maze v)]
+                       (cond (= mv \M) (conj acc {:m v})
+                             (= mv \C) (conj acc {:c v})
+                             :else acc)
+                       )) {} entire-maze)
+        visited (atom #{})]
+    (letfn [(surrounding-nodes [node]
+                               (reduce (fn [acc v]
+                                         (let [target-node [(+ (first node) (first v)) (+ (second node) (second v))]
+ 
+                                               content (get-in maze target-node)
+                                               ]
+                                           (if (or (= content \#) (= content nil)) acc (conj acc target-node)))) [] directions))
+            (search [current goal]
+                    (if (= current goal)
+                      true
+                      (let [next-nodes (surrounding-nodes current)
+                            not-visited (filter #(not (contains? @visited %)) next-nodes)
+                            ]
+                        (swap! visited conj current)
+                        (for [node not-visited]
+                          (search node goal)
+                          ))))]
+      (if (first (flatten (search (:m mc) (:c mc)))) true false))))
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn [b]
+  (let [h (+ (count b) 2)
+        w (+ (count (first b)) 2)
+        e (vec (concat [(vec (repeat w \#))] ; expanded board
+                       (map #(vec (concat '(\#) % '(\#))) b)
+                       [(vec (repeat w \#))]))
+        yx #(first
+              (for [y (range h) x (range w)
+                   :when (= % (get-in e [y x]))] [y x]))
+        c (yx \C) ; cheesy position
+        fnl ; final board
+          (loop [ms ; all possible mouse positions
+                   [(yx \M)]
+                 g  ; updated board M-marked where mouse passed
+                    (assoc-in e c \space)]
+            (let [cns
+                    (for [[y x :as cur] ms
+                          nxt [[(inc y) x] [(dec y) x] [y (inc x)] [y (dec x)]]
+                          :when (= \space (get-in g nxt))] [cur nxt])]
+              (if (empty? cns) g
+                  (recur (map second cns)
+                         (reduce
+                           #(assoc-in % (second %2) \M)
+                           g
+                           cns)))))]
+    (= \M (get-in fnl c))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [v]
+  (loop [i 1 v v]
+    (let [r (map (fn [x] (reductions #(cond (and (= % \M) (= %2 \space)) \M
+                                            (and (= % \M) (= %2 \C)) true
+                                            :else %2) x))
+                 v)]
+      (cond (some #(some true? %) r) true
+            (= i 80) false
+            :else (recur (inc i) (apply map (fn [& a] a) (reverse r)))))))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+(fn prob117
+  [maze]
+    (letfn [
+            ;; Return the neighboring cells for a given cell [r c]. Do not return diagnals.
+            ;;   For example, for the cell [3 1] return ([2 1] [3 0] [3 2] [4 1])
+            ;;         [2 1]
+            ;;   [3 0] [3 1] [3 2]
+            ;;         [4 1]
+            (neighbors
+              [[x y]]
+              (for [dx [-1 0 1]
+                    dy [-1 0 1]
+                    :when (and (or (= 0 dx) (= 0 dy))
+                               (not= 0 dx dy))]      
+                [(+ x dx) (+ y dy)]))
+ 
+            ;; A valid neighbor is one which contains a space or a C
+            (valid-neighbors
+              [m [r c]]
+              (letfn [(valid [[r c]]
+                        (let [v (get-in m [r c])] 
+                          (or (= v \space) 
+                              (= v \C))))]
+                (filter valid (neighbors [r c]))))
+            
+            ;; Find the first location with a given value. Used to find the mouse and the cheese
+            (find-element
+              [m val]
+              (first 
+               (for [r (range (count m))
+                     c (range (count (first m)))
+                     :when (= val (get-in m [r c]))]
+                 [r c])))
+ 
+            ;; Return the location of the mouse M
+            (m-pos 
+              [m]
+              (find-element m \M))
+ 
+            ;; Return the location of the cheese C
+            (c-pos 
+              [m]
+              (find-element m \C))
+            
+            (search [[path] [r c]]
+              (if (= (c-pos maze) [r c])
+                [(conj path [r c])]  ;; found it
+                (let [neighbors' (valid-neighbors maze [r c])                ;; try neighbors
+                      neighbors (filter #(nil? (some #{%} path)) neighbors')]
+                  (if (seq neighbors)
+                    (reduce #(search %1 %2) [(conj path [r c])] neighbors)
+                    [(conj path [r c])]))
+                ))]
+      (let [mouse (m-pos maze)
+            cheese (c-pos maze)]
+           (not (empty? (filter #(= cheese %) (first (search [] mouse)))))
+        )))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify Object
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn my-for-science!
+  [maze]
+  (let [width (count (first maze))
+        height (count maze)
+        maze-map (zipmap (range) (apply str maze))
+        mouse-index (first (filter (complement nil?) (map #(when (= (val %) \M) (key %)) maze-map)))]
+    (letfn [(get-neighbours-ids [id]
+                                (let [l (- id width)
+                                      u (+ id width)]
+                                  (vector l (dec id) (inc id) u)))
+            (get-correct-neighbours-ids [id visited-ids] 
+                                        (filter (complement nil?) (map #(cond
+                                                                          (< % 0) nil 
+                                                                          (> % (dec (* width height))) nil
+                                                                          (= \# (maze-map %)) nil
+                                                                          (contains? visited-ids %) nil
+                                                                          :else %) (get-neighbours-ids id))))
+            (get-neighbours [id visited-ids] 
+                            (map maze-map (get-correct-neighbours-ids id visited-ids)))
+            (cheese-founded? [visited-ids indexes] (some #(= % \C) (mapcat #(get-neighbours % visited-ids) indexes)))
+            (get-next-ids [visited-ids indexes] (mapcat #(get-correct-neighbours-ids % visited-ids) indexes))]
+      (loop [visited-ids #{} indexes (vector mouse-index) i 0]
+        (cond 
+          (cheese-founded? visited-ids indexes) true
+          (empty? (get-next-ids visited-ids indexes)) false
+          :else (recur (into visited-ids indexes) (get-next-ids visited-ids indexes) (inc i)))))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn [maze]
+  (letfn [(lookup [[x y]] (and (>= x 0)
+                               (>= y 0)
+                               (< x (count (first maze)))
+                               (< y (count maze))
+                               (nth (nth maze y) x)))]
+    (let [graph (into {} (mapcat (fn [y]
+                                   (map (fn [x]
+                                          [[x y] (filter #(#{\M \C \space} (lookup %)) [[x (dec y)]
+                                                                                        [(dec x) y]
+                                                                                        [(inc x) y]
+                                                                                        [x (inc y)]])])
+                                        (range (count (nth maze y)))))
+                                 (range (count maze))))
+          mouse (first (filter #(= (lookup %) \M) (keys graph)))
+          cheese (first (filter #(= (lookup %) \C) (keys graph)))]
+      (boolean (((fn traverse [visited]
+                   (let [newly-visited (clojure.set/union visited (set (mapcat #(graph %) visited)))]
+                     (if (= newly-visited visited)
+                       visited
+                       (traverse newly-visited))))
+                 #{mouse})
+                cheese)))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [rows]
+  (let [passed (atom #{})
+        mouse-pos (first (for [y (range (count rows))
+                               x (range (count (first rows)))
+                               :when (= \M (get-in rows [y x]))]
+                           [y x]))]
+    (letfn [(go [pos]
+              (if (@passed pos)
+                false
+                (case (get-in rows pos \#)
+                  \C true
+                  \# false
+                  (let [[y x] pos]
+                    (swap! passed conj pos)
+                    (or (go [y (inc x)])
+                        (go [y (dec x)])
+                        (go [(inc y) x])
+                        (go [(dec y) x]))))))]
+      (go mouse-pos))))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(fn travel [maze]
+  (let [start (loop [i 0]
+                (let [j (.indexOf (nth maze i) "M")]
+                  (if (not= j -1) [i j] (recur (inc i)))))
+        adjacent (fn [[x y]]
+                   (filter
+                    #(let [it (get-in maze %)] (or (= it \ ) (= it \C)))
+                    [[x (inc y)] [(inc x) y] [x (dec y)] [(dec x) y]]))
+        ]
+    (loop [visited #{}
+           candidates #{start}]
+      (if (empty? candidates)
+        false
+        (let [newvisited (into visited candidates)
+              newcand
+              (clojure.set/difference
+               (set (mapcat adjacent candidates)) newvisited)
+              ]
+          (if (empty? (filter #(= (get-in maze %) \C) newcand))
+            (recur newvisited newcand)
+            true
+            )
+          )
+        )
+      )
+    )
+  )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(let
+  [dirs [[-1 0] [1 0] [0 -1] [0 1]]
+   extend-mouse (fn [maze]
+                  (apply merge
+                         (for [[[i j] s] maze]
+                           {[i j]
+                            (condp = s
+                              \# \#
+                              \M \M
+                              (if (some #(= \M %)
+                                        (for [[di dj] dirs]
+                                          (get maze [(+ i di) (+ j dj)])))
+                                \M
+                                s))})))
+   parse-maze (fn parse-maze [maze]
+                (apply merge
+                       (for [i (range (count maze))
+                             j (range (count (get maze i)))]
+                         {[i j] (get-in maze [i j])})))
+   solve (fn [maze]
+           (if (not (contains? (set (vals maze)) \C))
+             true
+             (let [update (extend-mouse maze)]
+               (if (= update maze)
+                 false
+                 (recur update)))))]
+  (comp solve parse-maze))
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+(fn [maze]
+  (letfn [(get-neighbor-indexes [row col]
+                                (map (fn [[r-i c-i]]
+                                       [(+ r-i row) (+ c-i col)])
+                                     [[0 1] [1 0] [-1 0] [0 -1]]))
+          (get-possible-steps [[i-row i-col :as pos] maze s-visited]
+                              (let [check-neighbor (fn [pos]
+                                                     (let [val (get-in maze pos)]
+                                                       (and 
+                                                         (or (= val \space) (= val \C))
+                                                         (not (s-visited pos)))))]
+                                (filter check-neighbor (get-neighbor-indexes i-row i-col))))
+          (get-indexed [coll]
+                       (map vector (range) coll))
+          (get-start-pos [maze]
+                         (some (fn [[row-idx row]]
+                                 (let [col-idx (.indexOf row "M")]
+                                   (if (>= col-idx 0) [row-idx col-idx])))
+                               (get-indexed maze)))
+          (near-destination? [neighbors maze]
+                             (some #(= \C (get-in maze %)) neighbors))]
+    (let [start (get-start-pos maze)]
+      (loop [[f & r :as to-visit] [start]
+             visited #{start}]
+        (if (empty? to-visit) false
+          (let [neighbors (get-possible-steps f maze visited)]
+            (cond 
+              (empty? neighbors) false
+              (near-destination? neighbors maze) true
+              :else (recur (into r neighbors) (conj (into visited neighbors) f)))))))))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn can-eat [b]
+  (let [eval-next-board (fn [board]
+                          (let [
+                                pattern [[-1 0] [1 0] [0 -1] [0 1]]
+                                cell (fn [[x y]] (get (get board y) x))
+                                ngb (fn [[x y]]
+                                      (remove nil? (map
+                                                    (fn [[ox oy]] (cell
+                                                                   [(+ x ox)
+                                                                    (+ y oy)]))
+                                                    pattern)))
+                                ngb-alive (fn [p] (count (filter #{\M} (ngb p))))
+                                next-state (fn [cellstatus ngbs]
+                                             (if (> ngbs 0)
+                                               (cond 
+                                                (= cellstatus \space) \M
+                                                (= cellstatus \C) \E
+                                                :else cellstatus)
+                                               cellstatus))]
+                            (for [y (range (count board))]
+                              (apply str (for [x (range (count (first board)))]
+                                           (next-state (cell [x y]) (ngb-alive [x y]))
+                                           ))
+                                          )
+                            ))
+        next-board (eval-next-board (vec b))]
+    (if (= b next-board)
+      (not (nil? (some #{\E} (seq (apply str b)))))
+      (can-eat next-board))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+(fn [labyrinth]
+  (let [lab (into {}
+        (mapcat
+          (fn [row s]
+            (map
+              (fn [col c]
+                [[row col]
+                 (cond
+                  (= c \M) :mouse
+                  (= c \C) :cheese
+                  (= c \space) :free
+                  :else nil)])
+              (range)
+              s))
+          (range)
+          labyrinth))
+          mouse (some (fn [[k v]] (when (= v :mouse) k)) lab)
+          cheese (some (fn [[k v]] (when (= v :cheese) k)) lab)]
+    
+    (contains? (second
+      (first
+        (drop-while 
+          #(not (empty? (first %)))
+          (iterate
+            (fn [[open closed]]
+              (let [new-closed (into closed open)
+                    new-open (into #{}
+                               (filter
+                                 (fn [c]
+                                   (and (not (contains? new-closed c))
+                                        (not= nil (lab c))))
+                                 (mapcat 
+                                  (fn [[x y]]
+                                    [[(- x 1) y] [(+ x 1) y] [x (- y 1)] [x (+ y 1)]])
+                                  open)))]
+          
+                [new-open new-closed]))
+            [#{mouse} #{}]))))
+        cheese)))
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+(fn [board]
+  (let [board-atom (atom (vec (map vec board)))
+        cheese-found (atom false)
+        enumerate (partial map-indexed vector)
+        mouse-cell (first (for [[x row] (enumerate board)
+                                [y cell] (enumerate row)
+                                :when (= cell \M)]
+                            [x y]))
+        cheese \C
+        wall \#
+        visited \.]
+    (letfn [(visit [cell]
+              (swap! board-atom #(assoc-in % cell visited)))
+            (up [[x y]]
+              [x (dec y)])
+            (left [[x y]]
+              [(dec x) y])
+            (right [[x y]]
+              [(inc x) y])
+            (down [[x y]]
+              [x (inc y)])
+            (flood-fill [cell]
+              (let [node (get-in @board-atom cell)]
+                (cond
+                  (or (nil? node)
+                      (= node visited)
+                      (= node wall)
+                      @cheese-found) false
+                  (= node cheese) (swap! cheese-found not)
+                  :else (do (visit cell)
+                            (or (flood-fill (up cell))
+                                (flood-fill (left cell))
+                                (flood-fill (right cell))
+                                (flood-fill (down cell)))))))]
+      (flood-fill mouse-cell))
+    ))
+maximental's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [m]
+  (let [r (fn [[i j]]
+            (keep 
+              (fn [[x y]] ({\  [x y] \C true} (nth (nth m x []) y nil))) 
+              [[i (dec j)] [(dec i) j] [(inc i) j] [i (inc j)]]))
+        w (flatten 
+            (keep-indexed (fn [i s] 
+              (keep-indexed (fn [j c] (if (= c \M) [i j])) s)) m))]
+    ((fn f [p c v] 
+       (boolean 
+         (or (some true? c)
+             (some #(f % (r %) (into v `(~@c ~p))) (remove v c)))))
+     w (r w) #{})))
+mbakhterev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [B]
+  (let [M (count B)
+        N (count (first B))
+        m (first (filter (comp (partial = \M) (partial get-in B)) (for [i (range M) j (range N)] [i j])))
+        O (fn [[i j]] (map (fn [k l] [(+ k i) (+ l j)]) [-1 1 0 0] [0 0 1 -1]))]
+    (loop [[q & Q :as P] [m] S #{m}]
+      (cond (empty? P) false
+            (= \C (get-in B q)) true
+            :else (let [n (filter (fn [p] (and (#{\C \space} (get-in B p)) (not (S p)))) (O q))] 
+                    (recur (concat Q n) (into S n)))))))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+(let [;; A predicate to check that we have a valid maze. Note that we extend
+        ;; the definition to allow periods, which we use to denote empty spaces
+        ;; that are known to be accessible from the start by a sequence of
+        ;; orthogonal moves.
+        maze?
+        (fn [x]
+          (and (vector? x)                                 ; Vectors only.
+               (every? string? x)                          ; Each row a string.
+               (if (seq x) (apply = (map count x)))        ; Rectangular.
+               (every? (partial re-matches #"[. #MC]*") x) ; Just maze chars.
+               (some (partial some #{\M}) x)               ; At least one start.
+               (some (partial some #{\C}) x)               ; At least one end.
+               true)),
+ 
+        dimensions
+        (fn [maze]
+          [(count maze)
+           (count (first maze))]),
+ 
+        ;; Returns a collection of all characters orthogonally adjacent to
+        ;; position [m n] in maze.
+        adjacent
+        (fn [maze [m n]]
+          (->>
+           (for [i [(dec m) m (inc m)],
+                 j [(dec n) n (inc n)]
+                 :when (#{1 -1} (+ (- i m) (- j n)))]
+             (get-in maze [i j]))
+           (keep identity))),
+ 
+        ;; Updates maze by turning spaces into periods whenever they are
+        ;; adjacent to either a period or an M. Returns the resulting maze.
+        maze-explore
+        (fn [maze]
+          (let [[height width] (dimensions maze)]
+            (->>
+             (for [i (range height)]
+               (for [j (range width)]
+                 (if (and (= \space (get-in maze [i j]))
+                          (some #{\. \M} (adjacent maze [i j])))
+                   \.
+                   (get-in maze [i j]))))
+             (map (partial apply str))
+             vec))),
+ 
+        ;; Returns true if and only if some exit is adjacent to a space known to
+        ;; be accessible (an M or a period).
+        solved?
+        (fn [maze]
+          (let [[height width] (dimensions maze)]
+            (if (some identity
+                      (for [i (range height),
+                            j (range width)
+                            :when (= \C (get-in maze [i j]))]
+                        (some #{\M \.} (adjacent maze [i j]))))
+              true
+              false)))]
+ 
+    (fn solvable?
+      [maze] {:pre [(maze? maze)]}
+      (let [new-maze (maze-explore maze)]
+        (cond
+          (solved? new-maze)  true
+          (= maze new-maze)   false
+          :else               (recur new-maze)))))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn mouse-cheese [board]
+  (letfn [(next-board [board]
+                      (let [board-matrix (mapv #(vec %) board)]
+                        (map-indexed
+                          (fn [r row]
+                            (apply str
+                                   (map-indexed
+                                     (fn [c cell]
+                                       (let [adjacent (or
+                                                        (= \M (get-in board-matrix [(dec r) c]))
+                                                        (= \M (get-in board-matrix [r (dec c)]))
+                                                        (= \M (get-in board-matrix [(inc r) c]))
+                                                        (= \M (get-in board-matrix [r (inc c)])))]
+                                         (if (and adjacent
+                                                  (or (= \space cell)
+                                                      (= \C cell)))
+                                           \M
+                                           cell)))
+                                     row)))
+                          board-matrix)))]
+    (not (contains? (set (mapcat seq
+                             (loop [board board]
+                               (let [board' (next-board board)]
+                                 (if (= board' board)
+                                   board
+                                   (recur board')))))) \C))))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn [mz]
+  (let [mz (vec (map vec mz))
+        nr (count mz)
+        nc (count (mz 0))
+        ind (for [r (range nr) c (range nc)] [r c])
+ 
+        ; WTH, 4Clojure doesn't have update function?
+        update (fn [m k f x] (assoc m k (f (get m k) x)))
+ 
+        info (reduce #(update %1 (get-in mz %2) conj %2) {\space #{}} ind)
+        M (first (info \M))
+        q (info \C)
+        valid (conj (info \space) M)
+        mv [[-1 0] [ 0 -1] [ 0 1] [ 1 0]]
+        bfs (fn [[x & q] valid]
+              (cond
+                (= x M) true
+                (empty? x) false
+                :else 
+                  (let [nei (map #(map + x %) mv)
+                        new-pos (filter valid nei)]
+                    (recur (concat q new-pos) (disj valid x)))))]
+    (bfs q valid)))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(fn mazesolver [b]
+              (let [v (vec (flatten (map vec b)))
+                    rowlength (count (first b))
+                    columnheight (count b)
+                    cellcount (count v)
+                    mouse (first (for [i (range cellcount)
+                                       :when (= (get v i) \M)]
+                                   i))
+                    cheese (first (for [i (range cellcount)
+                                        :when (= (get v i) \C)]
+                                    i))]
+                (if (or (and (not= 0 (mod mouse rowlength)) (== mouse (inc cheese)))
+                        (and (not= 0 (mod cheese rowlength)) (== mouse (dec cheese)))
+                        (== mouse (+ cheese rowlength))
+                        (== mouse (- cheese rowlength)))
+                  true
+                  (if (and (>= mouse rowlength) (= (get v (- mouse rowlength)) \space))
+                    (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \m) (- mouse rowlength) \M))))
+                    (if (and (< (+ mouse rowlength) cellcount) (= (get v (+ mouse rowlength)) \space))
+                      (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \m) (+ mouse rowlength) \M))))
+                      (if (and (not= 0 (mod mouse rowlength)) (= (get v (dec mouse)) \space))
+                        (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \m) (dec mouse) \M))))
+                        (if (and (not= 0 (mod (inc mouse) rowlength)) (= (get v (inc mouse)) \space))
+                          (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \m) (inc mouse) \M))))
+                          (if (and (>= mouse rowlength) (= (get v (- mouse rowlength)) \m))
+                            (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \#) (- mouse rowlength) \M))))
+                            (if (and (< (+ mouse rowlength) cellcount) (= (get v (+ mouse rowlength)) \m))
+                              (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \#) (+ mouse rowlength) \M))))
+                              (if (and (not= 0 (mod mouse rowlength)) (= (get v (dec mouse)) \m))
+                                (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \#) (dec mouse) \M))))
+                                (if (and (not= 0 (mod (inc mouse) rowlength)) (= (get v (inc mouse)) \m))
+                                  (mazesolver (map #(apply str %) (partition rowlength (assoc (assoc v mouse \#) (inc mouse) \M))))
+                                  false)))))))))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+(fn [maze]
+  (let [
+        h (count maze)
+        w (count (first maze))
+        mouse-pos (let [fp (.indexOf (apply str maze) "M")]
+                    [(quot fp w) (rem fp w)])
+        cheese-pos (let [fp (.indexOf (apply str maze) "C")]
+                     [(quot fp w) (rem fp w)])
+ 
+        valid-pos? (fn [r c]
+                     (and (<= 0 c)
+                          (<= 0 r)
+                          (< r h)
+                          (< c w)
+                          (not= \# (get-in maze [r c])))
+                     )
+        next-move (fn [r c]
+                    (filter #(apply valid-pos? %) #{[r (dec c)] [r (inc c)] [(dec r) c] [(inc r) c]})
+                    )
+ 
+        explore (fn [explored not-explored]
+                  (loop [exp explored nexp not-explored]
+                    (if (empty? nexp) exp
+                                     (let [pos (first nexp)
+                                           nex (rest nexp)
+                                           ex (conj exp pos)]
+                                       (recur ex (concat nex (filter #(not (contains? ex %)) (apply next-move pos)))))
+                                     )))
+        ]
+    (contains? (explore #{} #{mouse-pos}) cheese-pos)
+    ))
+mononite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn [m]
+  (let [rows (count m) cols (count (first m)) maze (mapv vec m)]
+    (letfn [(get-pos [c]
+              (first (for [x (range rows) y (range cols)
+                            :when (= (get-in maze [x y]) c)]
+                        [x y])))
+            (collect [[x y] travelled]
+              (let [neighbors (concat
+                                (if (pos? x) [[(dec x) y]])
+                                (if (pos? y) [[x (dec y)]])
+                                (if (< (inc x) rows) [[(inc x) y]])
+                                (if (< (inc y) cols) [[x (inc y)]]))
+                    candidates (filter #(and
+                                         (not= (get-in maze %) \#)
+                                         (not (contains? travelled %)))
+                                       neighbors)]
+                  (reduce #(collect %2 %1)
+                          (conj travelled [x y])
+                          candidates)))]
+      (true? (some #(= (get-in maze %) \C) (collect (get-pos \M) #{}))))))
+mouse's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [m]
+    (let [F (fn F [f x] (let [y (f (f x))] (if (= x y) x (F f y))))
+          T (fn [m] (for [i (range (count (first m)))] (apply str (map #(nth % i) m))))
+          R #(.replaceAll % "( M|M )" "MM")
+          M (fn [m] (map #(F R %) (T m)))
+          E (F M m) ]
+      (reduce #(or % (boolean %2)) false
+              (map #(re-seq #"MC|CM" %) (flatten [E (T E)])))))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+(fn [board]
+  (letfn [(neighbors-coordinates [[y x] width height]
+            (let [deltas [[0 -1] [-1 0] [0 1] [1 0]]]
+              (filter (fn [[y x]]
+                        (and (>= x 0)
+                             (>= y 0)
+                             (< x width)
+                             (< y height)))
+                      (map (fn [[dy dx]]
+                             [(+ y dy) (+ x dx )])
+                           deltas))))
+          (next-neighbors-coordinates [board seen yx]
+            (let [width      (count (first board))
+                  height     (count board)
+                  next-coord (set (keep (fn [yx]
+                                          (let [v (get-in board yx)]
+                                            (if (not= v \#)
+                                              yx)))
+                                        (neighbors-coordinates yx width height)))]
+              (clojure.set/difference next-coord seen)))
+          (find-mouse-coordinates [board]
+            (let [width  (count (first board))
+                  height (count board)
+                  coords (for [y (range 0 height)
+                               x (range 0 width)]
+                           [y x])]
+              (loop [coords coords]
+                (when coords
+                  (let [yx (first coords)]
+                    (if (= \M (get-in board yx))
+                      yx
+                      (recur (next coords))))))))]
+    (let [mouse-coord (find-mouse-coordinates board)]
+      (loop [stack [mouse-coord]
+             seen  #{mouse-coord}]
+        (if (empty? stack)
+          false
+          (let [yx (first stack)]
+            (if (= \C (get-in board yx))
+              true
+              (let [next-coord (next-neighbors-coordinates board seen yx)]
+                (recur (subvec (into stack next-coord) 1)
+                       (into seen next-coord))))))))))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+;; TODO: The mouse can visit places he has already been. The queue needs pruning.
+(fn i-can-haz-cheeze? [input]
+  (let [board (mapv vec input)
+        height (count board)
+        width (count (first board))
+        all-coords (for [y (range height)
+                         x (range width)]
+                     [x y])
+ 
+        is-a? (fn [t [x y]]
+                (= t (get-in board [y x])))
+        mouse? (fn [c] (is-a? \M c))
+        cheese? (fn [c] (is-a? \C c))
+        wall? (fn [c] (is-a? \# c))
+        start (some #(when (mouse? %) %) all-coords)
+ 
+        valid-moves (fn [[x y]]
+                            (when x
+                              (for [xs [(dec x) x (inc x)]
+                                    ys [(dec y) y (inc y)]
+                                    :when (not (and (= xs x) (= ys y))) ;; must move
+                                    :when (not (and (not= xs x) (not= ys y))) ;; not diagonal move
+                                    :when ((comp not wall?) [xs ys])
+                                    :when (< xs width)
+                                    :when (< ys height)
+                                    :when (>= ys 0)
+                                    :when (>= xs 0)]
+                                [xs ys])))]
+    ;; Breadth first search
+    (loop [queue [start] visited #{}]
+      (let [[current-node & rest-queue] queue
+            moves (valid-moves current-node)
+            new-paths (clojure.set/difference (set moves) visited)]
+        (cond
+          (cheese? current-node) true
+          (nil? current-node) false
+          :else (recur (concat rest-queue new-paths) (conj visited current-node)))))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [b]
+  (letfn [(find [v]
+            (some identity
+              (for [x (range (count (first b)))
+                    y (range (count b))]
+                (if (= (get-in b [y x]) v) [y x] nil))))
+           (d [v p]
+             (if (v p)
+               v
+               (let [n (->> (map #(vec (map + p %)) [[0 1] [1 0] [0 -1] [-1 0]])
+                                (remove #(= \# (get-in b % \#))))]
+                 (reduce d (conj v p) n))))]
+  (contains?
+    (d #{} (find \C))
+    (find \M))))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn maze [b]
+    (let [m (apply merge-with conj {\space #{} \# #{}} (apply concat (map-indexed (fn [y row] (map-indexed (fn [x c] {c [x y]}) row)) b)))
+          grow (fn [[cx cy] x y [cheese space]] 
+                    (let [coord [(+ cx x) (+ cy y)]] (if (space coord) [(conj cheese coord) (disj space coord)] [cheese space]))) 
+          find (fn [cheese space] 
+                 (let [[growcheese growspace] (reduce #(->> %1 (grow %2 0 1) (grow %2 0 -1) (grow %2 1 0) (grow %2 -1 0)) [cheese space] cheese)] 
+                   (if (= (count cheese) (count growcheese))
+                     (contains? cheese (m \M))
+                     (recur growcheese growspace))))]
+    (find #{(m \C)} (conj (m \space) (m \M)))))
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+(fn [maze]
+  (let [maze-rows (count maze)
+        maze-columns (count (first maze))
+ 
+        maze-contents
+        (fn [pos] (get-in maze pos))
+ 
+        all-pos
+        (for [r (range maze-rows) c (range maze-columns)] [r c])
+ 
+        find-in-maze
+        (fn [goal]
+          (filter #(= goal (maze-contents %)) all-pos))
+        
+        is-movable-content
+        (fn [content]
+          (#{\M \C \space} content))
+ 
+        is-movable-position
+        (fn [pos]
+          (is-movable-content (maze-contents pos)))
+ 
+        next-moves
+        (fn [[r c]]
+          (let [potential-moves [[(dec r) c] [(inc r) c] [r (dec c)] [r (inc c)]]]
+            (filter is-movable-position potential-moves)))
+ 
+        breadth-first-search
+        (fn [start end expand-fn]
+          (loop [visited #{} to-visit [start]]
+            (cond
+             (contains? visited end)
+             true
+                                  
+             (empty? to-visit)
+             false
+         
+             :else
+             (let [current-visit (first to-visit)
+                   frontier (set (expand-fn current-visit))
+                   new-places (clojure.set/difference frontier visited)]
+               (recur (conj visited current-visit) (into (rest to-visit) new-places))))))
+        
+        mouse-position (first (find-in-maze \M))
+        cheese-position (first (find-in-maze \C))] 
+    
+    (breadth-first-search mouse-position
+                          cheese-position
+                          next-moves)))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+(fn __ [grid]
+  (let [gridmap (into {} (apply concat (map-indexed
+                                         (fn [row item]
+                                           (map-indexed
+                                             (fn [col item]
+                                               [[row col] item])
+                                             item))
+                                         grid)))
+        start-cell (-> gridmap
+                       clojure.set/map-invert
+                       (get \M))
+        end-cell (-> gridmap
+                     clojure.set/map-invert
+                     (get \C))
+        find-neighbors (fn [cell]
+                         (->> (map #(map + cell %) [[1 0] [-1 0] [0 1] [0 -1]])
+                              (filter #(contains? gridmap %))))
+        is-wall? (fn [cell]
+                   (= \# (get gridmap cell)))
+        expand-frontier (fn [curr-cell frontier visited]
+                          (->> (find-neighbors curr-cell)
+                               (remove visited)
+                               (remove is-wall?)
+                               (into frontier)))]
+    (loop [curr-cell start-cell frontier (expand-frontier start-cell #{} #{}) visited #{start-cell}]
+      (if (= curr-cell end-cell)
+        true
+        (if (empty? frontier)
+          false
+          (let [new-frontier (-> (expand-frontier curr-cell frontier visited)
+                                 (disj curr-cell))
+                visited (conj visited curr-cell)]
+            (recur (first frontier) new-frontier visited))))
+      )))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn myf [coll]
+  (let [left (fn [loc]
+               [(dec (first loc)), (second loc)])
+        right (fn [loc]
+                [(inc (first loc)), (second loc)])
+        up (fn [loc]
+             [(first loc), (dec (second loc))])
+        down (fn [loc]
+               [(first loc), (inc (second loc))])
+        change (fn [coll]
+                 (transient (reduce into (for [x (range (count (first coll))), y (range (count coll))]
+                                      {[x, y] (nth (nth coll y) x)}))))
+        find-mouse (fn [coll]
+                     (first (for [x (range (count (first coll))), y (range (count coll)), :when (= \M (nth (nth coll y) x))]
+                              [x, y])))
+        board (change coll)
+        find-cheese (fn f [cur-loc]
+                      (cond (= \C (board cur-loc)) true
+                            (= \P (board cur-loc)) false
+                            (= \# (board cur-loc)) false
+                            (= nil (board cur-loc)) false
+                            :else (do (assoc! board cur-loc \P)
+                                    (reduce #(or %1 %2) (map f ((juxt left right up down) cur-loc))))))
+        ]
+    (let [m-loc (find-mouse coll)]
+      (find-cheese m-loc))))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+(fn [m]
+  (let [[x y]
+        (->> m
+          (keep-indexed (fn [i r] (->> (keep-indexed #(if (= \M %2) [i %]) r) seq)))
+          first first
+          (map inc))
+        w (-> (m 0) count (+ 2) (repeat \#) vec)
+        m
+        (concat
+          [w]
+          (for [r m] (->> (concat "#" r "#") (mapv #(case % \space \. %))))
+          [w])
+        m (vec m)]
+    (->> [m (conj clojure.lang.PersistentQueue/EMPTY [x y])]
+      (iterate
+        (fn [[m q]]
+          (let [[x y :as p] (peek q)
+                q'          (pop q)]
+            (cond
+              (empty? q)        false
+              (= ((m x) y) \C)  true
+              true
+              [(update-in m p (constantly \M))
+               (->> [[(inc x) y]
+                     [(dec x) y]
+                     [x (inc y)]
+                     [x (dec y)]]
+                 (filter (fn [[x y]] (case ((m x) y) (\. \C) true false)))
+                 (into q'))]))))
+      (remove vector?)
+      first)))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+;; This working solution times out: 
+; (fn can-navigate? [maze]
+;   (let [offsets [[-1 -1] [ 0 -1] [ 1 -1]
+;                  [-1  0]         [ 1  0]
+;                  [-1  1] [ 0  1] [ 1  1]]
+;         start (mapcat
+;                 (fn [[i row]]
+;                   (let [[j el] (first (filter (fn [[j el]] (= \M el)) (map-indexed vector row)))]
+;                     (if el [i j])))
+;                 (map-indexed vector maze))]
+;     (letfn [(reaches-cheese? [[i j] visited]
+;                              (println [i j] visited)
+;                              (if (= \C (-> maze (get i) (get j))) true
+;                                (or (->> offsets
+;                                         (map (fn [[di dj]] [(+ i di) (+ j dj)]))
+;                                         (remove visited)
+;                                         (filter (fn [[ni nj]] (#{\space \C} (-> maze (get ni) (get nj)))))
+;                                         (map (fn [[ni nj]] (reaches-cheese? [ni nj] (conj visited [i j]))))
+;                                         (some true?)
+;                                         ) false)
+;                                )
+;                              )]
+;       (reaches-cheese? start #{}))))
+ 
+ 
+(fn [maze]
+  (let [transpose (fn [coll] (apply mapcat (comp list str) coll))
+        reachable? (fn [s] (re-find #"(C@|@C)" s))
+        walk (fn [s]
+               (reduce (fn [s [x y]] (str (subs s 0 x) (apply str (repeat (- y x) \@)) (subs s y (count s)))) s
+                       (let [matcher (re-matcher #"[ ]*[M@]+[ ]*" s)]
+                         (loop [r [] match (re-find matcher)]
+                           (if match
+                             (recur (conj r [(.start matcher) (.end matcher)]) (re-find matcher))
+                             r)))))
+        search (fn [m]
+                 (let [n (->> (map walk m) transpose (map walk) transpose)]
+                   (if (= m n)
+                     m
+                     (recur n))))
+        m (search maze)]
+    (boolean (or (some reachable? m) (some reachable? (transpose m))))))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn [V]
+    (let [? contains? + inc - dec r (range)
+          g (mapv vec V)
+          X #(? g %)
+          Y #(? (last g) %)
+          f (fn f[A S]
+              (and (not (empty? A))
+                   (let [[[i j] & r] A]
+                     (or (= ((g i) j) \C)
+                         (f (concat 
+                             (filter (fn [[x y]] (and (X x)
+                                                      (Y y)
+                                                      (not= ((g x) y) \#)
+                                                      (not (S [x y]))))
+                                     [[(+ i) j] [(- i) j] [i (+ j)] [i (- j)]]) 
+                             r)
+                            (conj S [i j]))))))
+          M (for [i r :while (X i)
+                  j r :while (Y j)
+                  :when (= ((g i) j) \M)] [i j])
+          ]
+  (f M #{})))
+quant1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [b]
+  (letfn [(gb [x]
+            (->> (for [i (range (count x)) j (range (count (first x)))] [i j]) (group-by #(get-in x %))))
+          (adj? [x y] (= 1 (apply + (map #(Math/abs (- %1 %2)) x y))))
+          (adj-any? [s x] (some true? (map #(adj? x %) s)))
+          (grow [s a] (into a (reduce #(if (adj-any? %1 %2) (conj %1 %2) %1) (set a) s)))
+          ]
+    (let [x0 (gb b)]
+      (loop [s (set (x0 \space)) m (set (x0 \M))]
+        (let [n (grow s m)]
+          (if (= (count n) (count m))
+            (not (nil? (adj-any? n (first (x0 \C)))))
+            (recur (remove n s) n)))))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+(fn [maze]
+  (let
+    [
+     B (apply concat (map-indexed (fn[i row] (map-indexed (fn[j col] [[i j] col] ) row)) maze))
+     M (->> B (filter #(#{\M} (second %))) ffirst)
+     C (->> B (filter #(#{\C} (second %))) ffirst)
+     cells (->> B (filter #(#{\space \M} (second %))) (map first) set)
+ 
+     moves
+     (fn [coord] (map  #(map + coord %)  [[0 -1][0 1][-1 0][1 0]]))
+ 
+     children
+     (fn [[[v0 & _ :as path] cells]]
+       (->>
+        v0
+        moves
+        (filter cells)
+        (map #(list (conj path %) (disj cells %)))
+     ) )
+     ]
+    (->>
+      [(list C) cells]
+      (tree-seq (constantly true) children)
+      (filter #(= M (ffirst %)))
+      first
+      nil?
+      not
+) ) )
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn f [board]
+  (let [steps [[-1 0] [0 -1] [0 1] [1 0]]
+        find-c (fn [[line & _ :as board]]
+                 (first (for [x (range (count line))
+                              y (range (count board))
+                              :when (= \C (get-in board [y x]))]
+                          [y x])))
+        find-m (fn find-rec [board pos path]
+                 (let [val (get-in board pos)]
+                   (cond
+                     (or (= val nil) (= val \#)) false
+                     (some #{pos} path) false
+                     (= val \M) true
+                     :else (boolean (some
+                                     #(find-rec board % (cons pos path))
+                                     (map #(mapv + pos %) steps))))))]
+    (find-m board (find-c board) [])))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn for-science [coll]
+  (letfn [(mark-next [coll]
+            (->> (conj coll \#)
+                 (reduce (fn [[out p c] n]
+                           (if (and (contains? #{\space \C} c) (or (= p \F) (= n \F)))
+                               [(conj out \N) \N n]
+                               [(conj out c) c n]))
+                          [[] nil nil])
+                  ((comp rest first))))
+          (swap-chars [coll]
+            (map (fn [c]
+                   (cond
+                     (= c \N) \F
+                     (= c \F) \#
+                     :else c))
+                 coll))
+          (all-next [coll]
+            (->> (into [] coll)
+                 (map mark-next)
+                 (apply map vector)
+                 (map mark-next)
+                 (map swap-chars)
+                 (apply map vector)))]
+    (loop [maze (map #(into [] (clojure.string/replace % #"M" "F")) coll)]
+      (let [flat-maze (flatten maze)]
+        (cond
+          (not-any? #{\C} flat-maze) true
+          (not-any? #{\F} flat-maze) false
+          :else (recur (all-next maze)))))))
+sheldon's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [b] 
+   (let [r (count b)
+         c (count (first b))
+         f (fn [s] (first (for [i (range r) j (range c) :let [v (get-in b [i j])] :when (= v s)] [i j])))
+         M (f \M)
+         C (f \C)
+         s (fn [x] (filter 
+                     #(let [y (first %) 
+                            x (second %)] 
+                        (and (and (>= y 0) (< y r)) (and (>= x 0) (< x c)))) 
+                     (map #(map + x %) [[1 0] [0 -1] [-1 0] [0 1]])))
+         n (fn [x] (vec (distinct (concat x (filter #(not= \# (get-in b %)) (map vec (mapcat s x)))))))]
+     (not (nil? ((set ((fn p [x] (let [r (n x)] (if (= x r) r (p r)))) [M])) C)))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [maze] (let [
+  [w h]     [(count (first maze)) (count maze)]
+  at        (fn [[x y]] (nth (nth maze y) x))
+  in?       (fn [v b] (and (>= v 0) (< v b)))
+  can-walk? (fn [[x y]] (and (in? x w) (in? y h) (not= \# (at [x y]))))
+  dirs      [[-1 0] [1 0] [0 -1] [0 1]]
+  cands     (fn [[i j]] (->> dirs (map (fn [[x y]] [(+ x i) (+ y j)])) (filter can-walk?)))
+  start     (some identity (for [i (range w) j (range h)] (if (= \M (at [i j])) [i j])))]
+  (loop [visited #{} to-visit [start]]
+    (if-let [v (first to-visit)]
+      (if (= (at v) \C) true
+        (recur (conj visited v)
+          (into (rest to-visit) (filter #(not (visited %)) (cands v)))))
+      false))))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [c]
+  (let [mpos (vec (remove nil? (flatten (map-indexed #(map-indexed (fn [idx item] (if (= \M item) [%1 idx])) %2) c))))
+        cpos (vec (remove nil? (flatten (map-indexed #(map-indexed (fn [idx item] (if (= \C item) [%1 idx])) %2) c))))
+        spaces (reduce into #{} (map-indexed #(map-indexed (fn [idx item] (if (= \space item) [%1 idx])) %2) c))]
+    (loop [r #{mpos} route (conj spaces cpos)]
+      (cond
+       (contains? r cpos) true
+       (empty? r) false
+       :else (recur 
+              (clojure.set/intersection 
+               route
+               (reduce into #{} (map #(list (vec (map - % [1 0])) (vec (map - % [0 1])) (vec (map + % [1 0])) (vec (map + % [0 1]))) r)))
+              (reduce disj route r))
+       ))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn f [m]
+  (let [[y x] (map count [m (get m 0)])
+        n (for [y (range y) x (range x) :when (= \M (get-in m [y x]))] [y x])
+        p (fn [[i j]] (for [[y x] [[1 0] [0 1] [-1 0] [0 -1]]
+                :let [[a b] [(+ i y) (+ j x)], e (get-in m [a b])]
+                :when (#{\  \C} e)] {e [a b]}))
+        i (set (apply p n))]
+    ((fn g [z i]
+       (or (not (nil? (some #(apply #{\C} (keys %)) z)))              
+           (#(if (= (into i %) i) false (g % (into i %)))
+             (set (mapcat (comp #(apply p %) vals) z))))) i i)))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+(letfn
+[
+(is-valid [[x y] b]
+  (and (>= x 0) (>= y 0) (< x (count (first b))) (< y (count b))))
+ 
+(get-xys [b]
+  (for [x (range 0 (count (first b)))
+        y (range 0 (count b))]
+        [x y]))
+ 
+(get-val [[x y] b]
+  (nth (nth b y) x))
+ 
+(place [[x y] b s]
+  (assoc b y (assoc (nth b y) x s)))
+ 
+(get-at [xy b]
+    [xy, (get-val xy b)])
+ 
+(find [s b]
+  (->> b
+    (get-xys)
+    (map #(get-at % b))
+    (filter #(= s (second %)))
+    ffirst))
+ 
+(get-neighbors [[x y] b]
+  (->>
+    (for [x1 [(dec x) x (inc x)]
+        y1 [(dec y) y (inc y)]
+        :when (not= (= x1 x) (= y1 y))]
+        [x1 y1])
+    (filter #(is-valid % b))
+    (map #(get-at % b))))
+ 
+(get-next-moves
+  [[[x y], b]]
+  (->>
+    (get-neighbors [x y] b)
+    (filter #(or (= \space (second %)) (= \C (second %))))
+    (map first)
+    (map (fn [[x1 y1]]
+      (let [b1 (place [x1 y1] (place [x y] b \#), \M)]
+        (get-now [x1 y1] b1))))))
+ 
+(get-now
+  ([b]
+    (let [here (find \M b)]
+      (get-now here b)))
+  ([here b]
+    [here, b]))
+ 
+(distinct-by [f xs]
+  (map (comp first val) (group-by f xs)))
+ 
+; initial solution used to keep the states as [location, board] in a set
+; however this was too slow
+; optimization now keeps states in a vector, distinct-by'ing on every generation
+; this however can introduce false negatives when the same location can be 
+; reached along different routes and the distinct-by operations selects one
+; which blocks its own access to the target
+(get-next [now]
+  (distinct-by first (mapcat get-next-moves now)))
+ 
+(vvec [b]
+  (vec (map vec b)))
+ 
+(solve [b]
+  (let [b (vvec b)
+        here (find \M b)]
+  (loop [now [(get-now b)]]
+    (let [solution (some #(not (find \C (second %))) now)
+          next (get-next now)]
+    (if solution
+        true
+    (if (empty? next)
+        false
+    (recur next)))))))
+]
+solve)
+syeerzy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [board]
+  (letfn [(part [x] (map (partial partition-by #(= \# %)) x))
+          (transp [x] (apply map list x))
+          (flat [x] (map (partial apply concat) x))
+          (fill [r] (if (some #{\M} r) (repeat (count r) \M) r))
+          (h-step [x] (flat (map #(map fill %) (part x))))
+          (v-step [x] (transp (h-step (transp x))))
+          (win? [x] (not-any? #(some #{\C} %) x))]
+    (let [nx (v-step (h-step board))]
+      (cond (win? nx) true
+            (= board nx) false
+            :else (recur nx)))))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(let [size (fn [maze]
+             (let [y (count maze)
+                   x (count (first maze))]
+               [y x]))
+      find-mouse (fn [maze]
+                   (first 
+                     (let [[ym xm] (size maze)]
+                       (for [y (range ym)
+                             x (range xm)
+                             :when (= \M (get-in maze [y x]))]
+                         [y x]))))
+      neighbors [[-1  0]
+                 [ 1  0]
+                 [ 0 -1]
+                 [ 0  1]]
+      moves (fn [pos maze]
+              (for [neighbor neighbors
+                    :let [pos (mapv + pos neighbor)]
+                    :when (and (every? (complement neg?) pos)
+                               (every? identity (map < pos (size maze)))
+                               (not= \# (get-in maze pos)))]
+                pos))]
+  (fn [maze]
+    (loop [ps [(find-mouse maze)]
+           seen #{}]
+      (cond
+        (some #(= \C (get-in maze %)) ps) true
+        (empty? ps) false
+        :otherwise (recur (clojure.set/difference (set (mapcat #(moves % maze) ps)) seen) (into seen ps))))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+(fn [maze]
+    (let [find (fn [c board]
+                 (let [[y row] (first (keep-indexed (fn [y row]
+                                                      (when (some #{c} row)
+                                                        [y row])) board))]
+                   [(first (keep-indexed (fn [i chr]
+                                           (when (= c chr)
+                                             i)) row)) y]))
+          mouse (find \M maze)
+          cheese (find \C maze)]
+      (loop [seen #{}
+             fringe [mouse]]
+        (if (empty? fringe)
+          false
+          (let [new (mapcat (fn [[x y]]
+                              (for [[dx dy] [[-1 0] [1 0] [0 -1] [0 1]]
+                                    :let [nx (+ x dx)
+                                          ny (+ y dy)
+                                          s (get-in maze [ny nx])]
+                                    :when (#{\space \C} s)]
+                                [nx ny]))
+                            fringe)
+                unseennew (remove seen new)]
+            (if (some #{cheese} unseennew)
+              true
+              (recur (into seen fringe) unseennew)))))))
+zzamboni's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn solve-maze [g]
+  (letfn [(coord [c] (->> g (map-indexed #(vector %1 (.indexOf %2 c))) (remove (comp neg? second)) first))
+          (it [t n] (min (dec (count t)) (inc n))) (dt [n] (max 0 (dec n)))
+          (up    [p] (update-in p [0] dt))
+          (left  [p] (update-in p [1] dt))
+          (down  [p] (update-in p [0] #(it g %)))
+          (right [p] (update-in p [1] #(it (first g) %)))
+          (allowed [seen p] (not (or (some #{p} seen) (= (get-in g p) \#))))]
+    (let [mouse (coord "M") cheese (coord "C") moves [up down left right]]
+      (loop [cur mouse seen [] next []]
+        (let [seen (conj seen cur)
+              next (concat next (filter (partial allowed seen) (map #(% cur) moves)))]
+          (cond (= cur cheese) true
+                (empty? next)  false
+                :else          (recur (last next) seen (butlast next))))))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn p117 [maze]
+  (let [m (count (first maze)) n (count maze)]
+    (letfn [(at [maze x y] (when (and (>= x 0) (>= y 0) (< x m) (< y n)) (nth (nth maze y) x)))
+            (free? [cell] (= cell \space))
+            (cheese? [cell] (= cell \C))
+            (mouse? [cell] (= cell \M))
+            (neighbors [pred maze x y] (count (filter pred
+                       (for [dx [-1 0 1] dy [-1 0 1]
+                             :when (and (or (zero? dx) (zero? dy))
+                                        (not (and (zero? dx) (zero? dy))))]
+                                     (at maze (+ x dx) (+ y dy))))))
+            (mice [maze] (remove empty? (for [y (range n) x (range m)] (when (mouse? (at maze x y)) [x y]))))
+            (found-cheese? [maze]
+                (->> (mice maze)
+                     (remove empty?)
+                     (map #(apply neighbors cheese? maze %))
+                     (some pos?)
+                     (true?)))
+            (step [maze] (for [y (range n)]
+                           (apply str
+                                  (for [x (range m)]
+                                    (case (at maze x y) \# \# \C \C \M \#
+                                      \space (cond (pos? (neighbors mouse? maze x y)) \M
+                                                   (pos? (neighbors free? maze x y)) \space
+                                                   :else \#))))))]
+      (loop [maze maze]
+        (cond (empty? (mice maze)) false
+              (found-cheese? maze) true
+              :else (recur (step maze)))))))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+(fn maze [m]
+  (let[w (count (first m))
+       h (count m)
+       all (for [x (range w) y (range h)] [x y])
+       dirs [[-1 0][0 -1][0 1][1 0]]
+       cell (fn [[x y]] (if (or (< x 0) (< y 0) (>= x w) (>= y h)) \# (nth (nth m y) x)))
+       filled (filter #(= \M (cell %)) all)
+       move (fn [[x y]] (some  
+                       #(if (= \space (cell %)) %)
+                       (for [[dx dy] dirs] [(+ x dx) (+ y dy)])))
+       nxt (some #(if (move %) (move %)) filled)
+       [cx cy] (first (filter #(= \C (cell %)) all))
+       reach (some #(= (cell %) \M) (for [[dx dy] dirs] [(+ cx dx) (+ cy dy)]))       
+       fill (fn [[x y]]
+              (map (fn [q] (apply str (map (fn [p]
+                  (if (and (= p x) (= q y)) \M (cell [p q])))
+                      (range w)) )) (range h)))]              
+ ;(println (map  #(str % "\n") m))
+ (cond
+  (= reach true) true
+  (not nxt) false
+  :else (maze (fill nxt)))))
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+(fn [avec]
+  (letfn [(get-coords
+           [v a]
+           (set
+            (for [i (range (count a))
+                  j (range (count (first a)))
+                  :when (= v (get-in a [i j]))]
+                    [i j])))
+          (get-route
+           [s m]
+           (let [s' (into s
+                          (apply concat
+                                 (for [[a b] s]
+                                   (filter (fn [[c d]]
+                                             (or (= [(dec a) b] [c d])
+                                                 (= [(inc a) b] [c d])
+                                                 (= [a (dec b)] [c d])
+                                                 (= [a (inc b)] [c d])))
+                                           m))))]
+             (if (= s s')
+               s
+               (recur s' m))))]
+    (contains?
+      (get-route (get-coords \M avec)
+                 (concat
+                  (get-coords \space avec)
+                  (get-coords \C avec)))
+      (first (get-coords \C avec)))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [maze]
+  (let [ipos (loop [i 0]
+               (if (some #{\M} (get maze i))
+                 (loop [j 0]
+                   (if (= \M (get (maze i) j)) [i j] (recur (inc j))))
+                 (recur (inc i))))]
+    (loop [[[x y] & r :as q] [ipos] passed #{ipos}]
+      (if (empty? q)
+        false
+        (let [npos [[(dec x) y] [(inc x) y] [x (dec y)] [x (inc y)]]
+              f (fn [x] (apply #(get (get maze %) %2) x))
+              m (group-by first (map vector (map f npos) npos))]
+          (if (m \C)
+            true
+            (recur (concat r (remove passed (map second (m \space))))
+                   (conj passed [x y]))))))))
+vpeurala's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+(fn [rect] 
+(letfn [
+ 
+(to-nodes [test-string] (flatten (map-indexed (fn [row-index row-value] (map #(assoc % :y (inc row-index)) (map-indexed (fn [column-index column-value] (assoc {} :x (inc column-index) :value (str column-value))) row-value))) test-string)))
+ 
+(columns [rect] (apply map vector rect))
+ 
+(column-count [rect] (apply max (map count rect)))
+ 
+(row-count [rect] (count rect))
+ 
+(row-indexes [rect] (range 1 (inc (row-count rect))))
+ 
+(column-indexes [rect] (range 1 (inc (column-count rect))))
+ 
+(positions-matching [rect pred] (filter #(pred %) (all-positions rect)))
+ 
+(combinations [groups] (if (empty? groups) [[]] (mapcat #(map % (combinations (rest groups))) (map #(partial cons %) (first groups)))))
+ 
+(all-positions [rect] (combinations (vector (column-indexes rect) (row-indexes rect))))
+ 
+(neighbors [position] (vector (vector (inc (first position)) (second position)) (vector (dec (first position)) (second position)) (vector (first position) (inc (second position))) (vector (first position) (dec (second position)))))
+ 
+(value-at [rect pos] (nth (nth rect (dec (second pos))) (dec (first pos))))
+ 
+(is-legal-position? [rect pos] (true? (some #(= pos %) (all-positions rect))))
+ 
+(legal-neighbors [rect pos] (filter #(is-legal-position? rect %) (neighbors pos)))
+ 
+(replace-value [coll n val-fn] (concat (take (dec n) coll) (vector (val-fn (nth coll (dec n)))) (drop n coll)))
+ 
+(replace-value-in-rectangle [rect pos val] (replace-value rect (second pos) #(replace-value % (first pos) (constantly val))))
+ 
+(mouse-positions [rect] (positions-matching rect #(= \M (value-at rect %))))
+ 
+(found-cheese? [rect] (true? (some #(= \C %) (map #(value-at rect %) (mapcat #(legal-neighbors rect %) (mouse-positions rect))))))
+ 
+(spaces-to-conquer [rect] (filter #(= (value-at rect %) \space) (mapcat #(legal-neighbors rect %) (mouse-positions rect))))
+ 
+(for-science [rect] (cond (found-cheese? rect) true (empty? (spaces-to-conquer rect)) false :else (for-science (reduce #(replace-value-in-rectangle %1 %2 \M) rect (spaces-to-conquer rect)))))
+]
+(for-science rect)))
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+(fn solvable? [maze]
+  (letfn [(get-maze-element [maze [x y]]
+            (get (get maze y ["nf"]) x "nf"))
+          (find-position [maze element]
+            (first (for [y (range (count maze))
+                         :let [x (first (keep-indexed (fn [i e] (when (= e element) i)) (get maze y)))]
+                         :when x]
+                     [x y])))
+          (vc [maze]
+            (vec (map vec maze)))
+          (start-pos [maze]
+            (find-position maze \M))
+          (coords [[x y]]
+            [[(dec x) y] [x (dec y)] [x (inc y)] [(inc x) y]])
+          (set-maze-element [vc-maze [x y] e]
+            (if (not= "nf" (get-maze-element maze [x y]))
+              (assoc-in vc-maze [y x] e)))
+          (nearest-elements [maze [x y]]
+            (map (partial get-maze-element maze) (coords [x y])))
+          (finish? [maze [x y]]
+            (some #(= \C %) (nearest-elements maze [x y])))
+          (possible-turns [maze [x y]]
+            (filter not-empty (map #(if (= \space (get-maze-element maze %)) %) (coords [x y]))))
+          (lock? [maze [x y]]
+            (empty? (possible-turns maze [x y])))
+          (shrink [maze]
+            (map first (partition-by identity maze)))
+          (poss? [maze [x y]]
+            (let [ps (fn [mem-ps maze [x y]]
+                       (let [ps (fn [maze [x y]] (mem-ps mem-ps maze [x y]))]
+                         (cond (finish? maze [x y]) true
+                               (lock? maze [x y]) false
+                               true (let [maze (set-maze-element maze [x y] \#)
+                                          pt (possible-turns maze [x y])]
+                                      (or (some true? (map #(apply poss? %)
+                                                           (map (fn [p]
+                                                                  [(set-maze-element maze p \M) p]) pt)))
+                                          false)))))
+                  mem-ps (memoize ps)]
+              (mem-ps mem-ps maze [x y])))]
+    (poss? (vc (shrink maze)) (start-pos maze))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(fn for-science [maze]
+  (letfn [(path-index [maze]
+            (set (for [x (range (count maze))
+                       y (range (count (nth maze x)))
+                       :when (not (= \# (nth (nth maze x) y)))]
+                   [x y])))
+          (find-negihbour [index-pair xset]
+            (let [x (first index-pair)
+                  y (second index-pair)
+                  neighbours [[(dec x) y]
+                              [(inc x) y]
+                              [x (dec y)]
+                              [x (inc y)]]]
+              (filter xset neighbours)))
+          (count-path [nodes xrst]
+            (if (empty? xrst)
+              true
+              (let [new-nodes (distinct
+                               (apply clojure.set/union
+                                      (map #(find-negihbour % xrst) nodes)))
+                    new-xset (clojure.set/difference xrst nodes)]
+                (if (and (empty? new-nodes)
+                         (not (empty? new-xset)))
+                  false
+                  (count-path new-nodes new-xset)))))]
+    (let [all-path (path-index maze)
+          nodes [(first all-path)]
+          xset (set (rest all-path))]
+      (count-path nodes xset))))
+trxeste's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn cat-n-mouse [grid]
+  (let [neighbors (fn [[x y]] [[(inc x) y] [(dec x) y] [x (inc y)] [x (dec y)]])
+        parts (for [y (range (count grid))
+                    x (range (count (nth grid y)))
+                    :let [e (get-in grid [y x])]]
+                {({\C :cat \M :mouse \# :wall \space :space} e) [x y]})
+        game (apply merge-with conj {:wall [] :space []} parts)
+        spaces (conj (set (:space game)) (:mouse game))]
+    (loop [open [(:cat game)] visited #{}]
+      (cond
+        (empty? open) false
+        (= (first open) (:mouse game)) true
+        :else (let [visited (conj visited (first open))
+                    neigh (filter spaces (neighbors (first open)))
+                    neigh (remove visited neigh)
+                    open (concat (rest open) (remove visited neigh))]
+                (recur open visited))))))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+(fn [mz]
+  (letfn [(maze-ends [mz]
+            (apply merge
+                   (apply concat
+                          (keep-indexed
+                           (fn [i row]
+                             (keep-indexed
+                              (fn [j elt] (cond
+                                          (= \M elt) {:start [i j]}
+                                          (= \C elt) {:end   [i j]}))
+                              row))
+                           mz))))
+          (maze-rooms [mz]
+            {:rooms
+             (apply concat
+                    (keep-indexed
+                     (fn [i row]
+                       (keep-indexed
+                        (fn [j elt] (cond
+                                    (= \M elt) [i j]
+                                    (= \C elt) [i j]
+                                    (= \space elt) [i j]))
+                        row))
+                     mz))})
+          (maze-build [mz]
+            (merge (maze-ends mz) (maze-rooms mz)))
+          (valid-moves [pos mz]
+            (let [i (first pos)
+                  j (second pos)
+                  moves #{[(dec i) j] [(inc i) j]
+                          [i (dec j)] [i (inc j)]}]
+              (clojure.set/intersection moves (set (:rooms mz)))))
+          (maze-rem [mz coll]
+            (assoc mz
+              :rooms
+              (clojure.set/difference
+               (set (:rooms mz))
+               (set coll))))
+          (amaze [mz]
+            (if (or (not mz) (empty? mz)) false
+                (let [pos (:start mz)
+                      moves (valid-moves pos mz)
+                      mz (maze-rem mz moves)]
+                  (cond
+                   (empty? moves) false
+                   (moves (:end mz)) true
+                   :else (reduce #(or % %2)
+                                 (for [m moves]
+                                   (amaze (assoc mz :start m))))))))]
+    (amaze (maze-build mz))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

@@ -1,0 +1,22 @@
+;; 47 contain that thang
+
+user=> (contains? #{4 5 6} 4)
+true
+user=> (contains? [1 1 1 1 1] 4)
+true
+
+user=> (source contains?)
+(defn contains?
+  "Returns true if key is in coll,
+  false if not.
+  For numerically indexed collections
+  like vectors and Java arrays,
+  this tests if the numeric key is
+  within the range of indexes.
+  'contains?' operates constant
+  or logarithmic time;
+  it won't do a linear search for a value.
+  See also 'some'."
+  [coll key]
+  (. clojure.lang.RT
+    (contains coll key)))

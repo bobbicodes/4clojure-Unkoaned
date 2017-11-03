@@ -1,0 +1,20 @@
+;; 62 Re-implement Iterate
+
+Takes func and an initial value,
+returns infinite lazy sequence of
+x, (f x), (f (f x)), (f (f (f x))), etc. as in iterate
+	
+(take 5
+  ((fn spaz-out [f init]
+     (cons init (lazy-seq (spaz-out f (f init))))) #(* 2 %) 1))
+;;=>  (1 2 4 8 16)
+
+(defn spaz-out [f init]
+       (cons init
+         (lazy-seq
+           (spaz-out f (f init)))))
+user>  (take 5  (spaz-out #(* 2 %) 1))
+(1 2 4 8 16)
+
+(take 5 ((fn iterate- [f init] (cons init (lazy-seq (iterate- f (f init))))) inc 0)) ;;=> (0 1 2 3 4)
+(take 5 ((fn iterate- [f init] (cons init (lazy-seq (iterate- f (f init))))) #(inc (mod % 3)) 1)) ;;=> (1 2 3 1 2)

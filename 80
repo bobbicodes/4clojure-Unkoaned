@@ -1,0 +1,1727 @@
+;; 80 Perfect Numbers
+
+A perfect number equals the sum of its divisors.
+6 is a perfect number because 1+2+3=6.
+Returns true for perfect numbers and false otherwise.
+
+(= (__ 6) true)
+(= (__ 7) false)
+(= (__ 496) true)
+(= (__ 500) false)
+(= (__ 8128) true)
+
+(fn [n] (= n (apply + (filter #(zero? (rem n %)) (range 1 (max 2 (inc (quot 
+n 2))))))))
+
+(fn [n]
+   (->> (range 1 n)
+        (filter #(zero? (mod n %)))
+        (apply +)
+        (= n)))
+
+#(= (apply + (filter (comp zero? (partial rem %)) (range 1 %))) %)
+
+(fn perfect? [x]
+  (= x (apply + ;sum is x
+         (filter #(= 0 (rem x %));find divisor
+                 (range 1 x)))));from 1 inclusive to x exclusive
+
+(fn [x]
+  (let
+    [divisors (filter #(zero? (mod x %)) (range 1 x))]
+    (= x (reduce + divisors))))
+aceeca1's solution:
+
+1
+(fn [x] (= x (apply + (filter #(= 0 (mod x %)) (range 1 x)))))
+adereth's solution:
+
+
+3
+(fn [x]
+  (let [factors (filter #(zero? (mod x %)) (range 1 x))]
+    (= x (apply + factors))))
+aferrandi's solution:
+
+1
+(fn perfect? [n] (= n (reduce + ((fn divisorsX [n] (filter #(zero? (mod n %)) (range 1 (+ (/ n 2) 1)))) n))))
+aguirre's solution:
+
+
+
+5
+(fn [num]
+  (let [divisors (filter 
+                   #(= 0 (mod num %))
+                   (range 1  num))]
+  (= num (reduce + divisors))))
+alanforr's solution:
+
+1
+(fn [a] (= a (reduce + (filter #(zero? (mod a %)) (range 1 a)))))
+allenl's solution:
+
+
+
+(fn is-perfect? [x]
+  (let [divisors #(for [i (range 1 (inc (/ % 2))) :when (zero? (mod % i))]
+                   i)]
+    (= (apply + (divisors x)) x)))
+andthorn's solution:
+
+
+
+5
+6
+7
+8
+9
+10
+11
+12
+#(=
+  % 
+  (reduce
+   +
+   (loop [res '(1) n 2 m (/ % 2)]
+     (if (< n m)
+       (if (ratio? m)
+         (recur res (inc n) (/ % (inc n)))
+         (recur (conj res n m) (inc n) (/ % (inc n))))
+       (if (= n m)
+         (conj res n)
+         res)))))
+anjensan's solution:
+
+
+(fn [x]
+  (= x (reduce + (filter #(= 0 (mod x %)) (range 1 x)))))
+astangl's solution:
+
+
+
+5
+(fn
+  [n]
+  (let [divides? (fn [n d] (= 0 (mod n d)))
+        divisors (filter (partial divides? n) (range 1 (inc (quot n 2))))]
+    (= n (apply + divisors))))
+austintaylor's solution:
+
+
+
+(fn [x]
+  (= x (reduce + 0
+    (filter #(zero? (mod x %))
+      (range 1 x)))))
+awebb's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (rem n %)) (range 1 n)))))
+bendykst's solution:
+
+
+
+5
+6
+7
+(fn perfect? [n]
+  (->> n
+       (range 1)
+       (filter
+         #(zero? (mod n %)))
+       (apply +)
+       (= n)))
+benhammond's solution:
+
+1
+(fn [x] (= x (apply + (filter #(= 0 (mod x %)) (range 1 x)))))
+benizi's solution:
+
+
+(fn [n]
+  (= n (inc (reduce + (filter #(zero? (mod n %)) (range 2 n))))))
+bobuhiro11's solution:
+
+
+
+5
+6
+7
+8
+(fn  [n]
+  (let [divisors 
+(fn [n]
+  (filter #(not (nil? %)) (for [i (range 1 n)]
+    (if (= (mod n i) 0)
+      i
+      nil))))]
+  (= n (reduce + (divisors n)))))
+burner's solution:
+
+
+3
+(letfn [(divisors [n]
+                (filter #(zero? (mod n %)) (range 1 n)))]
+        (fn [n] (= n (reduce + (divisors n)))))
+caterpillar's solution:
+
+
+
+5
+#(= (reduce + (loop[n % c 2 d [1]]
+   (cond
+    (= c n) d
+    (= 0 (rem n c)) (recur n (inc c) (conj d c))
+    :else (recur n (inc c) d)))) %)
+cc787's solution:
+
+
+
+(fn [num]
+  (= (apply + (filter #(zero? (mod num %)) (range 1 (inc (int (/ num 2))))))
+     num)
+  )
+chunchangshao's solution:
+
+1
+#(case % 6 true 496 true 8128 true false)
+ctzsm's solution:
+
+1
+(fn [x] (= x (apply + (filter #(= 0 (mod x %)) (range 1 x)))))
+dan7es's solution:
+
+
+
+(fn perfect? [n]
+  (->> (range 1 (inc (/ n 2)))
+       (filter (comp zero? (partial mod n)))
+       (apply +) (= n)))
+daniels's solution:
+
+
+
+5
+6
+7
+8
+9
+10
+11
+(fn [x] 
+  (= 
+   x 
+   (apply + 
+    (filter 
+     #(== (int (/ x %)) (/ x %)) 
+     (map inc (range (dec x)))
+    )
+   )
+  )
+)
+daowen's solution:
+
+
+(fn perfect? [n]
+  (->> (range 1 n) (filter #(zero? (mod n %))) (reduce +) (= n)))
+del680202's solution:
+
+
+
+5
+(fn [num]
+   (let [max_n (inc (/ num 2)) ] 
+     (= num (apply + (for [n (range 1 max_n) :when (zero? (rem num n)) ] n)))
+   )
+)
+deping's solution:
+
+1
+(fn [x] (= x (reduce + (map #(/ x %) (filter #(= % (int %)) (map #(/ x %) (range 1 x)))))))
+devm33's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (mod n %)) (range 1 n)))))
+dwelte's solution:
+
+
+(fn per [x]
+  (= x (reduce + (filter #(= (mod x %) 0) (range 1 (- x 1))))))
+dzholev's solution:
+
+1
+(fn [n] (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+echevarria's solution:
+
+
+(fn [n]
+    (= n (apply + (filter #(= (mod n %1) 0) (range 1 n)))))
+ericw's solution:
+
+1
+(fn is-perfect? [n] (= n (apply + (filter #(= 0 (mod n %)) (range 1 (inc (/ n 2)))))))
+featalion's solution:
+
+
+(fn [n]
+  (== n (reduce + (filter #(= (rem n %) 0) (range 1 (inc (/ n 2)))))))
+finsternis's solution:
+
+
+(fn [n]
+  (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+flububb's solution:
+
+
+
+(fn perfect? [x]
+  (= x (reduce + (filter 
+                   #(= 0 (mod x %))
+                   (range 1 (inc (/ x 2)))))))
+garyxia's solution:
+
+
+3
+(fn is-perf-num [n]
+  (= n
+     (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+geekerzp's solution:
+
+
+(fn [n]
+    (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+glchapman's solution:
+
+
+
+5
+6
+(letfn [(sum-of-divisors [n]
+  (apply + 
+    (for [i (range 1 (inc (quot n 2))) 
+          :when (zero? (rem n i))] i)))]
+ #(= % (sum-of-divisors %))
+)
+goaranger's solution:
+
+
+(fn [n]
+  (= (apply + (for [i (range 1 n)] (if (= 0 (mod n i)) i 0))) n))
+gpittarelli's solution:
+
+
+
+5
+6
+7
+(fn [x]
+   (= x
+      (->> (range 2 (Math/ceil (Math/sqrt x)))
+           (filter #(= 0 (mod x %1)))
+           (mapcat #(list %1 (/ x %1)))
+           (reduce +)
+           (+ 1))))
+happycrisis's solution:
+
+1
+#(= % (apply + (for [i (range 1 %) :when (= 0 (mod % i))] i)))
+hisba's solution:
+
+
+(fn [n]
+  (= n (reduce + (take-while #(> n %) (filter #(= 0 (mod n %)) (rest (range)))))))
+icamts's solution:
+
+1
+contains? (set (map (comp #(* % (/ (dec %) 2)) #(bit-shift-left 2r1 %)) '(2 3 5 7 13 17 19 31 61 89 107)))
+immo's solution:
+
+1
+Scored 51, before 4clojure started saving solutions.
+jarlax's solution:
+
+
+
+5
+(fn [n]
+  (= n
+     (apply +
+            (filter #(zero? (mod n %))
+                    (range 1 n)))))
+jedo's solution:
+
+
+3
+(fn perfect [x]
+  (= x (apply + (filter #(= 0 (rem x %)) (map #(+ 1 %) (range (/ x 2))))))
+)
+jeff_terrell's solution:
+
+
+(fn [n]
+  (= n (reduce + (filter #(= 0 (rem n %)) (range 1 n)))))
+johncowie's solution:
+
+1
+(fn [n] (= n (reduce + (for [x (range 1 n)] (if (= (mod n x) 0) x 0)))))
+jomicoll's solution:
+
+
+
+5
+(fn [n]
+  (letfn [(divisors 
+           [n]
+           (filter #(zero? (mod n %)) (range 1  n)))]
+    (= (reduce + (divisors n)) n)))
+jorendorff's solution:
+
+1
+(fn [n] (= n (reduce + (filter #(= 0 (mod n %)) (range 1 n)))))
+jslavin's solution:
+
+
+
+5
+6
+(fn pnum? [n] 
+      (let [range (take-while #(< % n) (iterate inc 1))
+            divs  (reduce (fn [acc v] (if (= 0 (mod n v)) (conj acc v) acc)) '() range)]
+           (= n (apply + divs))
+           )
+      )
+kohyama's solution:
+
+1
+(fn [n] (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+kopychenko's solution:
+
+
+
+5
+6
+(fn perfect-numbers [x]
+  ((comp 
+    (partial = x)
+    (partial apply +)
+    (partial filter #(= 0 (mod x %)))
+    ) (range 1 x)))
+blucas's solution:
+
+
+
+5
+6
+(fn prob80
+  [num]
+  (letfn [(divisors [n]
+            (filter #(zero? (mod n %)) (range 1 (+ 1 (/ n 2))))
+            )]
+    (= (reduce + (divisors num)) num)))
+brendan's solution:
+
+
+
+5
+(fn [x]
+  (->> (range 1 x)
+    (filter #(zero? (mod x %)))
+    (apply +)
+    (= x)))
+kuze's solution:
+
+
+3
+(fn myPerfectNumbers
+  [num]
+  (= num (reduce + (filter #(zero? (mod num %)) (range 1 num)))))
+lackita's solution:
+
+
+3
+#(= (apply + (filter (fn [x] (= (mod % x) 0))
+                     (range 1 %))) 
+    %)
+lambda4fun's solution:
+
+
+
+5
+(fn [x]
+  (->> (range 1 x)
+       (filter #(zero? (mod x %)))
+       (apply +)
+       (= x)))
+lasthemy's solution:
+
+1
+#(= (apply + (for [x (range 1 %) :when (zero? (mod % x))] x)) %)
+lbarrett's solution:
+
+
+
+(fn [x]
+  (= x
+     (apply + (filter #(= 0 (rem x %))
+                      (range 1 (inc (quot x 2)))))))
+leetwinski's solution:
+
+
+
+#(->> (range 1 (inc (/ % 2)))
+      (filter (partial (comp zero? rem) %))
+      (apply +)
+      (= %))
+littlejp2046's solution:
+
+
+#(= % 
+  (reduce + (filter (fn [n] (zero? (mod % n))) (range 1 %))))
+malvert's solution:
+
+1
+#(contains? #{6 496 8128} %)
+matiasl's solution:
+
+
+
+5
+(fn [x] 
+  (= x
+    (apply + 
+           (filter #(zero? (mod x %)) 
+                   (range 1 x)))))
+maximental's solution:
+
+1
+#(= % (reduce (fn [s k] ({0 (+ s k)} (rem % k) s)) (range %)))
+mbakhterev's solution:
+
+1
+(fn [n] (= n (reduce + (filter (fn [d] (= 0 (mod n d))) (range 1 n)))))
+meerwolf's solution:
+
+
+
+5
+6
+(fn perfect?--reduce
+  [n] {:pre [(integer? n)]}
+  (let [divisor? (fn [d] (= 0 (mod n d)))]
+    (= n (reduce (fn [acc x] (+ acc (if (divisor? x) x 0)))
+                 0
+                 (range 1 n)))))
+mfikes's solution:
+
+
+3
+(fn [n]
+  (let [divisors (filter #(zero? (rem n %)) (range 1 n))]
+    (= n (apply + divisors))))
+minitrue's solution:
+
+
+(fn [a]
+  (= a (apply + (filter #(= (mod a %) 0) (range 1 (/ (inc a) 2))))))
+mkahn's solution:
+
+
+
+5
+6
+(fn isperfect? [n]
+  (let [sumifdivis (fn [a b]
+                     (if (== (mod n b) 0)
+                       (+ a b)
+                       a))]
+  (= n (reduce sumifdivis (range 1 n)))))
+mobiusloop's solution:
+
+
+
+5
+(fn [x] 
+  (letfn [(d [n] (filter #(= 0 (mod (/ n %) 1)) (range 1 (inc (/ n 2)))))]
+    (= x (apply + (d x)))
+    )
+  )
+mononite's solution:
+
+
+3
+(fn [n]
+  (let [divisors (filter #(= (mod n %) 0) (range 1 n))]
+    (= n (reduce + divisors))))
+mouse's solution:
+
+1
+(fn [n] (= n (reduce + (filter #(= 0 (rem n %)) (range 1 n)))))
+mwaldowski's solution:
+
+
+
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn perfect-num? [n]
+  (letfn [(next-divisor [t n]
+            (when (<= t (quot n 2))
+              (if (zero? (mod n t))
+                t
+                (recur (inc t) n))))
+          (divisor-seq
+            ([n]
+             (divisor-seq 1 n))
+            ([prev n]
+             (cons prev
+                   (lazy-seq (if-let [next (next-divisor (inc prev) n)]
+                               (divisor-seq next n))))))]
+    (= n (reduce + (divisor-seq n)))))
+nagi's solution:
+
+
+
+5
+(fn perfect? [n]
+  (->> (range 1 n)
+       (filter #(= 0 (mod n %)))
+       (reduce +)
+       (= n)))
+nikelandjelo's solution:
+
+
+
+5
+(fn perfect? [n]
+        (= (->> (range 1 n)
+                (filter #(zero? (rem n %)))
+                (apply +))
+           n))
+noiseehc's solution:
+
+1
+(fn [x] (= (reduce + (filter #(= (mod x %) 0) (range 1 x))) x))
+norman's solution:
+
+
+3
+(fn perfect [n]
+  (let [factors (filter #(= 0 (mod n %)) (range 1 n))]
+    (= n (apply + factors))))
+nothsaevets's solution:
+
+
+(fn perfect [n]
+   (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+owk4057's solution:
+
+
+
+(fn myf2 [n]
+  (->> (filter #(zero? (rem n %)) (range 1 n))
+      (apply +)
+      (= n)))
+ownwaterloo's solution:
+
+
+
+5
+(fn [x]
+  (->> (range 2 (inc (quot x 2)))
+    (filter #(= 0 (rem x %)))
+    (reduce + 1)
+    (= x)))
+ozan's solution:
+
+1
+#(= % (reduce + (remove nil? (for [i (range 1 %)] (if (= 0 (mod % i)) i)))))
+pukeface's solution:
+
+
+
+5
+(fn [n]
+    (->> (range 1 n)
+         (filter #(= 0 (mod n %)))
+         (apply +)
+         (= n)))
+quant1's solution:
+
+
+(fn [x] 
+  (->> (for [n (range 2 (Math/sqrt x)) :when (zero? (mod x n))] [n (/ x n)]) (apply concat) set (apply +) (= (dec x))))
+rodmax's solution:
+
+
+
+5
+6
+7
+#(->> %
+      Long/toBinaryString
+      (partition-by identity)
+      (map count)
+      ((juxt count (partial apply -)))
+      (= [2 1])
+      )
+sbondaryev's solution:
+
+
+
+5
+(fn f [n]
+  (->> (range 1 n)
+       (filter #(zero? (mod n %)))
+       (apply +)
+       (= n)))
+shiro's solution:
+
+
+
+5
+(fn [n] 
+  (= n (apply 
+        + 
+        (filter #(= 0 (mod n %)) 
+                (rest (take n (range)))))))
+sheldon's solution:
+
+1
+(fn [x] (= x (apply + (filter #(#{0} (mod x %)) (range 1 x)))))
+silverio's solution:
+
+
+
+5
+6
+(fn [n] (->> 
+          (range 1 (/ (inc n) 2)) 
+          (keep #(if (zero? (mod n %)) %)) 
+          (reduce +)
+          (= n)
+          ))
+skyrem's solution:
+
+
+
+5
+6
+(fn [n]
+  (let [rs (filter integer?
+                   (for [x (range 2 (inc n))]
+                     (/ n x)))]
+    (if (= n (apply + rs)) true
+      false)))
+soul_awaker's solution:
+
+
+
+5
+6
+7
+8
+9
+#(= (apply + (%1 %2)) %2)
+(fn f
+  ([x] (f [1] 2 x))
+  ([init n x]
+    (if (= x n)
+        init
+        (if (zero? (rem x n))
+            (recur `[~@init ~n] (inc n) x)
+            (recur init (inc n) x)))))
+staafl2's solution:
+
+
+
+5
+#(->>
+  (range 1 %)
+  (filter (comp zero? (partial mod %)))
+  (reduce +)
+  (= %))
+syeerzy's solution:
+
+
+
+#(= % 
+    (apply + (for [i (range 1 (inc (/ % 2))) 
+                   :when (= 0 (mod % i))] 
+               i)))
+tclamb's solution:
+
+
+(letfn [(divisors [n] (filter #(zero? (mod n %)) (range 1 n)))]
+  (fn perfect? [n] (= n (apply + (divisors n)))))
+thegeez's solution:
+
+
+
+5
+6
+7
+8
+9
+(fn [n]
+    (->> (iterate (fn [[div left]]
+                    (when-let [next-div (some #(when (zero? (mod n %)) %)
+                                              (range div (inc (/ n 2))))]
+                      [(inc next-div) (- left next-div)])) [1 n])
+         (take-while identity)
+         last
+         second
+         zero?))
+zzamboni's solution:
+
+
+(fn perfect? [n]
+  (= n (apply + (filter #(zero? (rem n %)) (range 1 n)))))
+zoltanjarai's solution:
+
+
+
+5
+6
+7
+(fn [n]
+  (= n (reduce +
+          (map #(if
+                  (= (rem n %) 0)
+                  %
+                  0)
+               (range 1 n)))))
+zipzop's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (mod n %)) (range 1 n)))))
+yusubori's solution:
+
+1
+(fn [n] (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+ydash's solution:
+
+
+(fn [n]
+  (= n (apply + (filter #(= 0 (rem n %)) (range 1 n)))))
+vpeurala's solution:
+
+
+
+5
+(fn perfect? [n]
+  (letfn [
+          (divisors [n] (filter #(= 0 (rem n %)) (range 1 (+ 1 (/ n 2)))))
+         ]
+    (= n (reduce + (divisors n)))))
+v_bogdanov's solution:
+
+1
+#(= % (apply + (for [x (rest (range %)) :when (= (rem % x) 0)] x)))
+unionx's solution:
+4clojure.com
+Main PageProblem ListTop UsersHelpREPLDocs
+Logged in as btowers793Logout
+Account SettingsLeaguesSubmit a Problem
+Solutions:
+
+
+
+(fn [n] (= n (apply + (filter #(zero? (rem n %)) (range 1 (max 2 (inc (quot 
+n 2))))))))
+1067's solution:
+
+
+
+5
+(fn [n]
+   (->> (range 1 n)
+        (filter #(zero? (mod n %)))
+        (apply +)
+        (= n)))
+_artem_uv's solution:
+
+1
+#(= (apply + (filter (comp zero? (partial rem %)) (range 1 %))) %)
+_caterpillar's solution:
+
+
+
+(fn perfect? [x]
+  (= x (apply + ;sum is x
+         (filter #(= 0 (rem x %));find divisor
+                 (range 1 x)))));from 1 inclusive to x exclusive
+_pcl's solution:
+
+
+
+(fn [x]
+  (let
+    [divisors (filter #(zero? (mod x %)) (range 1 x))]
+    (= x (reduce + divisors))))
+aceeca1's solution:
+
+1
+(fn [x] (= x (apply + (filter #(= 0 (mod x %)) (range 1 x)))))
+adereth's solution:
+
+
+3
+(fn [x]
+  (let [factors (filter #(zero? (mod x %)) (range 1 x))]
+    (= x (apply + factors))))
+aferrandi's solution:
+
+1
+(fn perfect? [n] (= n (reduce + ((fn divisorsX [n] (filter #(zero? (mod n %)) (range 1 (+ (/ n 2) 1)))) n))))
+aguirre's solution:
+
+
+
+5
+(fn [num]
+  (let [divisors (filter 
+                   #(= 0 (mod num %))
+                   (range 1  num))]
+  (= num (reduce + divisors))))
+alanforr's solution:
+
+1
+(fn [a] (= a (reduce + (filter #(zero? (mod a %)) (range 1 a)))))
+allenl's solution:
+
+
+
+(fn is-perfect? [x]
+  (let [divisors #(for [i (range 1 (inc (/ % 2))) :when (zero? (mod % i))]
+                   i)]
+    (= (apply + (divisors x)) x)))
+andthorn's solution:
+
+
+
+5
+6
+7
+8
+9
+10
+11
+12
+#(=
+  % 
+  (reduce
+   +
+   (loop [res '(1) n 2 m (/ % 2)]
+     (if (< n m)
+       (if (ratio? m)
+         (recur res (inc n) (/ % (inc n)))
+         (recur (conj res n m) (inc n) (/ % (inc n))))
+       (if (= n m)
+         (conj res n)
+         res)))))
+anjensan's solution:
+
+
+(fn [x]
+  (= x (reduce + (filter #(= 0 (mod x %)) (range 1 x)))))
+astangl's solution:
+
+
+
+5
+(fn
+  [n]
+  (let [divides? (fn [n d] (= 0 (mod n d)))
+        divisors (filter (partial divides? n) (range 1 (inc (quot n 2))))]
+    (= n (apply + divisors))))
+austintaylor's solution:
+
+
+
+(fn [x]
+  (= x (reduce + 0
+    (filter #(zero? (mod x %))
+      (range 1 x)))))
+awebb's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (rem n %)) (range 1 n)))))
+bendykst's solution:
+
+
+
+5
+6
+7
+(fn perfect? [n]
+  (->> n
+       (range 1)
+       (filter
+         #(zero? (mod n %)))
+       (apply +)
+       (= n)))
+benhammond's solution:
+
+1
+(fn [x] (= x (apply + (filter #(= 0 (mod x %)) (range 1 x)))))
+benizi's solution:
+
+
+(fn [n]
+  (= n (inc (reduce + (filter #(zero? (mod n %)) (range 2 n))))))
+bobuhiro11's solution:
+
+
+
+5
+6
+7
+8
+(fn  [n]
+  (let [divisors 
+(fn [n]
+  (filter #(not (nil? %)) (for [i (range 1 n)]
+    (if (= (mod n i) 0)
+      i
+      nil))))]
+  (= n (reduce + (divisors n)))))
+burner's solution:
+
+
+3
+(letfn [(divisors [n]
+                (filter #(zero? (mod n %)) (range 1 n)))]
+        (fn [n] (= n (reduce + (divisors n)))))
+caterpillar's solution:
+
+
+
+5
+#(= (reduce + (loop[n % c 2 d [1]]
+   (cond
+    (= c n) d
+    (= 0 (rem n c)) (recur n (inc c) (conj d c))
+    :else (recur n (inc c) d)))) %)
+cc787's solution:
+
+
+
+(fn [num]
+  (= (apply + (filter #(zero? (mod num %)) (range 1 (inc (int (/ num 2))))))
+     num)
+  )
+chunchangshao's solution:
+
+1
+#(case % 6 true 496 true 8128 true false)
+ctzsm's solution:
+
+1
+(fn [x] (= x (apply + (filter #(= 0 (mod x %)) (range 1 x)))))
+dan7es's solution:
+
+
+
+(fn perfect? [n]
+  (->> (range 1 (inc (/ n 2)))
+       (filter (comp zero? (partial mod n)))
+       (apply +) (= n)))
+daniels's solution:
+
+
+
+5
+6
+7
+8
+9
+10
+11
+(fn [x] 
+  (= 
+   x 
+   (apply + 
+    (filter 
+     #(== (int (/ x %)) (/ x %)) 
+     (map inc (range (dec x)))
+    )
+   )
+  )
+)
+daowen's solution:
+
+
+(fn perfect? [n]
+  (->> (range 1 n) (filter #(zero? (mod n %))) (reduce +) (= n)))
+del680202's solution:
+
+
+
+5
+(fn [num]
+   (let [max_n (inc (/ num 2)) ] 
+     (= num (apply + (for [n (range 1 max_n) :when (zero? (rem num n)) ] n)))
+   )
+)
+deping's solution:
+
+1
+(fn [x] (= x (reduce + (map #(/ x %) (filter #(= % (int %)) (map #(/ x %) (range 1 x)))))))
+devm33's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (mod n %)) (range 1 n)))))
+dwelte's solution:
+
+
+(fn per [x]
+  (= x (reduce + (filter #(= (mod x %) 0) (range 1 (- x 1))))))
+dzholev's solution:
+
+1
+(fn [n] (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+echevarria's solution:
+
+
+(fn [n]
+    (= n (apply + (filter #(= (mod n %1) 0) (range 1 n)))))
+ericw's solution:
+
+1
+(fn is-perfect? [n] (= n (apply + (filter #(= 0 (mod n %)) (range 1 (inc (/ n 2)))))))
+featalion's solution:
+
+
+(fn [n]
+  (== n (reduce + (filter #(= (rem n %) 0) (range 1 (inc (/ n 2)))))))
+finsternis's solution:
+
+
+(fn [n]
+  (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+flububb's solution:
+
+
+
+(fn perfect? [x]
+  (= x (reduce + (filter 
+                   #(= 0 (mod x %))
+                   (range 1 (inc (/ x 2)))))))
+garyxia's solution:
+
+
+3
+(fn is-perf-num [n]
+  (= n
+     (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+geekerzp's solution:
+
+
+(fn [n]
+    (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+glchapman's solution:
+
+
+
+5
+6
+(letfn [(sum-of-divisors [n]
+  (apply + 
+    (for [i (range 1 (inc (quot n 2))) 
+          :when (zero? (rem n i))] i)))]
+ #(= % (sum-of-divisors %))
+)
+goaranger's solution:
+
+
+(fn [n]
+  (= (apply + (for [i (range 1 n)] (if (= 0 (mod n i)) i 0))) n))
+gpittarelli's solution:
+
+
+
+5
+6
+7
+(fn [x]
+   (= x
+      (->> (range 2 (Math/ceil (Math/sqrt x)))
+           (filter #(= 0 (mod x %1)))
+           (mapcat #(list %1 (/ x %1)))
+           (reduce +)
+           (+ 1))))
+happycrisis's solution:
+
+1
+#(= % (apply + (for [i (range 1 %) :when (= 0 (mod % i))] i)))
+hisba's solution:
+
+
+(fn [n]
+  (= n (reduce + (take-while #(> n %) (filter #(= 0 (mod n %)) (rest (range)))))))
+icamts's solution:
+
+1
+contains? (set (map (comp #(* % (/ (dec %) 2)) #(bit-shift-left 2r1 %)) '(2 3 5 7 13 17 19 31 61 89 107)))
+immo's solution:
+
+1
+Scored 51, before 4clojure started saving solutions.
+jarlax's solution:
+
+
+
+5
+(fn [n]
+  (= n
+     (apply +
+            (filter #(zero? (mod n %))
+                    (range 1 n)))))
+jedo's solution:
+
+
+3
+(fn perfect [x]
+  (= x (apply + (filter #(= 0 (rem x %)) (map #(+ 1 %) (range (/ x 2))))))
+)
+jeff_terrell's solution:
+
+
+(fn [n]
+  (= n (reduce + (filter #(= 0 (rem n %)) (range 1 n)))))
+johncowie's solution:
+
+1
+(fn [n] (= n (reduce + (for [x (range 1 n)] (if (= (mod n x) 0) x 0)))))
+jomicoll's solution:
+
+
+
+5
+(fn [n]
+  (letfn [(divisors 
+           [n]
+           (filter #(zero? (mod n %)) (range 1  n)))]
+    (= (reduce + (divisors n)) n)))
+jorendorff's solution:
+
+1
+(fn [n] (= n (reduce + (filter #(= 0 (mod n %)) (range 1 n)))))
+jslavin's solution:
+
+
+
+5
+6
+(fn pnum? [n] 
+      (let [range (take-while #(< % n) (iterate inc 1))
+            divs  (reduce (fn [acc v] (if (= 0 (mod n v)) (conj acc v) acc)) '() range)]
+           (= n (apply + divs))
+           )
+      )
+kohyama's solution:
+
+1
+(fn [n] (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+kopychenko's solution:
+
+
+
+5
+6
+(fn perfect-numbers [x]
+  ((comp 
+    (partial = x)
+    (partial apply +)
+    (partial filter #(= 0 (mod x %)))
+    ) (range 1 x)))
+blucas's solution:
+
+
+
+5
+6
+(fn prob80
+  [num]
+  (letfn [(divisors [n]
+            (filter #(zero? (mod n %)) (range 1 (+ 1 (/ n 2))))
+            )]
+    (= (reduce + (divisors num)) num)))
+brendan's solution:
+
+
+
+5
+(fn [x]
+  (->> (range 1 x)
+    (filter #(zero? (mod x %)))
+    (apply +)
+    (= x)))
+kuze's solution:
+
+
+3
+(fn myPerfectNumbers
+  [num]
+  (= num (reduce + (filter #(zero? (mod num %)) (range 1 num)))))
+lackita's solution:
+
+
+3
+#(= (apply + (filter (fn [x] (= (mod % x) 0))
+                     (range 1 %))) 
+    %)
+lambda4fun's solution:
+
+
+
+5
+(fn [x]
+  (->> (range 1 x)
+       (filter #(zero? (mod x %)))
+       (apply +)
+       (= x)))
+lasthemy's solution:
+
+1
+#(= (apply + (for [x (range 1 %) :when (zero? (mod % x))] x)) %)
+lbarrett's solution:
+
+
+
+(fn [x]
+  (= x
+     (apply + (filter #(= 0 (rem x %))
+                      (range 1 (inc (quot x 2)))))))
+leetwinski's solution:
+
+
+
+#(->> (range 1 (inc (/ % 2)))
+      (filter (partial (comp zero? rem) %))
+      (apply +)
+      (= %))
+littlejp2046's solution:
+
+
+#(= % 
+  (reduce + (filter (fn [n] (zero? (mod % n))) (range 1 %))))
+malvert's solution:
+
+1
+#(contains? #{6 496 8128} %)
+matiasl's solution:
+
+
+
+5
+(fn [x] 
+  (= x
+    (apply + 
+           (filter #(zero? (mod x %)) 
+                   (range 1 x)))))
+maximental's solution:
+
+1
+#(= % (reduce (fn [s k] ({0 (+ s k)} (rem % k) s)) (range %)))
+mbakhterev's solution:
+
+1
+(fn [n] (= n (reduce + (filter (fn [d] (= 0 (mod n d))) (range 1 n)))))
+meerwolf's solution:
+
+
+
+5
+6
+(fn perfect?--reduce
+  [n] {:pre [(integer? n)]}
+  (let [divisor? (fn [d] (= 0 (mod n d)))]
+    (= n (reduce (fn [acc x] (+ acc (if (divisor? x) x 0)))
+                 0
+                 (range 1 n)))))
+mfikes's solution:
+
+
+3
+(fn [n]
+  (let [divisors (filter #(zero? (rem n %)) (range 1 n))]
+    (= n (apply + divisors))))
+minitrue's solution:
+
+
+(fn [a]
+  (= a (apply + (filter #(= (mod a %) 0) (range 1 (/ (inc a) 2))))))
+mkahn's solution:
+
+
+
+5
+6
+(fn isperfect? [n]
+  (let [sumifdivis (fn [a b]
+                     (if (== (mod n b) 0)
+                       (+ a b)
+                       a))]
+  (= n (reduce sumifdivis (range 1 n)))))
+mobiusloop's solution:
+
+
+
+5
+(fn [x] 
+  (letfn [(d [n] (filter #(= 0 (mod (/ n %) 1)) (range 1 (inc (/ n 2)))))]
+    (= x (apply + (d x)))
+    )
+  )
+mononite's solution:
+
+
+3
+(fn [n]
+  (let [divisors (filter #(= (mod n %) 0) (range 1 n))]
+    (= n (reduce + divisors))))
+mouse's solution:
+
+1
+(fn [n] (= n (reduce + (filter #(= 0 (rem n %)) (range 1 n)))))
+mwaldowski's solution:
+
+
+
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn perfect-num? [n]
+  (letfn [(next-divisor [t n]
+            (when (<= t (quot n 2))
+              (if (zero? (mod n t))
+                t
+                (recur (inc t) n))))
+          (divisor-seq
+            ([n]
+             (divisor-seq 1 n))
+            ([prev n]
+             (cons prev
+                   (lazy-seq (if-let [next (next-divisor (inc prev) n)]
+                               (divisor-seq next n))))))]
+    (= n (reduce + (divisor-seq n)))))
+nagi's solution:
+
+
+
+5
+(fn perfect? [n]
+  (->> (range 1 n)
+       (filter #(= 0 (mod n %)))
+       (reduce +)
+       (= n)))
+nikelandjelo's solution:
+
+
+
+5
+(fn perfect? [n]
+        (= (->> (range 1 n)
+                (filter #(zero? (rem n %)))
+                (apply +))
+           n))
+noiseehc's solution:
+
+1
+(fn [x] (= (reduce + (filter #(= (mod x %) 0) (range 1 x))) x))
+norman's solution:
+
+
+3
+(fn perfect [n]
+  (let [factors (filter #(= 0 (mod n %)) (range 1 n))]
+    (= n (apply + factors))))
+nothsaevets's solution:
+
+
+(fn perfect [n]
+   (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+owk4057's solution:
+
+
+
+(fn myf2 [n]
+  (->> (filter #(zero? (rem n %)) (range 1 n))
+      (apply +)
+      (= n)))
+ownwaterloo's solution:
+
+
+
+5
+(fn [x]
+  (->> (range 2 (inc (quot x 2)))
+    (filter #(= 0 (rem x %)))
+    (reduce + 1)
+    (= x)))
+ozan's solution:
+
+1
+#(= % (reduce + (remove nil? (for [i (range 1 %)] (if (= 0 (mod % i)) i)))))
+pukeface's solution:
+
+
+
+5
+(fn [n]
+    (->> (range 1 n)
+         (filter #(= 0 (mod n %)))
+         (apply +)
+         (= n)))
+quant1's solution:
+
+
+(fn [x] 
+  (->> (for [n (range 2 (Math/sqrt x)) :when (zero? (mod x n))] [n (/ x n)]) (apply concat) set (apply +) (= (dec x))))
+rodmax's solution:
+
+
+
+5
+6
+7
+#(->> %
+      Long/toBinaryString
+      (partition-by identity)
+      (map count)
+      ((juxt count (partial apply -)))
+      (= [2 1])
+      )
+sbondaryev's solution:
+
+
+
+5
+(fn f [n]
+  (->> (range 1 n)
+       (filter #(zero? (mod n %)))
+       (apply +)
+       (= n)))
+shiro's solution:
+
+
+
+5
+(fn [n] 
+  (= n (apply 
+        + 
+        (filter #(= 0 (mod n %)) 
+                (rest (take n (range)))))))
+sheldon's solution:
+
+1
+(fn [x] (= x (apply + (filter #(#{0} (mod x %)) (range 1 x)))))
+silverio's solution:
+
+
+
+5
+6
+(fn [n] (->> 
+          (range 1 (/ (inc n) 2)) 
+          (keep #(if (zero? (mod n %)) %)) 
+          (reduce +)
+          (= n)
+          ))
+skyrem's solution:
+
+
+
+5
+6
+(fn [n]
+  (let [rs (filter integer?
+                   (for [x (range 2 (inc n))]
+                     (/ n x)))]
+    (if (= n (apply + rs)) true
+      false)))
+soul_awaker's solution:
+
+
+
+5
+6
+7
+8
+9
+#(= (apply + (%1 %2)) %2)
+(fn f
+  ([x] (f [1] 2 x))
+  ([init n x]
+    (if (= x n)
+        init
+        (if (zero? (rem x n))
+            (recur `[~@init ~n] (inc n) x)
+            (recur init (inc n) x)))))
+staafl2's solution:
+
+
+
+5
+#(->>
+  (range 1 %)
+  (filter (comp zero? (partial mod %)))
+  (reduce +)
+  (= %))
+syeerzy's solution:
+
+
+
+#(= % 
+    (apply + (for [i (range 1 (inc (/ % 2))) 
+                   :when (= 0 (mod % i))] 
+               i)))
+tclamb's solution:
+
+
+(letfn [(divisors [n] (filter #(zero? (mod n %)) (range 1 n)))]
+  (fn perfect? [n] (= n (apply + (divisors n)))))
+thegeez's solution:
+
+
+
+5
+6
+7
+8
+9
+(fn [n]
+    (->> (iterate (fn [[div left]]
+                    (when-let [next-div (some #(when (zero? (mod n %)) %)
+                                              (range div (inc (/ n 2))))]
+                      [(inc next-div) (- left next-div)])) [1 n])
+         (take-while identity)
+         last
+         second
+         zero?))
+zzamboni's solution:
+
+
+(fn perfect? [n]
+  (= n (apply + (filter #(zero? (rem n %)) (range 1 n)))))
+zoltanjarai's solution:
+
+
+
+5
+6
+7
+(fn [n]
+  (= n (reduce +
+          (map #(if
+                  (= (rem n %) 0)
+                  %
+                  0)
+               (range 1 n)))))
+zipzop's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (mod n %)) (range 1 n)))))
+yusubori's solution:
+
+1
+(fn [n] (= n (apply + (filter #(zero? (mod n %)) (range 1 n)))))
+ydash's solution:
+
+
+(fn [n]
+  (= n (apply + (filter #(= 0 (rem n %)) (range 1 n)))))
+vpeurala's solution:
+
+
+
+5
+(fn perfect? [n]
+  (letfn [
+          (divisors [n] (filter #(= 0 (rem n %)) (range 1 (+ 1 (/ n 2)))))
+         ]
+    (= n (reduce + (divisors n)))))
+v_bogdanov's solution:
+
+1
+#(= % (apply + (for [x (rest (range %)) :when (= (rem % x) 0)] x)))
+unionx's solution:
+
+
+
+5
+6
+7
+8
+9
+#(letfn [(f [x]
+            (loop [ret [1] n 2]
+              (if (> n (/ x 2))
+                ret
+                (recur (if (= 0 (rem x n))
+                         (conj ret n)
+                         ret)
+                       (inc n)))))]
+   (= (apply + (distinct (f %))) %))
+trxeste's solution:
+
+
+
+5
+(fn [n] 
+  (= n (reduce +
+    (filter 
+      #(zero? (mod n %)) 
+      (range 1 n)))))
+transfinite's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (rem n %)) (range 1 n)))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)
+
+
+5
+6
+7
+8
+9
+#(letfn [(f [x]
+            (loop [ret [1] n 2]
+              (if (> n (/ x 2))
+                ret
+                (recur (if (= 0 (rem x n))
+                         (conj ret n)
+                         ret)
+                       (inc n)))))]
+   (= (apply + (distinct (f %))) %))
+trxeste's solution:
+
+
+
+5
+(fn [n] 
+  (= n (reduce +
+    (filter 
+      #(zero? (mod n %)) 
+      (range 1 n)))))
+transfinite's solution:
+
+1
+(fn [n] (= n (apply + (filter #(= 0 (rem n %)) (range 1 n)))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

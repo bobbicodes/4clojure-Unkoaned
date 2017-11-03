@@ -1,0 +1,5 @@
+;; 29 Get the Caps
+
+Takes a string and returns a new string containing only the capital letters	
+
+(#(apply str (re-seq #"[A-Z]" %)) "HeLlO, WoRlD!")

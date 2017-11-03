@@ -1,0 +1,2612 @@
+;; 84 Transitive Closure [h]
+
+Generates the transitive closure of a binary relation.
+The relation will be represented as a set of 2 item vectors.
+
+(let [divides #{[8 4] [9 3] [4 2] [27 9]}]
+  (= (__ divides) #{[4 2] [8 4] [8 2] [9 3] [27 9] [27 3]}))
+(let [more-legs
+      #{["cat" "man"] ["man" "snake"] ["spider" "cat"]}]
+  (= (__ more-legs)
+     #{["cat" "man"] ["cat" "snake"] ["man" "snake"]
+       ["spider" "cat"] ["spider" "man"] ["spider" "snake"]}))
+(let [progeny
+      #{["father" "son"] ["uncle" "cousin"] ["son" "grandson"]}]
+  (= (__ progeny)
+     #{["father" "son"] ["father" "grandson"]
+       ["uncle" "cousin"] ["son" "grandson"]}))
+
+(fn [rel]
+  (let [roots (into {} (for [[k v] (group-by first rel)] [k (mapv second v)]))
+        children (fn children [rels e] 
+                   (let [cs (get rels e [])]
+                     (cons e (mapcat #(children rels %) cs))))]
+    (set (mapcat #(map vector (repeat %) (rest (children roots %))) (keys roots)))))
+
+(fn [edges]
+  (let [adj-list (reduce (fn [agg [x y]]
+                           (merge-with into agg {x #{y}})) {} edges)
+        vs (into #{} (keys adj-list))
+        linked-cmp (fn ch [v adj-list visited]
+                     (if (empty? adj-list)
+                       visited
+                       (->> (for [v-adj (adj-list v)
+                                  :when (not (visited v-adj))]
+                              (ch v-adj (dissoc adj-list v) (into visited [v v-adj])))
+                            (reduce into visited))))
+ 
+        vs-cmp (for [v vs]
+                 [v (disj (linked-cmp v adj-list #{}) v)])]
+ 
+    (reduce (fn [agg [v cmp]]
+              (into agg (map #(vector v %) cmp))) #{} vs-cmp)))
+
+(fn
+  f
+  ([s] (f s s s))
+  ([rs s result]
+   (if
+     (empty? rs)
+     result
+     (let [ffilter #(filter (fn [y] (= (first y) (second (first rs)))) %)
+           fmap #(map
+                  (fn [x] (vector (ffirst rs) (second x))) %)
+           filtered (ffilter s)
+           mapped (fmap filtered)]
+       (recur
+         (if (= (count (ffilter filtered)) 0)
+         (rest rs)
+         (into (rest rs) mapped))
+         s
+         (into
+           result
+           mapped))))))
+
+;this is a classical set problem which is useful for many graph problems
+#(letfn [(extendRules [ruleSet] ;extend the transitive rules
+                      (for[[a b] ruleSet [c d] ruleSet :when (and (= b c) (not= a c))];transitive extension
+                               [a d]))];new rules
+  (loop [result %]
+    (let [extendedResult (into result (extendRules result))];the new rule set consists of the inferred rules and the old ones
+      (if (= extendedResult result) result ;if no new rules are found then return
+        (recur extendedResult)))));else continue extending the rule set
+
+(fn [xs]
+  (let [m (apply merge (map #(apply hash-map %) xs))
+        r (set (concat xs (filter #(last %) (map #(list (first %) (m (last %))) xs))))]
+    (if (= xs r) r (recur r))))
+aceeca1's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(letfn [
+    (update [e x] (let [
+        in  (for [ei e :when (= x (second ei))] (first  ei))
+        out (for [ei e :when (= x (first  ei))] (second ei))]
+        (into e (for [v1 in v2 out] [v1 v2]))))
+    (trans [e] (reduce update e (distinct (flatten (vec e)))))]
+    trans)
+adereth's solution:
+
+1
+2
+3
+4
+5
+6
+#(loop [s %]
+   (let [n (into s
+                 (for [[a b] s [c d] s 
+                       :when (= b c)] 
+                   [a d]))]
+      (if (= n s) n (recur n))))
+aferrandi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn transitiveX[rels]
+    (letfn [
+        (transitiveRes[relMap nextKey firstKey] 
+            (let [vl (get relMap nextKey)]
+                (if (nil? vl)
+                    #{}
+                    (conj (transitiveRes relMap vl firstKey)[firstKey vl])
+                )
+            )
+        )
+        ]
+        (let [relMap (zipmap (map first rels) (map last rels))]
+            (apply clojure.set/union (map #(transitiveRes relMap % %) (keys relMap)))
+        )
+    )
+)
+aguirre's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn transitive-clojure [initial-set]
+     (->> initial-set
+       (iterate (fn extend-iter [base-set]
+                  (into base-set
+                        (for [[base-from base-to] base-set
+                             [extend-from extend-to] base-set
+                             :when (= base-to extend-from)
+                             :when (not (contains? base-set [base-from extend-to]))] [base-from extend-to]))))
+       ((fn first-same [[actual_ next_ & rest_ :as x]]
+          (if (= actual_ next_) actual_ (recur (rest x)))))))
+alanforr's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [r]
+  (letfn [(related? [brel1 brel2] (= (last brel1) (first brel2)))
+          (add-rel [brel]
+            (let [addthing (for [r1 brel
+                                 r2 brel
+                                 :when (related? r1 r2)]
+                             [(first r1) (last r2)])]
+              (set (concat brel addthing))))
+          (add-all-rels [brel]
+            (if (= (add-rel brel) brel)
+              brel
+              (recur (add-rel brel))))]
+    (add-all-rels r)))
+allenl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn f [col]
+  (let [m (into {} col)
+        ks (keys m)]
+    (letfn [(get-children [parents m root]
+              (println parents)
+              (let [child (m root)
+                    parents' (conj parents root)]
+                (if child
+                  (concat (map
+                           #(do [% child])
+                           parents') ;[[root child]]
+                          (get-children parents' m child))
+                  nil)))]
+      (set (mapcat (partial get-children [] m) ks)))))
+andthorn's solution:
+
+1
+2
+3
+4
+5
+(fn [m]
+  (let [m (group-by first m)
+        m (zipmap (keys m) (map #(map second %) (vals m)))
+        f (fn f [i] (cons i (flatten(map f (get m i)))))]
+    (set(partition 2(flatten(map #(next(interpose (first %) %)) (map f (keys m))))))))
+anjensan's solution:
+
+1
+2
+3
+4
+(fn f [d]
+    (let [p (for [[a x] d [y b] d :when (= x y)] [a b])
+          g (into d p)]
+      (if (= g d) g (f g))))
+astangl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn
+  [coll]
+  (let [m (apply hash-map (apply concat coll))]
+    (letfn [(r [s d v coll]
+              (lazy-seq
+                (if d
+                  (if (contains? v d)
+                    (r nil nil nil coll)
+                    (if (contains? m d)
+                      (let [d' (m d)
+                            v' (conj v d)]
+                        (cons [s d'] (r s d' v' coll)))
+                      (r nil nil nil coll)))
+                  (if (seq coll)
+                    (let [h (first coll)
+                          t (rest coll)
+                          fh (first h)]
+                      (cons h (r fh (second h) #{fh} t)))
+                    nil))))]
+      (set (r nil nil nil coll)))))
+austintaylor's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [s]
+  (loop [s s]
+    (let [newset (reduce conj s
+      (mapcat (fn [[a1 b1]] 
+        (filter (complement nil?)
+          (map (fn [[a2 b2]]
+            (cond (= a1 b2) [a2 b1]
+                  (= b1 a2) [a1 b2]
+                  true nil)) s))) s))]
+      (if (= newset s)
+        s
+        (recur newset)))))
+awebb's solution:
+
+1
+2
+3
+(fn tc [rel]
+  (let [nrel (into rel (for [r1 rel, r2 rel :when (= (r2 0) (r1 1))] [(r1 0) (r2 1)] ))]
+    (if (= rel nrel) rel (recur nrel))))
+bendykst's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [pairs]
+  (letfn
+    [(connect [chains]
+      (for [x chains y chains :when (= (last x) (first y))] 
+        (concat x (rest y))))
+      (build-chains [chains]
+        (let [new-chains (set (connect (concat pairs chains)))]
+          (if (= chains new-chains)
+              (concat chains pairs)
+              (build-chains new-chains))))
+      (break-up [pairs [head & tail]]
+        (if (empty? tail)
+          pairs
+          (break-up
+            (concat 
+              pairs 
+              (map 
+                (fn [itm] [head itm]) 
+                tail))
+            tail)))]
+    (reduce into #{} (map (partial break-up []) (build-chains pairs)))))
+benhammond's solution:
+
+1
+2
+3
+4
+5
+(fn [s]
+         (let [m (into {} s)]
+           (loop [s s]
+             (let [s2 (clojure.set/union s (set (remove #(-> % second nil?) (map vector (map first s) (map #(->> % second (get m)) s)))))]
+               (if (= s s2) s (recur s2))))))
+benizi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [examples]
+  (let [paths (map (fn [[l r]] {l #{r}}) examples)
+        reachable (apply merge-with (partial apply conj) paths)
+        n-paths (reduce + (map count (vals reachable)))
+        newexamples (mapcat
+                     (fn [[l lrs]]
+                       (for [lr lrs
+                             r (get reachable lr #{})]
+                         [l r]))
+                     reachable)
+        next-examples (into examples newexamples)]
+    (if (< (count examples) (count next-examples))
+      (recur next-examples)
+      next-examples)))
+bobuhiro11's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [relations]
+  (let [p
+        (fn p [itm relations]
+          (let [visits (map second (filter (fn [v] (= (first v) itm)) relations))]
+            (if (empty? visits)
+              '()
+              (flatten (concat visits
+                               (map #(p % relations) visits))))))]
+    (apply hash-set (apply concat (map (fn [x] (map (fn [y] [(first x) y]) (p (first x) relations))) relations)))))
+burner's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(letfn [(update1 [[key value] s]
+                (let [trans (map (fn [x] [key (second x)])
+                                 (filter #(= value (first %)) s))]
+                  trans))
+              (update [s]
+                (clojure.set/union (mapcat #(update1 % s) s) s))]
+        (fn trans [s] 
+          (if (= (update s) s)
+            s
+            (trans (update s)))))
+caterpillar's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn transit[r]
+  (let[rules (reduce #(assoc %1 (first %2) (second %2)) {} r)
+       deduct (fn [orig dest result]
+                (if (contains? result [orig dest]) result
+                  (let[newResult (conj result [orig dest])]
+                   (if (contains? rules dest) (recur orig (rules dest) newResult)
+                    newResult))))]
+    (loop[rs r result #{}]
+      (if (seq rs)
+        (let[rule (first rs)]
+          (recur (rest rs) (deduct (first rule) (second rule) result)))
+        result))))
+cc787's solution:
+
+1
+2
+3
+4
+(fn [arg] (reduce (fn [acc e] (->> (disj acc e)
+                                    (filter #(= (first %) (last e)))
+                                    (map #(list (first e) (last %)))
+                                    (clojure.set/union acc))) arg arg))
+chunchangshao's solution:
+
+1
+(fn tc [s] (let [new-set (set (for [x s y s :when (and (not= x y) (or (= (x 0) (y 1)) (= (y 1) (x 0))) )] (if (= (x 0) (y 1)) [(y 0) (x 1)] [(x 0) (y 1)])))] (if (empty? (clojure.set/difference new-set s)) s (tc (into s new-set)))))
+ctzsm's solution:
+
+1
+2
+3
+(fn [s]
+  (reduce #(set (remove nil? (concat (conj % %2) (map (fn [x] (cond (= (first x) (second %2)) (vector (first %2) (second x))
+                                                       (= (second x) (first %2)) (vector (first x) (second %2)))) %)))) #{(first s)} (rest s)))
+dan7es's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(letfn [(closure [s]
+          (for [[a b] s
+                [c d] s
+                :when (= b c)]
+            [a d]))]
+  
+  (fn transitive-closure [s]
+    (let [cls (-> s closure set)]
+      (if (clojure.set/subset? cls s) s
+        (recur (clojure.set/union
+                s cls))))))
+daniels's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn [i]
+  (let [mergesingle (fn mergesingle [a b]
+                      (if (= (first (first a)) (last b))
+                        (cons (cons (first b) (first a)) (rest a))
+                        (cons (conj (first a) (last b)) (rest a))))
+        merger (fn [x]
+                 (loop [r (conj '() (first x)) in (rest x) tmp []]
+                   (if (and (or (nil? in) (empty? in)) (empty? tmp))
+                     r
+                     (if (empty? in)
+                       (recur (cons (first tmp) r) (rest tmp) [])
+                       (if (or (= (first (first r)) (last (first in)))
+                               (= (last (first r)) (first (first in))))
+                         (recur (mergesingle r (first in)) (concat (rest in) tmp) [])
+                         (recur r (rest in) (conj tmp (first in))))))))
+        genpairs (fn genpairs [a]
+                   (if (= 2 (count a))
+                     #{(into [] a)}
+                     (into #{} (concat (genpairs (rest a)) (map #(identity [(first a) %]) (rest a)) ))))
+        genallpairs (fn [a]
+                      (into #{} (reduce concat (map genpairs a))))
+        ]
+    (genallpairs (merger i))))
+daowen's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn trans-closure [rel-set]
+  (let [rel (into {} rel-set)
+        f   #(loop [k %, acc nil]
+               (if-let [v (rel k)]
+                 (recur v (conj acc [% v]))
+                 acc))]
+    (set (mapcat f (keys rel)))))
+del680202's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [brs]
+  (let [find-ts (fn [[start end] nodes]
+  (loop [r [[start end]] r_node [start end] nodes nodes last_end end]
+    (let [l_node (first (filter (fn [[s e]] (= s (last r_node))) nodes))]
+     (if (nil? l_node) (conj r [start last_end])
+        (recur (concat r [r_node l_node [(first r_node) (last l_node)]]) l_node (disj nodes l_node) (last l_node)) 
+     )
+    )
+  )
+)]
+    (set (apply concat (for [bs brs] (find-ts bs (disj brs bs)))))
+    ;(for [bs brs] [bs (disj brs bs)])
+  )
+)
+deping's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn [start-set]
+  (letfn [(cart [colls]  (if (empty? colls)
+                           '(())
+                           (for [x (first colls)
+                                 more (cart (rest colls))]
+                             (cons x more))))
+          (my-comp [relas three] 
+                   (if (and (contains? relas [(first three) (second three)])
+                            (contains? relas [(second three) (last three)]))
+                     (conj relas [(first three) (last three)]) 
+                     relas
+                     ))
+          ]
+    (let [eles (distinct (apply clojure.set/union start-set))
+          n (count eles)
+          three-cart (cart [(range n) (range n) (range n)]) 
+          three-way (filter #(= 3 (count (distinct %))) three-cart)
+          three-way-eles (map #(map (partial nth eles) %) three-way)
+          ]
+    (reduce my-comp (cons start-set three-way-eles))
+  )))
+devm33's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [s]
+  (let [m (apply conj {} s)]
+    (reduce
+      (fn [r [k v]]
+        (if (not (contains? m v))
+          r
+          (let [nkv [k (get m v)]]
+           (recur (conj r nkv) nkv))))
+      s m)))
+dwelte's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(let [
+  cross (fn [relations]
+    (for [r1 relations
+          r2 relations
+          :let [mapping [(first r1) (second r2)]]
+          :when (and (= (second r1) (first r2)) (not (relations mapping)))] mapping))]
+ 
+  (fn [relations]
+    (if-let [new-relations (seq (cross relations))]
+      (recur (into relations new-relations))
+       relations)))
+dzholev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [s]
+  (let [tr (group-by first s)
+        d (fn [[a b]] (map #(vector a (second %)) (tr b)))
+        f (fn f [e]
+            (let [a (d e)]
+              (concat [e] a (mapcat f a))))]
+    (set (mapcat f s))))
+echevarria's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [v]
+    (let [m (reduce (fn [m [k kv]] (assoc m k (set (conj (m k) kv)))) {} v)
+    to-vecs (fn [m] (reduce (fn [s [k kv]] (apply conj s (reduce #(conj %1 [k %2]) #{} kv))) #{} m))  
+    ]
+    (println m)
+    (to-vecs 
+        ((fn [m1 m2]
+        (println "m1 =" m1)
+        (println "m2 =" m2)
+        (if (= m1 m2) 
+            (do (println "finished" m2)
+            m2)
+            (recur m2 
+                (reduce 
+                    (fn [m [k kv]] 
+                        (reduce (fn [m v] (assoc m k (set (concat (m k) (m v))))) m kv)) m2 m2))))
+        {} m))))
+ericw's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+(letfn [                                                                                                                                                
+    (get-nodes [edges] (-> edges vec flatten set (zipmap (range))))                                                             
+    (square-matrix [size] (map (fn [_] (repeat size 99)) (range size)))                                                                                 
+    (set-ij [m i j v]                                                                                                           
+        (let [row (nth m j)                                                                                                                             
+              row- (concat (take i row) [v]  (nthnext row (inc i)))]                                                            
+            (concat (take j m) [row-] (nthnext m (inc j)))))                                                                                            
+    (get-ij [m i j] (-> m (nth j) (nth i)))                                                                                     
+    (transitive-closure [edges] (let [                                                                                                                  
+        nodes (get-nodes edges)                                                                                                 
+        node-count (count nodes)                                                                                                                        
+        graph (-> (square-matrix node-count)                                                                                    
+                  (#(reduce (fn [m [a b]] (set-ij m (nodes a) (nodes b) 1)) % edges))                                                                   
+                  (#(reduce (fn [m i] (set-ij m i i 0)) % (range node-count))))                                                 
+        distance (reduce                                                                                                                                
+                      (fn [m [i j k]] ; this is the floyd-warshall algorithm                                                    
+                          (let [ij (get-ij m i j) ik (get-ij m i k) kj (get-ij m k j)]                                                                  
+                              (if (< (+ ik kj) ij)                                                                              
+                                  (set-ij m i j (+ ik kj))                                                                                              
+                                  m)))                                                                                          
+                      graph                                                                                                                             
+                      (for [k (range node-count) i (range node-count) j (range node-count)] [i j k]))                           
+        lookup (zipmap (vals nodes) (keys nodes))                                                                                                       
+        tc-set (->> (for [i (range node-count) j (range node-count)] [i j])                                                     
+                    (filter (fn [[i j]] (let [v (get-ij distance i j)] (and (> v 0) (< v 99)))))                                                        
+                    (map (fn [[i j]] [(lookup i) (lookup j)]))                                                                  
+                    (set))]                                                                                                                             
+            tc-set))]                                                                                                           
+    transitive-closure)
+featalion's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [s]
+  (letfn [(find-clos
+           [v s]
+           (remove nil?
+                   (map (fn [x]
+                          (when (= (last v) (first x))
+                            [(first v) (last x)]))
+                        s)))]
+    (set
+     (reduce (fn [acc v]
+               (let [no-v (disj acc v)
+                     r (find-clos v no-v)]
+                 (apply conj acc v r)))
+             s
+             s))))
+finsternis's solution:
+
+1
+2
+3
+4
+(fn [rs]
+  (loop [cur rs]
+    (let [nxt (into cur (for [[u v] cur [w x] cur :when (= v w)] [u x]))]
+      (if (> (count nxt) (count cur)) (recur nxt) nxt))))
+flububb's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+(fn trans-closure
+  [s]
+  (letfn [(ancests
+            [a s]
+            (let [children (filter #(= a (first %)) s)]
+              (if (empty? children)
+                []
+                (mapcat
+                  #(cons (second %) (ancests (second %) s))
+                  children))))]
+    (into #{}
+      (concat s
+        (mapcat
+          (fn [a]
+            (map
+              #(vector (first a) %)
+              (ancests (second a) s)))
+          s)))))
+garyxia's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (letfn [(step [ele s]
+            (let [n (filter #(= (second ele) (first %)) s)]
+              (if (seq n)
+                (let [t (map #(vec [(first ele) (second %)]) n)]
+                  (cons ele (mapcat #(step % s) t)))
+                [ele])))]
+    (set (mapcat #(step % s) s))))
+geekerzp's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [s]
+    (letfn [(infer [s]
+              (set
+               (concat s (for [[a b] s
+                               [d e] s
+                               :when (= b d)]
+                           [a e]))))]
+      (loop [s1 s s2 (infer s)]
+        (if (= s1 s2) s1
+            (recur s2 (infer s2))))))
+glchapman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn transitive-closure [relations]
+    (let [relmaps (for [[x y] relations] {x [y]})
+          relmap (apply merge-with into relmaps)
+          add-rel
+            (fn add-rel [rels [x y]]
+                (reduce add-rel (conj rels [x y]) (map #(vector x %) (relmap y))))
+        ]
+        (reduce add-rel #{} relations)
+    ))
+goaranger's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+(fn __ [v]
+(letfn [(ara [ua la ndl]
+ (loop [x ua y la i 0 ans nil]
+  (if (= i (count ua)) ans
+   (if (= (first x) (second ndl))
+       (recur x y (count ua) [x y])
+       (recur (take (count x) (rest (cycle x)))
+              (take (count y) (rest (cycle y)))
+          (inc i)
+          nil)))))
+(apass [i j]
+     (loop [x i y j acc [] c nil]
+           (if (empty? x) acc
+       (if (nil? c)
+           (recur (rest x) (rest y)
+                  (conj acc [(first x) (first y)])
+              [(first x) (first y)])
+           (let [araa (ara x y c)]
+                (if (nil? araa)
+                (recur (rest x) (rest y)
+            (conj acc [(first x) (first y)])
+            [(first x) (first y)])
+            (recur (first araa) (second araa)
+            (conj acc [(first x) (first y)] [(first c) (first (second araa))])
+            [(first (first araa)) (first (second araa))])))))))
+(inor [m]
+ (loop [xy m nl (count m) prevnl 0]
+    (if (>= prevnl nl) (into #{} xy)
+            (let [[i j] (list (map first m) (map second m))
+              npass (apass i j)]
+             (recur npass (count npass) nl)))))
+(phs [v]
+ (loop [m  (into [] v) i 0 acc []]
+   (if (> i (count v)) (last (sort-by #(count %) acc))
+       (recur (take (count m) (rest (cycle m)))
+              (inc i)
+          (conj acc (inor m))))))]
+ (let [n (phs v) s (phs n)]
+  (if (>= (count n) (count s))
+   n
+   (__ n)))))
+gpittarelli's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn tr-closure [items]
+    (let [m (into {} items)
+            findreachable
+            (fn [orig-i]
+                ((fn f [i]
+                     (if (or (nil? i) (= i orig-i))
+                         []
+                       (let [next-i (m i)]
+                         (conj (f next-i) i))))
+                 (m orig-i)))]
+      (set (mapcat #(map vector (repeat %1) (findreachable %1))
+                   (map first items)))))
+happycrisis's solution:
+
+1
+2
+3
+4
+(fn [s] (let [m (into {} s)]
+          (set (mapcat #((fn [[x & s]] (map (partial vector x) s)) 
+                         (take-while (comp not nil?) (iterate m %)))
+                       (keys m) ))))
+hisba's solution:
+
+1
+2
+3
+4
+5
+6
+(fn tc [abn]
+  (let [m (into {} abn)
+        at (fn [ma it] (loop [m ma i it t [i]] (if (m i) (recur (dissoc m i) (m i) (conj t (m i))) t)))
+        tc (fn tc [m] (mapcat #(map vector (repeat (key %)) (at m (val %))) m))
+        ]
+    (set (tc m))))
+icamts's solution:
+
+1
+2
+3
+4
+5
+(fn [ss] 
+  (let [as (for [s1 ss s2 ss 
+                    :when (and (not= s1 s2) (= (second s1) (first s2)))] 
+                (vector (first s1) (second s2)))] 
+    (let [nss (into ss as)] (if (= nss ss) ss (recur nss)))))
+immo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [s]
+  (let [new-s (reduce
+                into
+                s
+                (map
+                  (fn [[x1 x2]]      
+                    (set (map
+                      (fn [[y1 y2]] 
+                        (if (= x2 y1)
+                          [x1 y2]
+                          [x1 x2]))
+                      s)))
+                s))]
+    (if (= new-s s)
+      s
+      (recur new-s))))
+jarlax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [rel]
+  (reduce 
+    (fn [r _] 
+      (into r 
+        (for [[f1 t1] r 
+              [f2 t2] r 
+              :when (= t1 f2)] 
+          [f1 t2])))
+    rel
+    (range (count rel))))
+jedo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn transitive-closures [coll]
+  (letfn [(fsecond [x] (-> x first second))
+            (res-func [x y ncoll coll res] 
+            (let [fir (ffirst ncoll) sec (fsecond ncoll)]
+                (if (= y fir) (concat res [[x sec]] (relation x sec (remove #{fir sec} coll))) res)
+            ))  
+            (relation [x y coll] 
+                (loop [ncoll coll res ()]
+                    (if (empty? ncoll) 
+                        res 
+                        (recur (rest ncoll) (res-func x y ncoll coll res))))
+            )]
+        (->> coll 
+            (#(for [[a b] %] (relation a b (remove #{[a b]} %)))) 
+            (apply concat) 
+            (concat coll) 
+            (into #{}))
+    )
+)
+jeff_terrell's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [rels]
+  (letfn [(r [accum [f t]]
+            (apply conj accum [f t]
+                   (concat
+                     (for [[kf kt] accum
+                           :when (= kt f)]
+                       [kf t])
+                     (for [[kf kt] accum
+                           :when (= t kf)]
+                       [f kt]))))]
+    (reduce r #{} rels)))
+johncowie's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (set (apply concat
+      (for [x s]
+        (loop [v (remove #{x} s) r [x]]
+           (let [y (last r) n (first (filter #(= (first %) (second y)) v))]
+              (if (nil? n)
+                 r
+                 (recur (remove #{n} v) (concat r [[(first y) (second n)]])))))))))
+jomicoll's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn transitive-closure [rel]
+  (let [nxt (into #{}
+              (for [[x y1 :as r] rel
+                    [y2 z] rel]
+                (if (= y1 y2) [x z] r)))]
+    (if (= nxt rel) rel
+      (recur nxt))))
+jorendorff's solution:
+
+1
+2
+#(let [k (into % (for [[a b] % [c d] % :when (= b c)] [a d]))]
+   (if (= k %) % (recur k)))
+jslavin's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+(fn trans [s]
+  (let [indexes (-> s vec flatten distinct vec (zipmap (range)))
+        n (count (keys indexes))
+        row (vec (repeat n 0))
+        empty-matrix (vec (repeat n row))
+        matrix (loop [pairs s update-matrix empty-matrix]
+                 (if (empty? pairs)
+                   update-matrix
+                   (let [ri (get indexes (first (first pairs)))
+                         ci (get indexes (second (first pairs)))]
+                     (recur (rest pairs)
+                            (update-in update-matrix [ri ci] (constantly 1))))
+                 ))
+        ops (for [k (range n) i (range n) j (range n)] [k i j])
+        ufn (fn [matrix [k i j]] (update-in matrix [i j] #(if (or (= 1 %) (= 1 (get-in matrix [i k]) (get-in matrix [k j]))) 1 0)))
+        umatrix (reduce (fn [acc v] (ufn acc v)) matrix ops)
+        tsets (into #{} (reduce (fn [acc v] (let [f (first v)
+                                        i (second v)]
+                                    (concat acc
+                                          (loop [sets (filter #(not (= (first %) f)) indexes) trs #{}]
+                                            (cond (empty? sets) trs
+                                                  (= 1 (get-in umatrix [i (second (first sets))])) (recur (rest sets) (conj trs [f (first (first sets))]))
+                                                  :otherwise (recur (rest sets) trs)
+                                                  )
+                                            )))
+                                    ) #{} indexes))
+   
+        ]
+    tsets
+    )
+  )
+kohyama's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (loop [p s]
+    (let [q (reduce
+              (fn [a [x y]]
+                (into a (keep (fn [[u v]] (if (= y u) [x v])) a)))
+              p
+              p)]
+      (if (= p q) p (recur q)))))
+kopychenko's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+(fn [m]
+  (->> m
+    vec
+    (reduce
+     (fn [ll x]
+       (let [xs (set x)
+             [l nl] (reduce (fn [[a b] lx]
+                              (if ((comp not empty? (partial clojure.set/intersection xs) first) lx)
+                                [(conj a lx) b]
+                                [a (conj b lx)])) [[][]] ll)]
+         (if (empty? l) (conj ll [xs [x]])
+             (let [[k v] (first l)]
+               (-> nl
+                 (conj [(reduce conj k x)
+                        (conj v x)]))))))
+     [])
+    (map second)
+    (map (fn [[h & t]]
+           (loop [h h t t]
+             (if (empty? t) h
+                 (let [ft (first t)
+                       [x y] ft
+                       rt (rest t)]
+                   (cond (= y (first h)) (recur (into [x] h) rt)
+                         (= x (last h)) (recur (into h [y]) rt)
+                         :else (recur h (conj (vec rt) ft))))))))
+ 
+    (map (fn [xx]
+           (loop [a [] x (first xx) t (rest xx)]
+             (if (empty? t) a
+                 (recur (reduce #(conj %1 [x %2]) a t) (first t) (rest t))))))
+    (reduce into [])
+    set))
+blucas's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn prob81
+  [s]
+  (letfn [(fnc [elm s]
+            (let [nxt (filter #(= (second elm) (first %)) s)]
+              (if (seq nxt)
+                (do 
+                  ;; (println elm nxt)
+                  ;; merge elm ->next
+                  (let [mrg (map #(vec [(first elm) (second %)]) nxt)]
+                    (cons elm (mapcat #(fnc % s) mrg))
+                    )
+                  )
+                [elm]
+                )))]
+    (set (mapcat #(fnc % s) s))))
+brendan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+; Evil hack
+(fn [& _]
+  (reify nil
+    clojure.lang.IPersistentCollection
+    (seq [_])
+    (cons [_ _])
+    (empty [_])
+    (equiv [_ _] true)))
+kuze's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn myTransitiveClosure
+  [relation]
+  (let [getRelationBy (fn [fRel lRel relation] 
+                        (map #(vector fRel (second %)) (filter #(= lRel (first %)) relation)))]
+    (loop [rel relation last 0 current 1]
+      (if (= last current)
+        rel
+        (recur (into rel (set (filter not-empty 
+                                      (mapcat #(getRelationBy (first %) (second %) rel) rel)))) current (count rel))))))
+lackita's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn transitive-closure [s]
+  (let [expansion (into s (mapcat (fn [r] (map (fn [s] [(first s) 
+                                                        (last r)]) 
+                                               (filter #(= (first r) 
+                                                           (last %)) 
+                                                       s))) 
+                                  s))]
+    (if (= expansion s)
+      s
+      (transitive-closure expansion))))
+lambda4fun's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [s]
+  (let [rels (into {} s)]
+    (letfn [(go [k]
+                (if-let [v (rels k)]
+                  (cons [k v]
+                        (->> (go v)
+                             (map second)
+                             (map #(vector k %))))))]
+      (->> (keys rels)
+           (mapcat go)
+           set))))
+lasthemy's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+#(loop [paths %]
+   (let [newpaths
+         (set
+          (for [start paths
+                end paths
+                :let [edge [(first start) (last end)]]
+                :when (= (last start) (first end))]
+            edge
+            )
+          )
+         allpaths (clojure.set/union paths newpaths)
+         ]
+     (if (= paths allpaths)
+       paths
+       (recur allpaths)
+       )
+     )
+   )
+lbarrett's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [rel]
+          (let [rel (into {} rel)]
+            (set
+              (apply concat
+                     (doall
+                       (for [[s t] rel]
+                         (loop [clos (list [s t]) t t]
+                           (prn s t (get rel t) clos)
+                           (if-let [tp (get rel t)] 
+                             (recur (conj clos [s tp]) tp) 
+                             clos))))))))
+leetwinski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [s]
+  (let [head? (fn [itm] (not-any? #(= (first itm) (second %)) s))
+        heads (filter head? s)]
+    (letfn [(get-tail 
+              [[i1 i2 :as h]]
+              (let [i (some #(when (= i2 (first %)) %) s)]
+                (if i 
+                  (lazy-seq [h (get-tail i)])
+                  h)))]
+      (let [t (map #(-> % get-tail flatten distinct) heads)]
+        (letfn [(f [l ls] (if (empty? ls) nil (lazy-cat (map vector l (rest ls)) (f l (rest ls)))))]
+          (reduce #(into %1 (f %2 %2)) #{} t))))))
+littlejp2046's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn clos [st] 
+  (let [items-starting-by 
+    (fn [start s]
+      (filter #(= start (first %1)) s))
+        apply-transitivity 
+    (fn [item s]
+      (map 
+        #(vector (first item) (last %1))
+        (items-starting-by (last item) s)))]
+    (let [res 
+        (set (concat st
+          (mapcat 
+            #(apply-transitivity %1 st)
+            st)))]
+        (if (= (count st) (count res))
+          st
+          (clos res)))))
+malvert's solution:
+
+1
+2
+3
+4
+5
+#(reduce
+    (fn [r [a b]]
+      (into r (for [[c d] r :when (= b c)] [a d])))
+    %
+    %)
+matiasl's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [s]
+(let [edges (into {} s)
+      dfs (fn [s]
+          (let [root (ffirst s)]
+            (loop [node root
+                   res #{}]
+              (if-let [child (edges node)]
+                (recur child 
+                       (conj res [root child]))
+                res))))]
+  (loop [s s
+         res #{}]
+    (if (empty? s)
+      res
+      (recur (rest s) 
+             (clojure.set/union res (dfs s)))))))
+maximental's solution:
+
+1
+2
+3
+4
+5
+6
+(fn f [s]
+  (#(if (= s %) % (f %))
+     (reduce (fn [a [x y]] 
+               (into a (keep (fn [[u v]] (if (= u y) [x v])) s))) 
+             s 
+             s)))
+mbakhterev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+; this pass the tests, but is not universal solution. Consider any cyclical relation
+; (fn [S]
+;  (let [R (group-by second S)
+;        T (fn [[t f]] (map (fn [[a b]] (vector a f)) (R t)))
+;        F (fn F [e] (let [t (T e)] (concat [e] t (mapcat F t))))]
+;    (set (mapcat F S))))
+ 
+(fn [r]
+  (let [R (reduce (fn [R [t f]] (assoc R f (conj (R f []) t))) {} r)
+        g (fn [k]
+            (loop [[q & Q :as N] (R k) S #{}]
+              (if (empty? N) S (recur (concat Q (if-let [t (R q)] (if-not (S q) t))) (conj S q)))))]
+    (set (mapcat (fn [k] (map vector (g k) (repeat k))) (keys R)))))
+meerwolf's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+(fn trans-closure [rel]
+  {:pre [(set? rel),
+         (every? (comp (partial = 2) count) rel)]}
+ 
+  ;; We find the first level of additions which are demanded by
+  ;; transitivity. That is, if rel contains [x y] and [y z], then additions
+  ;; will contain [x z].
+  (let [additions
+        (->> (for [[x y] rel]
+               (->> rel
+                    (filter (comp (partial = y) first))
+                    (map #(assoc % 0 x))))
+             (apply concat)
+             set)]
+ 
+    ;; If everything we found was already in rel, then we're done;
+    ;; otherwise, recur.
+    (if (seq (clojure.set/difference additions rel))
+      (recur (clojure.set/union rel additions))
+      rel)))
+mfikes's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [r]
+  (let [r' (into r
+                 (for [[a b] r
+                       [c d] r :when (= b c)]
+                   [a d]))]
+    (if (= r r')
+      r
+      (recur r'))))
+minitrue's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn [ps]
+  (let [m (into {} (vec ps))
+        from-here
+          (fn [x]
+            (loop [out []
+                   k x]
+              (let [v (m k)]
+                (if v
+                  (recur (conj out [x v]) v)
+                  out))))]
+    (set (apply concat (map #(from-here %) (keys m))))))
+mkahn's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn transitiveclosure [m]
+     (loop [storage #{} result m]
+       (if (= storage result)
+         result
+         (recur result (set (into result (for [x result
+                                               y result
+                                               :when (= (peek x) (first y))]
+                                           (vector (first x) (peek y)))))))))
+mobiusloop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [s] 
+  (loop [t s]
+      (let [d (mapcat 
+            (fn [[k v]] 
+              (map 
+                (fn [[m n]] [k n]) 
+                (filter (fn [e] (= v (first e))) t)
+                )) t)]
+        (if (clojure.set/subset? d t) t (recur (clojure.set/union d t))))
+  ))
+mononite's solution:
+
+1
+2
+3
+4
+(fn [s]
+  (let [m (apply hash-map (flatten (seq s)))
+        f (fn [[v1 v2]] (loop [acc () v2 v2] (if-let [v3 (get m v2)] (recur (conj acc [v1 v3]) v3) acc)))]
+    (reduce #(into % (f %2)) s s)))
+mouse's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [r]
+  (set (mapcat #( (fn c [m o k]
+                    (if-let [n (m k)]
+                      (cons [o n] (c m o n))))
+                  (into {} r) % %)
+               (map first r) )))
+mwaldowski's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+(fn [e]
+  (letfn [(dag [edges]
+            (->> edges
+                 (map (fn [[f s]] {f #{s}}))
+                 (apply merge-with clojure.set/union)))
+          
+          (reachable-nodes [dag from-node]
+            (let [connected-nodes (get dag from-node)
+                  next-nodes      (set (mapcat #(reachable-nodes dag %)
+                                               connected-nodes))]
+              (clojure.set/union connected-nodes next-nodes)))
+          (transitive-closure-dag [dag]
+            (reduce (fn [dag node]
+                      (assoc dag node (reachable-nodes dag node)))
+                    dag
+                    (keys dag)))
+          (edges [dag]
+            (set (mapcat (fn [[node connected-nodes]]
+                           (map #(vector node %) connected-nodes))
+                         dag)))]
+    (->> e
+         dag
+         transitive-closure-dag
+         edges)))
+nagi's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn [br]
+  (letfn [(squish [tc]
+            (vector (ffirst tc) (last (last tc))))
+ 
+          (chains [xs]
+            (chain xs (ffirst xs)))
+ 
+          (chain [xs lst]
+            (if (empty? xs)
+              '()
+              (if (= lst (ffirst xs)) ;; keeper
+                (cons (first xs) (chain (rest xs) (last (first xs))))
+                '())))] 
+    (set
+     (map squish
+          (for [a br
+                b br
+                c br]
+            (chains [a b c]))))))
+nikelandjelo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn transitive [relations]
+        (letfn [(parents [val] (map first (filter #(= val (second %)) relations)))
+                (merge [mp from to] (assoc mp to (clojure.set/union #{from} (mp to #{}) (mp from #{}))))
+                (unfold [[a b]] (map #(vector a %) b))
+                (go-up [res val] (->> (parents val)
+                                      (reduce #(go-up (merge % val %2) %2) res)))]
+               (->> (reduce into #{} relations)
+                    (reduce go-up {})
+                    (map unfold)
+                    (reduce into #{}))))
+noiseehc's solution:
+
+1
+2
+3
+4
+5
+6
+(fn trclosure [x] 
+    (reduce (fn [acc [a b]] 
+              (clojure.set/union 
+                (reduce #(conj %1 [a (second %2)]) acc (filter #(= (first %) b) acc))
+                (reduce #(conj %1 [(first %2) b]) acc (filter #(= (second %) a) acc))
+                )) x x))
+norman's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [pathset]
+  (let [nodes (distinct (mapcat identity pathset))
+        considering (for [k nodes i nodes j nodes] [k i j])
+        reduce-path (fn [pathset [k i j]]
+                      (if (and (pathset [i k]) (pathset [k j]))
+                        (conj pathset [i j])
+                        pathset))]
+    (reduce reduce-path pathset considering)))
+nothsaevets's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(fn [s]
+    (loop [dest s]
+      (let [original-size (count dest)
+            new-items (for [a dest b dest]
+                       (cond
+                        (and (= (first a) (last b))
+                             (not= (last a) (first b)))
+                        (vector (first b) (last a))
+                        
+                        (and (= (last a) (first b))
+                             (not= (first a) (last b)))
+                        (vector (first a) (last b))))
+            new-dest (into dest new-items)
+            new-size (count new-dest)]
+        (if (= original-size new-size)
+          (into #{} (remove nil? new-dest))
+          (recur new-dest)))))
+owk4057's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn myf [coll]
+  (letfn [(sub [coll]
+  (into coll (for [x coll
+                   y coll
+                   :when (= (second x) (first y))]
+               (vector (first x) (second y)))))]
+  (if (= coll (sub coll)) coll
+    (myf (sub coll)))))
+ownwaterloo's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [r]
+  (let [r (reduce (fn [m [k v]] (update-in m [k] conj v)) {} r)]
+    (->> r
+      keys
+      (mapcat
+        (fn f [x]
+          (->> (r x)
+            (mapcat f)
+            (map second)
+            (concat (r x))
+            (map vector (repeat x)))))
+      set)))
+ozan's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+(fn tc [s]
+  (letfn [(get-related [s [a b]] (filter (fn [[c d]] (= b c)) s))
+          (get-deep-related [s [a b]]
+                            (let [related (get-related s [a b])]
+                              (if (empty? related) []
+                                (concat related (mapcat (partial get-deep-related s) related)))))]
+    (clojure.set/union
+      s
+      (into #{} (apply concat (for [[a b] s]
+                                (let [related (get-deep-related s [a b])]
+                                  (map (fn [[c d]] (vector a d)) related))))))))
+ 
+; mfike's much nicer solution:
+; (fn [r]
+;   (let [r' (into r
+;                  (for [[a b] r
+;                        [c d] r :when (= b c)]
+;                    [a d]))]
+;     (if (= r r')
+;       r
+;       (recur r'))))
+pukeface's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn c [R]
+   (if (empty? R) #{}
+     (let [u (fn [[a b] [c d]] (if (= b c) [[a d]] []))
+           z (last R)
+           r (c (disj R z))
+          ]
+       (into #{}
+         (concat 
+           [z]
+           (mapcat #(u z %) r)
+           (mapcat #(u % z) r)
+           r)))))
+quant1's solution:
+
+1
+2
+(letfn [(conn [ss] (into ss (for [h ss t ss :when (= (last h) (first t))] [(first h) (last t)])))]
+  (fn [ss] (let [n (conn ss)] (if (= ss n) ss (recur n)))))
+rodmax's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [set0]
+    (let [
+          smap (into {} set0)
+          sjoin (fn [sset [a b]] (if (contains? smap b) (conj sset [a (smap b)]) sset))
+          redux (fn [[sset n]] [(reduce sjoin sset sset) (count sset)])
+          ]
+     (->>
+      [set0 0]
+      (iterate redux)
+      (drop-while (fn [[sset n]] (< n (count sset))))
+      ffirst
+  )))
+sbondaryev's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(letfn
+    [(grp [xs n]
+       (->>
+        (filter #(= n (first %)) xs)
+        (mapcat #(grp xs (second %)))
+        (cons n)))
+     (pair [xs]
+       (map #(vector (first xs) %) (rest xs)))]
+  (fn [xs]
+    (->>
+     (map #(grp xs (first %)) xs)
+     (reduce #(concat %1 (pair %2)) [])
+     (set))))
+shiro's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn closure [st]
+  (let [mp (reduce #(assoc %1 (first %2) (second %2)) {} st)]
+    (reduce
+      (fn close-over [out-set next-key]
+        (loop [os out-set k (first next-key)]
+          (let [v (get mp k)]
+            (if (or (= k nil) (= v nil)) os
+              (recur (conj os [(first next-key) v]) v)))))
+      #{} mp)))
+sheldon's solution:
+
+1
+2
+3
+(fn f [s] 
+   (let [r (apply conj s (remove nil? (for [a s b s]                
+                                        (if (= (second a) (first b)) [(first a) (second b)]))))] (if (= r s) r (f r))))
+silverio's solution:
+
+1
+2
+3
+4
+5
+6
+#(loop [s %] (if-let [
+  trans (seq (keep identity
+          (for [[a b] s [c d] s :let [e [a d]]]
+            (if (and (= b c) (not (s e))) e))))]
+  (recur (into s trans))
+  s))
+skyrem's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [s]
+  (letfn [(relate [c1 c2]
+                  (cond
+                   (= (first c1) (second c2)) [(first c2) (second c1)]
+                   (= (first c2) (second c1)) [(first c1) (second c2)]
+                   :else c1))]
+    (loop [p s r s f false]
+      (if (empty? p) 
+        (if f r (recur r r true))
+        (recur (rest p) 
+               (reduce conj r 
+                       (for [x (rest p)]
+                         (relate (first p) x)))
+               f)))))
+soul_awaker's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (loop [i s, [h & t] (vec s)]
+    (let [g (for [[al ar] [h], [bl br] t 
+                 :let [j (#{ar} bl) k (#{br} al)]
+                 :when (or j k)] 
+              (cond j [al br]
+                    k [bl ar]))]
+      (if t (recur (into i g) `[~@t ~@g]) i))))
+staafl2's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(letfn
+    [(closure [xys]
+        (into 
+            xys
+            (for [[x1 y1] xys
+                  [x2 y2] xys
+                  :when (= y1 x2)]
+                  [x1 y2])))
+      (ts [xys]
+        (loop [count-so-far (count xys)
+               step (closure xys)]
+          (if (= count-so-far (count step))
+            step
+            (recur (count step) (closure step)))))]
+    ts)
+syeerzy's solution:
+
+1
+2
+3
+4
+(fn [s] (let [m (into {} s)]
+          (set (mapcat #((fn [[x & s]] (map (partial vector x) s)) 
+                         (take-while (comp not nil?) (iterate m %)))
+                       (keys m) ))))
+tclamb's solution:
+
+1
+2
+3
+4
+5
+6
+(fn transitive-closure [R]
+  (let [xs (set (apply concat R))
+        mR (into {} R)]
+    (set (apply concat
+           (for [x xs]
+             (map vector (repeat x) (take-while (complement nil?) (iterate mR (mR x)))))))))
+thegeez's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [pairs]
+    (->> pairs
+         (iterate (fn [found]
+                    (into pairs (for [[a b] found
+                                      [d e] found
+                                      :when (= b d)]
+                                  [a e]))))
+         (partition 2 1)
+         (filter (partial apply =))
+         ffirst))
+zzamboni's solution:
+
+1
+2
+3
+4
+(fn transitive-closure [r]
+  (let [new-r (into r (for [[w x] r [y z] r :when (= x y)]
+                        [w z]))]
+    (if (= new-r r) new-r (recur new-r))))
+zoltanjarai's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn __ [r]
+  (nth (iterate (fn [xs]
+                  (reduce clojure.set/union xs
+                          (map (fn [x]
+                                 (set
+                                  (for [y (disj xs x) :when (= (second x) (first y))]
+                                    [(first x) (second y)])))
+                               xs)))
+                r)
+       (count r)))
+zipzop's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [s]
+(let [t (into s
+  (for [x s y s :when (= (second x) (first y))]
+        [(first x) (second y)]
+   ))]
+  (if (= t s)
+    t
+   (recur t))
+))
+yusubori's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (let [s' (into s
+                 (for [[a b] s
+                       [c d] s :when (= b c)]
+                   [a d]))]
+    (if (= s' s)
+      s
+      (recur s'))))
+ydash's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [s]
+  (loop [l s acc #{}]
+    (if-let [f (first l)]
+      (recur
+       (rest l)
+       (into acc
+             ((fn f [x s]
+                (if-let [a ((fn [[h t] s]
+                              (reduce (fn [a [i j]] (if (= i t) [h j] a))
+                                      nil s)) x s)]
+                  (conj (f a s) a)
+                  #{}))
+              f s)))
+      (into s acc))))
+vpeurala's solution:
+
+1
+2
+3
+4
+5
+6
+7
+(fn [rels]
+    (letfn [
+(combinations [groups] (if (empty? groups) [[]] (mapcat #(map % (combinations (rest groups))) (map #(partial cons %) (first groups)))))
+(expand [p1 p2] (cond (= p1 p2) p1 (= (second p1) (first p2)) (vector (first p1) (second p2)) (= (first p1) (second p2)) (vector (first p2) (second p1)) :else ()))
+(squeeze [rels] (filter #(not (empty? %)) (distinct (map #(apply expand %) (combinations (vector rels rels))))))
+(transitive-closure [rels] (if (= rels (squeeze rels)) (set rels) (transitive-closure (squeeze rels))))
+        ] (transitive-closure rels)))
+v_bogdanov's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+(fn g [s]
+  (let [f first l last
+        e (into s
+                (for [x s
+                      y s
+                      :when (= (f x) (l y))]
+                 [(f y) (l x)]))]
+    (if (= e s) s (g e))))
+unionx's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn tc [xset]
+  (loop [acc #{} rst xset]
+    (if (empty? rst)
+      (set (remove nil? acc))
+      (let [elt (first rst)
+            new-acc (conj acc elt)
+            more-elt (for [e acc]
+                       (cond
+                        (= (first elt) (second e)) [(first e) (second elt)]
+                        (= (second elt) (first e)) [(first elt) (second e)]
+                        :else nil))
+            all-acc (set (concat new-acc
+                                 (remove #{nil} more-elt)))]
+        (recur all-acc (rest rst))))))
+trxeste's solution:
+
+1
+2
+3
+4
+5
+6
+(fn [rel]
+  (let [roots (into {} (for [[k v] (group-by first rel)] [k (mapv second v)]))
+        children (fn children [rels e] 
+                   (let [cs (get rels e [])]
+                     (cons e (mapcat #(children rels %) cs))))]
+    (set (mapcat #(map vector (repeat %) (rest (children roots %))) (keys roots)))))
+transfinite's solution:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+(fn [coll]
+(letfn [(infer [coll]
+  (set
+    (concat coll
+            (filter (fn [a] a)
+                    (for [[head1, tail1] coll
+                          [head2, tail2] coll]
+                      (if (= tail1 head2)
+                        [head1, tail2]))))))]
+  (loop [o coll, n (infer coll)]
+    (if (= o n) n
+      (recur n (infer n))))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)

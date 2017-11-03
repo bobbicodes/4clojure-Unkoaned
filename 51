@@ -1,0 +1,11 @@
+;; 51 Destructuring
+	
+(let [[a b & c :as d] (range 1 6)]
+     [a b c d])
+;;=> [1 2 (3 4 5) (1 2 3 4 5)]
+
+;; 52 Destructuring
+let bindings and function parameter lists
+
+(let [[a b c d e] [0 1 2 3 4]] [c e])
+;;=> [2 4]

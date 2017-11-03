@@ -1,0 +1,11 @@
+;; 46 Flip order of args
+
+(((fn [f]
+  (fn [& args]
+    (apply f
+      (reverse args)))) nth) 2 [1 2 3 4 5])
+
+(((fn [f]
+    (fn [& args]
+      (apply f (reverse args)))) nth) 2 [1 2 3 4 5])
+3

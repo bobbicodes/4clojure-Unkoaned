@@ -1,0 +1,1583 @@
+;; 85 Power Set
+Generates the power set of a given set.
+The power set of a set x is the set of all subsets of x,
+including the empty set and x itself.
+
+(= (__ #{1 :a}) #{#{1 :a} #{:a} #{} #{1}})
+(= (__ #{}) #{#{}})
+(= (__ #{1 2 3})
+   #{#{} #{1} #{2} #{3} #{1 2} #{1 3} #{2 3} #{1 2 3}})
+(= (count (__ (into #{} (range 10)))) 1024)
+(fn powerset [s]
+  (reduce #(into % (for [subset %] (conj subset %2))) #{#{}} s))
+
+(fn [ss] (->> (map (fn [v] #(->> v (conj %2) (conj %1))) ss)
+              (reduce #(reduce %2 %1 %1) #{#{}})))
+(fn f
+  ([s] (f s (conj #{#{}} s)))
+  ([s r]
+   (if (empty? s)
+     r
+     (recur (rest s) (into (conj r (set (vector (first s)))) (map #(set (into % (vector (first s)))) r))))))
+
+
+#{1 :a}
+
+(fn power-set [s] (if (empty? s) #{#{}} (let [without-fs (power-set (rest 
+s))] (into #{} (concat without-fs (map #(set (cons (first s) %)) 
+without-fs)))))) ;; jafingerhut's solution (fn [s] (reduce (fn [power-set 
+x] (into power-set (map #(conj % x) power-set))) #{#{}} s))
+
+(defn power-set [s]
+  (if (empty? s)
+    #{#{}}
+    (let [without-fs (power-set (rest s))]
+      (into #{}
+        (concat without-fs
+          (map
+            #(set
+              (cons (first s) %)) 
+            without-fs))))))
+#'user/power-set
+user=> (power-set #{1 :a})
+#{#{1 :a} #{} #{1} #{:a}}
+
+(fn [s] (reduce (fn [power-set 
+x] (into power-set (map #(conj % x) power-set))) #{#{}} s))
+
+#(loop[result #{%}, previous #{#{}}, round 0]
+   (if (= round (count %))
+     result
+     (recur (into result previous);merge result
+            (set (for [x previous, y %] (into x (list y))));grow set
+            (inc round))));new round
+;
+;an alternative solution
+;(fn [sets]
+;   (loop [s sets r (conj #{sets} #{})]
+;      (if (empty? s) r
+;        (recur (rest s) (into r (set (map #(conj % (first s)) r)))))))
+
+(fn pset [s]
+  (set
+    (if (>= 1 (count s)) [(set s) #{}]
+      (concat
+        [s]
+        [(set [(first s)])]
+        (pset (set (rest s)))
+        (map #(set (cons (first s) %)) (pset (set (rest s))))
+      ))))
+aceeca1's solution:
+1
+2
+3
+4
+5
+6
+(fn pow [s] (if (empty? s) #{s} (let [
+    s1 (first s)
+    sn (disj s s1)
+    pp (pow sn)
+    pn (for [i pp] (conj i s1))]
+    (into pp pn))))
+adereth's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn subsets [s]
+  (apply hash-set #{}
+  (map #(apply hash-set %)
+  (loop [result []
+         remaining s]
+    (if (seq remaining)
+      (recur (concat [[(first remaining)]] result (map #(conj % (first remaining)) result)) (rest remaining))
+      result)))))
+aferrandi's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn powersetbinX[s]
+    (let [
+        length (count s)
+        binaryLength (int (Math/pow 2 length))
+        allBinaries (range 0 binaryLength)
+        sVec (vec s)
+        ]
+        (set (map (fn [b] ((fn binToSubset [b, sVec, length] 
+    (set (map (fn[n] (get sVec n))
+        (filter (fn[n] (bit-test b n)) (range 0 length))
+    )))
+ b sVec length)) allBinaries))
+        )
+)
+aguirre's solution:
+1
+2
+3
+4
+5
+(fn power-set [xs]
+  (loop [ys xs
+         sets #{#{}}]
+    (if (empty? ys) sets
+      (recur (rest ys) (into sets (map #(conj % (first ys)) sets))))))
+alanforr's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (letfn [(thingaddf [ps leftover] (map #(conj % (first leftover)) ps))
+          (thingadder [[ps leftover]] 
+                      [(set (conj (concat ps (thingaddf ps leftover)) #{(first leftover)}))
+                       (rest leftover)])]
+    (-> (drop-while #(not-empty (second %)) 
+               (iterate thingadder [#{#{}} s]))
+      first first)))
+allenl's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn power-set [col]
+  (letfn [(power-set-helper [sets acc col]
+            (if-let [v (first col)]
+              (concat sets (power-set-helper sets (conj acc v) (next col))
+                      (power-set-helper sets acc (next col)))
+              (conj sets acc)))]
+    (set (power-set-helper []  #{} (seq col)))))
+andthorn's solution:
+1
+2
+3
+4
+(fn f [s]
+  (if (empty? s)
+    #{#{}}
+    (set (concat (map #(conj % (first s)) (f (next s))) (f (next s))))))
+anjensan's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn [t]
+    (set
+      ((fn f [[x & s]]
+         (if x
+           (let [z (f s)] (concat z (map #(conj % x) z)))
+           #{#{}}))
+        (seq t))))
+astangl's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+(fn 
+  [s]
+  ; for input set size n, iterating 0..2^n-1, using 1 bits to select
+  ; Using this approach so we could (if we didn't have to return a set)
+  ; have a lazy sequence and be scalable
+  (let [v (vec s)
+        n (.size v)
+        f (fn [x] (loop [a #{}
+                         v v
+                         x x]
+                    (if (= 0 x)
+                      a
+                      (let [a' (if (= 1 (mod x 2))
+                                 (conj a (peek v))
+                                 a)
+                            v' (pop v)
+                            x' (quot x 2)]
+                        (recur a' v' x')))))]
+    (set (map f (range (.pow (BigInteger. "2") n))))))
+austintaylor's solution:
+1
+2
+3
+4
+(fn [s]
+  (reduce (fn [ps x]
+    (reduce (fn [ps s]
+      (conj ps (conj s x))) ps ps)) #{#{}} s))
+awebb's solution:
+1
+2
+3
+4
+5
+6
+(fn ps [s]
+  (loop [a #{#{}} [h & t] (seq s)]
+    (if (nil? h) a 
+      (recur 
+        (into a  (for [x a] (conj x h)) )   
+        t)  )))
+bendykst's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [s]
+  (letfn
+    [(rsets [root [head & tail]]
+      (if
+        (nil? head)
+        [root]
+        (concat
+          (rsets root tail)
+          (rsets (conj root head) tail))))]
+    (set (map set (rsets [] (apply list s))))))
+benhammond's solution:
+1
+2
+(fn [s]
+      (into #{} (map first (apply concat (reductions (fn [ss _] (distinct (mapcat (fn [[in out]] (map (fn [o] [(conj in o) (disj out o)]) out)) ss))) #{[#{} s]} s)))))
+benizi's solution:
+1
+2
+3
+4
+5
+6
+(fn [s]
+  (reduce
+   (fn [sets el]
+     (into sets (map #(conj % el) sets)))
+   #{#{}}
+   s))
+bobuhiro11's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn power-set [col]
+  (cond (empty? col)
+        #{#{}}
+        :else
+        (let [c (power-set (rest col))
+              e (first col)]
+          (apply hash-set (apply concat (map (fn [itm] (list (conj itm e) itm)) c))))))
+burner's solution:
+1
+2
+3
+4
+5
+(fn powerset [s]
+         (if (empty? s) #{#{}}
+             (let [rest-set (powerset (rest s))]
+               (set (concat (map #(conj % (first s)) rest-set)
+                            rest-set)))))
+caterpillar's solution:
+1
+2
+3
+4
+(fn [sets] 
+    (loop [s sets r (conj #{sets} #{})]
+      (if (empty? s) r
+        (recur (rest s) (into r (set (map #(conj % (first s)) r)))))))
+cc787's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+;; top-down approach (timed out version)
+;; (fn powerset [arg] (reduce (fn [acc e]
+;;                               (print "acc" acc "\targ" arg "\te" e "\n")
+;;                               (clojure.set/union (conj acc arg)
+;;                                                  (powerset (disj arg e)))) #{#{}} arg))
+ 
+;; bottom-up approach
+(partial reduce (fn [acc e] (into acc (map #(conj % e) acc))) #{#{}})
+chunchangshao's solution:
+1
+2
+3
+4
+5
+#(case (count %)
+   2  #{#{1 :a} #{:a} #{} #{1}}
+   0 #{#{}}
+   3 #{#{} #{1} #{2} #{3} #{1 2} #{1 3} #{2 3} #{1 2 3}}
+   (range 1024))
+ctzsm's solution:
+1
+2
+3
+4
+5
+(fn [x]
+  (let [n (count x)] (into #{}
+    (for [s (range (int (Math/pow 2 n)))] 
+      (into #{} (remove nil? (map-indexed #(if (zero? (bit-and s (bit-shift-left 1 %))) nil %2) x 
+        )))))))
+dan7es's solution:
+1
+2
+3
+4
+5
+6
+(fn power-set [xs]
+  (if-let [[x & xs] (seq xs)]
+    (let [ps (power-set xs)]
+      (clojure.set/union ps
+        (map #(conj % x) ps)))
+    #{#{}}))
+daniels's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [x] 
+  (reduce 
+   (fn addelem [old elem] 
+     (apply clojure.set/union old (conj #{} (map #(conj % elem) old))))
+   #{#{}}
+   (map identity x)
+   )
+  )
+daowen's solution:
+1
+2
+3
+4
+5
+6
+(fn p-set [s]
+  (loop [depth 1, last-sets [#{}]]
+    (let [new-sets (apply concat (for [v s] (map #(conj % v) last-sets)))]
+      (if (>= (count s) depth)
+        (recur (inc depth) (into #{} new-sets))
+        (into #{#{}} new-sets)))))
+del680202's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [a_set]
+  (let [_listAll (fn [a_set r n](set (filter #(= n (count %))  (map #(set (flatten [%])) (if (= 1 n)(for [s a_set]s) (for [rs r s a_set] [(concat rs [s])]))) )))]
+  (set (loop [r #{#{}} len (count a_set) n 1 pr (_listAll a_set #{} n)]
+     (if (> n len) r
+      (recur (concat r pr) len (inc n) (_listAll a_set pr (inc n)))
+     )
+  )))
+)
+deping's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn ! [s]
+  (if (empty? s) #{s}
+    (let [fe (first s)
+          res (set (rest s))
+          a1 (! res)
+          a2 (set (map #(conj % fe) a1))
+          ]
+      (clojure.set/union a1 a2)
+     )))
+devm33's solution:
+1
+2
+3
+4
+5
+(fn __ [s]
+  (if (empty? s)
+    #{#{}}
+    (let [sub (__ (rest s))]
+      (apply conj sub (map #(conj % (first s)) sub)))))
+dwelte's solution:
+1
+2
+3
+4
+5
+6
+(fn pw
+  ([s] (pw s #{#{}}))
+  ([s r]
+     (if (empty? s)
+       r
+       (pw (rest s) (into r (map #(conj % (first s)) r))))))
+dzholev's solution:
+1
+reduce (fn [r e] (into r (map #(conj % e) r))) #{#{}}
+echevarria's solution:
+1
+2
+3
+4
+5
+(fn [s]
+  (reduce 
+   (fn [r i]  (conj r (set (keep-indexed #(if (bit-test i %1) %2) (vec s))))) 
+    #{#{}} 
+   (range  1 (bit-shift-left 1 (count s)))))
+ericw's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(letfn [                                                                                                                                                
+    (subsets [s] (map (partial disj s) s))                                                                                      
+    (powerset [s]                                                                                                                                       
+        (loop [process-list [s] seen #{}]                                                                                       
+            (if (empty? process-list)                                                                                                                   
+                seen                                                                                                            
+                (if (not (seen (first process-list)))                                                                                                   
+                    (recur (concat (rest process-list) (subsets (first process-list))) (set (cons (first process-list) seen)))  
+                    (recur (rest process-list) seen)))))]                                                                                               
+        powerset)
+featalion's solution:
+1
+2
+3
+4
+5
+6
+(fn [s]
+  (set
+   (reduce (fn [acc value]
+             (concat acc (map #(set (conj % value)) acc)))
+           #{#{}}
+           s)))
+finsternis's solution:
+1
+2
+3
+4
+5
+(fn power-set [s]
+  (if (empty? s)
+    #{#{}}
+    (let [s1 (first s) rs (disj s s1) prs (power-set rs)]
+      (clojure.set/union prs (map #(conj % s1) prs)))))
+flububb's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn sub-set [s]
+  (if (empty? s)
+    #{#{}}
+    (into #{}
+      (mapcat 
+        #(list % (into #{} (cons (first s) %)))   
+        (sub-set (rest s))))))
+garyxia's solution:
+1
+2
+(fn [s]
+  (set (reduce #(concat %1 (map (fn [i] (set (conj i %2))) %1)) #{#{}} s)))
+geekerzp's solution:
+1
+2
+(fn [s]
+    (set (reduce #(concat %1 (map (fn [i] (set (conj i %2))) %1)) (list #{}) s)))
+glchapman's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [s]
+    (letfn [(combinations [remaining prev] (lazy-seq
+                (when-let [[x & xs] (seq remaining)]
+                    (let [current (conj prev x)]
+                        (cons current (concat (combinations xs current) (combinations xs prev)))
+                    ))))
+        ]
+        (into #{#{}} (combinations s #{}))
+    ))
+goaranger's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn mypower [arg]
+  (let [a (into [] arg)
+        prezeros (apply str (repeat (Math/pow (count a) 2) "0"))]
+    (if (= arg #{})
+      #{#{}}
+    (into #{} (map #(into #{} %) (for [i (range (Math/pow 2 (count a)))]
+      (map #(first %) (remove #(= "0" (str (second %))) 
+                              (apply assoc {} (interleave a (into [] (reverse (str prezeros (Integer/toString i 2))))))))))))))
+gpittarelli's solution:
+1
+2
+3
+4
+(fn power-set [s]
+  (set (reduce (fn [acc el]
+                 (concat acc (map #(conj %1 el) acc)))
+               #{#{}} s)))
+happycrisis's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (let [c (count s) ]
+    (letfn [(bit-seq [n] (lazy-seq (cons (bit-and n 1) (bit-seq (quot n 2)))))]
+      (set
+       (map (fn [n]
+              (set
+               (remove nil? (map #(when (= %2 1) %) s (take c (bit-seq n))))))
+            (range (Math/pow 2 c)))))))
+hisba's solution:
+1
+2
+(fn ps [s]
+  (reduce (fn [k i] (into k (cons #{i} (map #(merge % i) k)))) #{#{}} s))
+icamts's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn [s] 
+  (let [sol (fn [ss ps] 
+              (let [as (set (for [p ps t p] (disj p t)))
+                    iss (into ss as)]
+                (cond (>= 1 (count as)) iss
+                  :else (recur iss as))))]
+    (sol (hash-set s) (hash-set s))))
+immo's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn [s]
+(set
+  (map
+    (fn [x] (set (keys (filter #(= \1 (val %)) (zipmap s x)))))     
+      (map 
+    #(reverse (Integer/toString % 2))
+    (range (int (Math/pow 2 (count s))))))))
+jarlax's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn [s]
+  (let [super (fn [s rec]
+                (if (empty? s)
+                    #{s}
+                  (->
+                    #(rec (disj s %) rec)
+                    (mapcat s)
+                    set
+                    (conj s))))]
+    (super s (memoize super))))
+jedo's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn powerSet [x]
+  (into #{} (loop [x x y #{#{}}]
+        (cond (empty? x) y
+              :else (recur (rest x) 
+                    (clojure.set/union (for [set-iter y]
+                        (conj set-iter (first x))
+                    ) y)
+                    )
+        )
+    ))
+)
+jeff_terrell's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn [s]
+  (letfn [(in-out [n i]
+            (reverse
+              (for [j (range n)]
+                (bit-test i j))))
+          (sels [n]
+            (for [i (range (bit-shift-left 1 n))]
+              (in-out n i)))]
+    (into #{}
+          (for [sel (sels (count s))]
+            (into #{}
+                  (for [[inc? item] (map list sel s)
+                        :when inc?]
+                    item))))))
+johncowie's solution:
+1
+2
+3
+4
+5
+(fn p [s]
+  (if (empty? s)
+    #{#{}}
+    (set (flatten (for [i (p (rest s))]
+                    [(set (cons (first s) i)) i])))))
+jomicoll's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn power-set [coll]
+  (let [n (count coll)
+        coll-vec (vec coll)]
+    (letfn [(comb-iter 
+              [k start]
+              (if (== k 1)
+                (for [x (range start n)]
+                  (list x))
+                (for [x  (range start n)
+                      xs (comb-iter (dec k) (inc x))]
+                  (cons x xs))))]
+      (->> (for [k (range (inc n))]
+             (comb-iter k 0))
+           (map set)
+           (mapcat (fn [s] (map #(into #{} (map coll-vec %)) s)))
+           (into #{#{}})))))
+jorendorff's solution:
+1
+reduce (fn [e v] (into e (map #(conj % v) e))) #{#{}}
+jslavin's solution:
+1
+2
+3
+4
+(fn powerset [ls]
+  (if (empty? ls) #{#{}}
+                  (clojure.set/union (powerset (next ls))
+                         (map #(conj % (first ls)) (powerset (next ls))))))
+kohyama's solution:
+1
+2
+3
+reduce
+  (fn [a x] (into a (map #(conj % x) a)))
+  #{#{}}
+kopychenko's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+(fn power-set [s]
+  (letfn [
+          
+          (sp-set [s] (reduce 
+                       
+                       (fn [a x]
+                         (conj a (disj s x)))
+ 
+                       #{} s))
+          
+ 
+          ]
+ 
+    (conj (loop [a #{} s #{s}]
+            (let [[ar,rr] (reduce (fn [[a,ns] x]
+                                    (let [r (sp-set x)]
+                                      [(into a r), (into ns r)]))
+ 
+                                  [a,#{}] s)]
+              (if (= rr #{})
+                ar
+                (recur ar rr)))) s)
+    ))
+blucas's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn prob85
+  [xs]
+  (set (map set 
+            (if (empty? xs) 
+              '(())
+              (clojure.set/union (prob85 (next xs))
+                                 (set (map #(conj % (first xs)) (prob85 (rest xs)))))
+              ))))
+brendan's solution:
+1
+2
+3
+4
+5
+6
+(fn [s] 
+   (nth
+     (iterate 
+       #(into #{#{}} (for [x s y %] (into #{x} y)))
+       (map hash-set s)) 
+     (max 1 (count s))))
+kuze's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn myPowerSet
+  [coll]
+  (let [addAllToSet (fn [oldSet collVals] 
+                      (map #(into #{%} oldSet) collVals))]
+    (loop [res (addAllToSet #{} coll) i 0]
+      (if (= i (count coll))
+        (conj (set res) #{})
+        (recur (set (mapcat #(addAllToSet % coll) res)) (inc i))))))
+lackita's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn [s]
+  (loop [cnt (count s)
+         acc #{s}]
+    (if (zero? cnt)
+      (conj acc #{})
+      (recur (dec cnt)
+             (into acc
+                   (apply concat (map #(map (partial disj %) %)
+                                      ((group-by count acc) cnt))))))))
+lambda4fun's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+(fn power-set
+  ([s] (power-set (count s) s))
+  ([k s]
+   (if (= k 0)
+     #{#{}}
+     (let [subsets (power-set (dec k) s)]
+       (into subsets
+             (for [x s
+                   ss subsets]
+               (conj ss x)))))))
+lasthemy's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+(fn power-set [coll]
+  (if (empty? coll)
+    #{#{}}
+    (let [pset (power-set (rest coll))]
+      (clojure.set/union
+       pset
+       (map #(conj % (first coll)) pset)
+       )
+      )
+    )
+  )
+lbarrett's solution:
+1
+2
+3
+4
+(letfn [(ps1 [ps x]
+        (set (concat ps
+                (map #(conj % x) ps))))]
+  (fn [s] (reduce ps1 #{#{}} s)))
+leetwinski's solution:
+1
+2
+3
+4
+(fn [s]
+  (let [num-to-ls (fn [n c] (map #(bit-test n %) (range c)))
+        get-subset (fn [n] (map #(get % 1) (filter #(get % 0) (map vector (num-to-ls n (count s)) s))))]
+    (set (map #(set (get-subset %)) (range (Math/pow 2 (count s)))))))
+littlejp2046's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn subsets [s]
+  (if (empty? s)
+    #{#{}}
+    (let [p (subsets (rest s))]
+      (set (concat 
+        p
+        (map 
+          #(conj %1 (first s)) 
+          p))))))
+malvert's solution:
+1
+2
+3
+4
+5
+6
+(fn [s]
+  (reduce 
+    (fn [r e]
+      (into r (map #(conj % e) r))) 
+    #{#{}}
+    s))
+matiasl's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+(fn [st] 
+  (reduce (fn [s t] (into s (for [x s] (conj x t)))) 
+          #{#{}} 
+          st))
+ 
+ 
+#_
+; Wikipedia
+(fn ps [s] 
+  (if (empty? s) 
+    #{#{}} 
+    (let [f (fn [e t] (set (for [x t] (conj x e)))) 
+          e (first s) 
+          t (clojure.set/difference s #{e})] 
+      (clojure.set/union (ps t) (f e (ps t))))))
+maximental's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+(partial reduce 
+         (comp (partial apply into) 
+               (juxt first
+                     (comp (partial apply map conj) 
+                           (juxt first 
+                                 (comp repeat second))))
+               list)
+         #{#{}})
+ 
+#_
+ 
+(fn [s] 
+  (reduce 
+    (fn [a b] 
+      (into a (map #(conj % b) a)))
+    #{#{}} 
+    s))
+mbakhterev's solution:
+1
+reduce (fn [P s] (into P (map #(conj % s) P))) #{#{}}
+meerwolf's solution:
+1
+2
+3
+4
+(fn power-set--bottom-up
+  [s] {:pre [(set? s)]}
+  (set (reduce (fn [acc x] (mapcat (juxt identity #(conj % x)) acc))
+           [#{}] s)))
+mfikes's solution:
+1
+2
+3
+4
+5
+(fn [s]
+  (let [v (vec s)]
+    (into #{} (for [i (range (apply * (repeat (count v) 2)))]
+                (into #{} (for [j (range (count v)) :when (bit-test i j)]
+                            (v j)))))))
+minitrue's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+(fn [s]
+  (let [n
+          (count s)
+        bin->r-selector
+          (fn [b]
+            (loop [selector [], b b]
+              (if (= 0 b)
+                selector
+                (recur (conj selector (-> b (bit-and 1) zero? not)) (bit-shift-right b 1)))))
+        r-select
+          (fn [r-sq r-selector]
+            (-> (map #(when %1 %2) r-selector r-sq) set (disj nil)))
+        pow-set
+          (for [i (range (bit-shift-left 1 n))]
+            (r-select s (bin->r-selector i)))]
+    (set pow-set)))
+mkahn's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn powerset [x]
+     (if (seq x)
+       (into (powerset (set (rest x))) (set (for [y (vector (first x))
+                                                  z (powerset (set (rest x)))]
+                                              (conj z y))))
+              #{#{}}
+       ))
+mobiusloop's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn pw
+    [a]
+    (if (empty? a)
+      #{#{}}
+      (if (= 1 (count a))
+        #{#{(first a)} #{}}
+        (set (for [x (pw #{(first a)}) y (pw (rest a))] (clojure.set/union x y)))))
+    )
+mononite's solution:
+1
+2
+(fn [coll]
+  (reduce (fn [acc e] (into acc (map #(conj % e) acc))) #{#{}} coll))
+mouse's solution:
+1
+(fn [a] (reduce (fn [s x] (apply conj s (map #(conj % x) s)) ) #{#{}} a))
+mwaldowski's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+;[]      -> {}
+;[1]     -> {} ∪
+;           {1}
+;[1 2]   -> {}  {1} ∪
+;           {2} {1 2}
+;[1 2 3] -> {}  {1}   {2}   {1 2} ∪
+;           {3} {1 3} {2 3} {1 2 3}
+(fn powerset [coll]
+  (reduce (fn [res next]
+            (clojure.set/union res (map #(conj % next) res)))
+          #{#{}}
+          coll))
+nagi's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+(fn ps [s]
+  (letfn [(pick-set-with-mask [xs mask]
+            (->> (map #(when (= %1 \1) %2) mask xs)
+                 (filter identity)
+                 (set)))]
+    (let [num (count s)
+          masks (->> num
+                     (Math/pow 2)
+                     (range 0)
+                     (map #(Integer/toString % 2))
+                     (map #(str "000000000000" %))
+                     (map (partial take-last num)))
+          elements (vec s)]
+      (set (map #(pick-set-with-mask elements %) masks)))))
+nikelandjelo's solution:
+1
+2
+(fn[s]
+  (set (reduce (fn [s v] (concat s (map #(conj % v) s))) [#{}] s)))
+noiseehc's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn jajj [z]
+   ((fn ps [x] 
+      (if (empty? x) 
+        #{#{}} 
+        (let [[e & r] x, res (ps r)]
+          (into res (map #(conj % e) res))))) 
+     (seq z)))
+norman's solution:
+1
+2
+3
+4
+5
+6
+(fn powerset [vals]
+  (if (empty? vals)
+    #{#{}}
+    (let [x (first vals)
+          sub (powerset (set (rest vals)))]
+      (apply conj sub (set (map #(conj %1 x) sub))))))
+nothsaevets's solution:
+1
+2
+3
+4
+#(reduce (fn [sets elem]
+            (reduce (fn [c n]
+                      (conj c (conj n elem))) sets sets))
+          #{#{}} %)
+owk4057's solution:
+1
+2
+3
+(fn [s]
+  (letfn [(add [coll x] (into coll (map #(conj % x) coll)))]
+    (reduce add #{#{}} s)))
+ownwaterloo's solution:
+1
+2
+3
+; http://clj-me.cgrand.net/2008/10/20/clojure-golf-subsets/
+(fn subsets [s]
+  (set (reduce (fn [ss x] (concat ss (map #(conj % x) ss))) [#{}] s)))
+ozan's solution:
+1
+2
+3
+4
+5
+(fn [s]
+   (reduce
+    #(clojure.set/union %1 (into #{} (for [subset %1] (conj subset %2))))
+    #{#{}}
+    s))
+pukeface's solution:
+1
+2
+3
+4
+5
+6
+#(set 
+    (reduce 
+     (fn [p a]
+       (mapcat (fn [_] [(conj _ a) _]) p))
+     [#{}]
+     %))
+quant1's solution:
+1
+reduce (fn [s e] (into s (map #(conj % e) s))) #{#{}}
+rodmax's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+(fn powset [aset]
+    (if (empty? aset)
+    #{#{}}
+    (reduce into #{} (map #(list % (conj % (first aset))) (powset (rest aset)))
+    )))
+ 
+;;  
+;;  (fn [aset] (let [
+;;      items (vec aset) 
+;;      f1 #(if (= \1 %2) %) 
+;;      f2 #(nth items %)
+;;      ]
+;;  (->> (range 0 (bit-shift-left 1 (count items))) 
+;;       (map #(
+;;                     ->> %
+;;                     Long/toBinaryString
+;;                     reverse
+;;                     (map-indexed f1)
+;;                     (remove nil?)
+;;                     (map f2)
+;;                     set
+;;                     )
+;;            )
+;;         set
+;;         )
+;;       ))
+;;
+sbondaryev's solution:
+1
+2
+3
+4
+5
+6
+(fn [xs]
+  (reduce (fn [r x]
+            (->> r
+                 (map #(conj % x))
+                 (into r)))
+          #{#{}} xs))
+shiro's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn power-set [trgt-st]
+  (letfn [(break-up [st]
+                    (reduce #(conj %1 (disj st %2)) #{} st))
+          (next-line [st]
+                     (reduce #(apply conj %1 (break-up %2)) #{} st))]
+    (loop [st #{trgt-st} pwr-st #{trgt-st}]
+      (if (= st #{#{}}) pwr-st
+        (recur (next-line st) (apply conj pwr-st (next-line st)))))))
+sheldon's solution:
+1
+(fn p [s] (if (empty? s) #{#{}} (let [e (first s) t (disj s e)] (into (p t) ((fn f [e t] (into #{} (map #(conj % e) t))) e (p t))))))
+silverio's solution:
+1
+2
+3
+(partial reduce 
+  #(into % (map (fn[s](conj s %2)) %)) 
+  #{#{}})
+skyrem's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+(fn [s]
+  (loop [step 0 n #{#{}}]
+    (if (= step (count s)) n
+      (recur (inc step)
+             (apply conj n 
+                    (for [x s y n]
+                      (conj y x))
+                    )))))
+soul_awaker's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+(fn g
+  ([x]
+    (let [i (map #(conj #{} %) x)]
+      (if (seq i) (g x `#{#{} ~@i} i) #{#{}})))
+  ([x r l]
+    (let [t (set (for [a l b x :when (nil? (a b))] `#{~@a ~b}))]
+      (if (t x)
+          (into r t)
+          (recur x (into r t) t)))))
+staafl2's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn ps [xs]
+  (if (empty? xs) 
+    #{#{}}
+    (loop [now (first xs)
+           left []
+           right (vec (rest xs))
+           so-far #{(set xs)}]
+      (if (empty? right)
+        (conj so-far (set left))
+        (recur (first right)
+               (into left [now])
+               (rest right)
+               (into so-far (ps (into left right))))))))
+syeerzy's solution:
+1
+2
+3
+4
+reduce (fn [ps x] 
+         (reduce #(conj %1 (conj %2 x)) 
+                 ps ps)) 
+       #{#{}}
+tclamb's solution:
+1
+reduce (fn [r e] (into r (map #(conj % e) r))) #{#{}}
+thegeez's solution:
+1
+2
+3
+4
+(fn [s]
+    (reduce (fn [acc item]
+              (into acc (map #(conj % item) acc)))
+            #{#{}} s))
+zzamboni's solution:
+1
+2
+3
+(fn power-set [s]
+  (let [n-to-set #(set (remove nil? (map-indexed (fn [n e] (when (bit-test % n) e)) s)))]
+    (set (map n-to-set (range (Math/pow 2 (count s)))))))
+zoltanjarai's solution:
+1
+2
+3
+4
+5
+(fn __ [s]
+  (if (empty? s) #{#{}}
+    (let [f (first s)
+          r (__ (rest s))]
+      (apply conj r (map #(conj % f) r)))))
+zipzop's solution:
+1
+2
+(fn p [s]
+  (reduce #(into % (for [sub %] (conj sub %2))) #{#{}} s))
+yusubori's solution:
+1
+reduce (fn [coll v] (into coll (map #(conj % v) coll))) #{#{}}
+ydash's solution:
+1
+2
+(fn [s]
+  (reduce (fn [s x] (into s (map #(conj % x) s))) #{#{}} s))
+vpeurala's solution:
+1
+(fn powerset [s] (if (empty? s) #{#{}} (clojure.set/union (powerset (disj s (first s))) (map #(conj % (first s)) (powerset (disj s (first s)))))))
+v_bogdanov's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn f [s]
+  (if (empty? s) #{s}
+    (loop [new-set (set (for [x s
+                              y s
+                              :when (not= x y)]
+                          #{x y}))
+           result-set (clojure.set/union #{s #{}} new-set (set (for [x s] #{x})))]
+      (let [a (set (for [x new-set
+                         y s
+                         :when (not (contains? x y))]
+                     (conj x y)))]
+        (if (= a new-set) result-set
+            (recur a (into result-set a)))))))
+unionx's solution:
+1
+2
+3
+4
+5
+6
+7
+(fn [s]
+   (loop [ret #{#{}} cnt s]
+     (if (= cnt #{})
+       ret
+       (let [h (first cnt)]
+         (recur (clojure.set/union ret (set (map #(conj % h) ret)))
+                (disj cnt h))))))
+trxeste's solution:
+1
+2
+(fn powerset [s]
+  (reduce #(into % (for [subset %] (conj subset %2))) #{#{}} s))
+transfinite's solution:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+(fn [coll] (letfn [
+(n-tuples [coll n]
+  (cond
+   (not coll) '()
+   (= 0 n) (list '())
+   (= 1 n) (map list coll)
+   (= n (count coll)) (list coll)
+   :else (concat (map #(cons (first coll) %) (n-tuples (next coll) (dec n)))
+           (n-tuples (next coll) n))))]
+(set (map set
+          (apply concat
+                 (for [i (range (inc (count coll)))]
+                   (n-tuples coll i)))))))
+The content on 4clojure.com is available under the EPL v 1.0 license.Contact us (team@4clojure.com)
