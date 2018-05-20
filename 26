@@ -1,6 +1,7 @@
 ;; 26 Returns n fibonacci numbers
 
 ; using loop/recur
+; fails on 93 on my machine
 
 (defn fib [n]
   (loop [x [1 1]]
@@ -8,7 +9,9 @@
       x
       (recur (conj x (apply + (take-last 2 x)))))))
 
-; using desructuring
+
+; using destructuring
+; also overflows on 93
 
 (defn nfibos [n]
   (take n
