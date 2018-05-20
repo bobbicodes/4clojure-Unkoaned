@@ -1,5 +1,15 @@
 ;; 26 Returns n fibonacci numbers
 
+; using loop/recur
+
+(defn fib [n]
+  (loop [x [1 1]]
+    (if (>= (count x) n)
+      x
+      (recur (conj x (apply + (take-last 2 x)))))))
+
+; using desructuring
+
 (defn nfibos [n]
   (take n
     (map first
