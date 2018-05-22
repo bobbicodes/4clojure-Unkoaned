@@ -30,3 +30,6 @@ user=> (((fn [f]
     (fn [& args]
       (apply f (reverse args)))) nth) 2 [1 2 3 4 5])
 3
+
+(fn flip [f]
+  #(apply f (reverse %&)))
