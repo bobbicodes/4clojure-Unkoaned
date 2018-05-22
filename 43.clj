@@ -15,6 +15,8 @@
   (__ (range 10) 5)
   '((0 5) (1 6) (2 7) (3 8) (4 9)))
 
+#(for [i (range %2)] (take-nth %2 (drop i %)))
+  
 (defn deinterleave [coll n]
   (for [i (range n)] (take-nth n (drop i coll))))
 user=> (deinterleave [1 2 3 4 5 6] 2)
