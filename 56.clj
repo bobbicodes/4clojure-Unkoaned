@@ -1,6 +1,11 @@
-;; 56 distinct
-
-Removes dupes from seq maintaining order
+{:_id 56 :restricted ["distinct"]
+ :title "Find Distinct Items"
+ :tests ["(= (__ [1 2 1 3 1 2 4]) [1 2 3 4])"
+         "(= (__ [:a :a :b :b :c :c]) [:a :b :c])"
+         "(= (__ '([2 4] [1 2] [1 3] [1 3])) '([2 4] [1 2] [1 3]))"
+         "(= (__ (range 50)) (range 50))"]
+ :description "Write a function which removes the duplicates from a sequence. Order of the items must be maintained."
+ :tags ["medium" "seqs" "core-functions"]}
 
 (defn deduper [coll]
   (loop [seen #{} s (seq coll) res []]
