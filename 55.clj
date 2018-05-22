@@ -9,6 +9,8 @@ user=> (__ [1 1 2 3 2 1 1])
 
 FUNCTION:
 
+reduce #(assoc % %2 (inc (% %2 0))) {}
+
 (defn freqs [s]
   (loop [s s freq-map {}]
     (if (empty? s)
