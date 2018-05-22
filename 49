@@ -1,7 +1,0 @@
-;; 49 Split seq in 2
-
-user=> (source split-at)
-(defn split-at
-  "Returns vector of [(take n coll) (drop n coll)]"
-  [n coll]
-    [(take n coll) (drop n coll)])
