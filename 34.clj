@@ -1,6 +1,7 @@
-;; 34 Implement range
-Returns list of all ints in a given range.
-Special Restrictions: range
+{:_id 34 :restricted ["range"], :title "Implement range"
+:tests ["(= (__ 1 4) '(1 2 3))" "(= (__ -2 2) '(-2 -1 0 1))" "(= (__ 5 8) '(5 6 7))"]
+:description "Write a function which creates a list of all integers in a given range."
+:tags ["easy" "seqs" "core-functions"]}
 
 user=> (source range)
 (defn range
