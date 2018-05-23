@@ -1,6 +1,9 @@
-;; 19 Last Element
-
-Return last element in seq
+{:_id 19 :restricted ["last"], :title "Last Element"
+ :tests [
+ "(= (__ [1 2 3 4 5]) 5)"
+ "(= (__ '(5 4 3)) 3)"
+ "(= (__ [\"b\" \"c\" \"d\"]) \"d\")"]
+:description "Write a function which returns the last element in a sequence."}
 
 user=> (source last)
 (defn last [s]
@@ -44,8 +47,8 @@ nil
 (if (next coll)
 
 ; This form is asking, "Is there something next?", which is another way of asking, "Is it the last one?"
-
-If the answer is "Yes, there's more", the function returns true which makes the if call recur, so we do it again with the rest of the coll by calling next on it:
+; If the answer is "Yes, there's more", the function returns true which makes the if call recur,
+; so we do it again with the rest of the coll by calling next on it:
 
 (recur (next coll))
 
