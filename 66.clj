@@ -1,6 +1,14 @@
-;; 66 Greatest Common Divisor
+{:_id 66 :title "Greatest Common Divisor"
+:tests [
+"(= (__ 2 4) 2)"
+"(= (__ 10 5) 5)"
+"(= (__ 5 7) 1)"
+"(= (__ 1023 858) 33)"]
+:description "Given two integers, write a function which\nreturns the greatest common divisor.", :tags ["easy"]}
 
 Takes two ints, returns GCD
+	
+#(if (zero? %) %2 (recur (mod %2 %) %))
 	
 ((fn gcd [a b]
    (if (zero? b)
