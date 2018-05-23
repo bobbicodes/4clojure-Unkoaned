@@ -1,5 +1,15 @@
 ;;  68 Recurring Theme
 
+{:_id 68
+:title "Recurring Theme"
+:tests [
+"(= __\n  (loop [x 5\n         result []]\n    (if (> x 0)\n      (recur (dec x) (conj result (+ 2 x)))\n      result)))"],
+:description "Clojure only has one non-stack-consuming looping construct: recur.
+Either a function or a loop can be used as the recursion point.
+Either way, recur rebinds the bindings of the recursion point to the values it is passed.
+Recur must be called from the tail-position, and calling it elsewhere will result in an error."
+:tags ["elementary" "recursion"]}
+
 The only non-stack-consuming looping construct is recur.
 A func or a loop can be used as the recursion point.
 recur rebinds the bindings of the recursion point
