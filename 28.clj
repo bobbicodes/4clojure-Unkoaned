@@ -1,4 +1,9 @@
-;; 28 Flatten a Sequence
+{:_id 28 :restricted ["flatten"], :title "Flatten a Sequence"
+:tests ["(= (__ '((1 2) 3 [4 [5 6]])) '(1 2 3 4 5 6))"
+"(= (__ [\"a\" [\"b\"] \"c\"]) '(\"a\" \"b\" \"c\"))"
+"(= (__ '((((:a))))) '(:a))"]
+:description "Write a function which flattens a sequence."
+:tags ["easy" "seqs" "core-functions"]}
 
 user=> (source flatten)
 (defn flatten
