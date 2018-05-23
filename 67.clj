@@ -1,6 +1,6 @@
-;; 67 Primes [m]
+{:_id 67 :title "Prime Numbers" :tests ["(= (__ 2) [2 3])" "(= (__ 5) [2 3 5 7 11])" "(= (last (__ 100)) 541)"]
+:description "Write a function which returns the first x\nnumber of prime numbers.", :tags ["medium" "primes"]}
 
-Returns the first x primes
 (= (__ 2) [2 3])
 (= (__ 5) [2 3 5 7 11])
 (= (last (__ 100)) 541)
@@ -14,18 +14,11 @@ Returns the first x primes
                                  (rest s))))))
           (iterate inc 2)))
 
+(fn [x] (take x (filter #(= (inc (mod (apply * (range 1N %)) %)) %) (iterate inc 2))))
+
 (fn [n] 
   (->>
   (range)
   (drop 2)
   (filter (fn [x] (every? #(< 0 (mod x %)) (range 2 x))))
   (take n)))
-
-(fn [x]
-  (loop [cand (range 2 (* 10 x))
-         primes [2]]
-    (let [elim (range (last primes) (* 10 x) (last primes))]
-      (let [newcand (remove (set elim) cand)]
-        (if (== (inc (count primes)) x)
-          (take x (concat primes newcand))
-          (recur newcand (concat primes [(first newcand)])))))))
