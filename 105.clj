@@ -20,15 +20,3 @@ user> (key-val [:a 1 :b 2])
 {:a (1), :b (2)}
 user> (key-val [:a 1 2 3 :b :c 4])
 {:a (1 2 3), :b (), :c (4)}
-
-(fn kv [acc k [v & vs]]
-  (cond (nil? v) acc
-        (keyword? v) (kv (assoc acc v []) v vs)
-         :e (kv (update-in acc [k] conj v) k vs)))
-
-(fn [c]
-  (loop [[f & r] c, kvm {}]
-    (if (nil? f)
-      kvm
-     (let [[vs l] (split-with (complement keyword?) r)]
-       (recur l (assoc kvm f vs))))))
