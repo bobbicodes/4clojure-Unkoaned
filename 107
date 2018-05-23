@@ -23,16 +23,12 @@ The func is called taking 2 as its first argument.
 The second argument is supplied by partial,
 which says "use this with that to do that"
 
-
-
 ((partial #(reduce * (repeat %1 %2)) 8) 2)
 ;;=> 256
-(map (partial #(reduce * (repeat %1 %2)) 3) [1 2 3 4])
-;;=> (1 8 27 64)
-!TODO: THIS ONE FAILS IN THE REPL, FIX LATER!
+user=> (map (partial #(reduce * (repeat %1 %2)) 3) [1 2 3 4])
+(1 8 27 64)
 
 (= [1 8 27 64] (map (__ 3) [1 2 3 4]))
 (= [1 2 4 8 16] (map #((partial #(reduce * (repeat %1 %2)) %) 2) [0 1 2 3 4]))
-
 
 partial #(reduce * (repeat %1 %2))
