@@ -1,6 +1,0 @@
-;; 37 Regular Expressions
-
-Regex patterns are supported with a special reader macro.
-
-(apply str (re-seq #"[A-Z]+" "bA1B3Ce "))
-;;=> "ABC"
