@@ -3,6 +3,8 @@
 Multiplies two numbers, returns the result as 
 sequence of its digits.
 	
+#(map (comp read-string str) (str (* %1 %2)))
+	
 ((fn [a b] (mapv #(Integer/parseInt (str %)) (str (* a b)))) 1 1) ;;=>[1]
 
 ((fn [a b] (mapv #(Integer/parseInt (str %)) (str (* a b)))) 99 9)
