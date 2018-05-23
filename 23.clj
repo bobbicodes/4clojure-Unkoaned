@@ -1,4 +1,10 @@
-;; 23 Reverse a seq
+{:_id 23 :restricted ["reverse"]
+:title "Reverse a Sequence"
+:tests ["(= (__ [1 2 3 4 5]) [5 4 3 2 1])"
+"(= (__ (sorted-set 5 7 2 7)) '(7 5 2))"
+"(= (__ [[1 2][3 4][5 6]]) [[5 6][3 4][1 2]])"]
+:description "Write a function which reverses a sequence."
+:tags ["easy" "seqs" "core-functions"]}
 
 user=> (reduce conj () [1 2 3 4 5])
 (5 4 3 2 1)
