@@ -1,3 +1,3 @@
 # 4clojure-solutions
 
-Includes my proofs and explanations.
+Unkoaned: problems rearranged as simple REPL interactions.
