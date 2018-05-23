@@ -1,4 +1,9 @@
-;; 40 interpose
+{:_id 40 :restricted ["interpose"], :title "Interpose a Seq"
+:tests ["(= (__ 0 [1 2 3]) [1 0 2 0 3])"
+"(= (apply str (__ \", \" [\"one\" \"two\" \"three\"])) \"one, two, three\")"
+"(= (__ :z [:a :b :c :d]) [:a :z :b :z :c :z :d])"]
+:description "Write a function which separates the items of a sequence by an arbitrary value."
+:tags ["easy" "seqs" "core-functions"]}
 
 user=> (source interpose)
 (defn interpose
