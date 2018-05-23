@@ -1,6 +1,5 @@
-;; 22 Count a Seq
+{:_id 22 :restricted ["count"], :title "Count a Sequence" :tests ["(= (__ '(1 2 3 3 1)) 5)" "(= (__ \"Hello World\") 11)" "(= (__ [[1 2] [3 4] [5 6]]) 3)" "(= (__ '(13)) 1)" "(= (__ '(:a :b :c)) 3)"], :description "Write a function which returns the total number of elements in a sequence.", :tags ["easy" "seqs" "core-functions"]}
 
-Returns number of elements in seq
 
 user=> (#(loop [x % acc 0]
            (if (empty? x)
