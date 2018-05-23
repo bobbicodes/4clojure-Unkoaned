@@ -7,6 +7,8 @@ a given binary tree is symmetric.
 (see To Tree, or not to Tree for a reminder
 on the tree representation we're using).
 	
+#(= % ((fn m [[v l r]] (if v [v (m r) (m l)])) %))
+	
 ((fn [[_ l r]]
   (letfn [(mirror?
             [[lx ll lr :as l] [rx rl rr :as r]]
