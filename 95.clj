@@ -4,6 +4,13 @@ Check whether or not a given sequence represents a binary tree.
 Each node in the tree must have a value,
 a left child, and a right child.
 
+(fn tree? [coll]
+  (or (nil? coll)
+      (and (sequential? coll) 
+           (= 3 (count coll))
+           (tree? (second coll))
+           (tree? (nth coll 2)))))
+
 ((fn t? [[v l r :as t]]
    (and (= (count t) 3)
         (every? #(or (nil? %) (and (coll? %) (t? %))) [l r])))
