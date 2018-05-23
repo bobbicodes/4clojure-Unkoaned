@@ -1,7 +1,0 @@
-;; 42 factorials
-
-(defn bang-it [n]
-  (reduce * (range 1 (inc n))))
-#'user/bang-it
-user> (bang-it 8)
-40320
