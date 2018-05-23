@@ -56,24 +56,12 @@ the next generation of cells.
     "      "])
 
 
-(fn conway [board] 
-  (let [cells (set (for [y (range (count board))
-                         x (range (count (get board y)))
-                         :when (not= \space (get-in board [y x]))]
-                     [x y]))
-        width (count (first board))
-        height (count board)
-        neighbors (fn [[x y]]
-                    (for [dx [-1 0 1] dy (if (zero? dx) [-1 1] [-1 0 1])]
-                      [(+ x dx) (+ y dy)]))
-        step (fn [cells]
-               (set (for [[loc n] (frequencies (mapcat neighbors cells))
-                          :when (or (= n 3) (and (= n 2) (cells loc)))]
-                      loc)))
-        serialize (fn [alive] 
-                    (mapv #(apply str %) 
-                          (partition width
-                                     (for [y (range height) x (range width) 
-                                           :let [sym (if (alive [x y]) \# \space)]]
-                                       sym))))]
-    (-> cells step serialize)))
+(fn [d]
+    (for [i (range (count d))]
+      (apply
+       str
+       (for [j (range (count (d i)))]
+         (let [z (= \# (get-in d [i j]))
+               v [-1 0 1]
+               u (count (filter #(= \# (get-in d %)) (for [a v, b v] [(+ i a) (+ j b)])))]
+           (if (or (== 3 u) (and z (== 4 u))) \# " "))))))
